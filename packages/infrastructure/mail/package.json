@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-mail",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-mail build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-mail test: no-op\""
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@eos/domain-media",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"media domain build: ok\"",
+    "lint": "eslint **/*.js",
+    "test": "echo \"media domain test: ok\""
+  }
+}

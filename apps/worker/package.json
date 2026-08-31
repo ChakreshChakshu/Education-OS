@@ -1,0 +1,17 @@
+{
+  "name": "@eos/worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js",
+    "build": "echo \"worker build: no-op\"",
+    "start": "node src/index.js",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"worker test: no-op\"",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

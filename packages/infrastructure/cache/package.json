@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-cache",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-cache build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-cache test: no-op\""
+  }
+}

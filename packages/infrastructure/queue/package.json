@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-queue",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-queue build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-queue test: no-op\""
+  }
+}

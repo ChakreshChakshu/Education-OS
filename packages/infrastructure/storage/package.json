@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-storage",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-storage build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-storage test: no-op\""
+  }
+}

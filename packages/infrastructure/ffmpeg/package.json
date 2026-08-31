@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-ffmpeg",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-ffmpeg build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-ffmpeg test: no-op\""
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@eos/api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js",
+    "build": "echo \"api build: no-op\"",
+    "start": "node src/index.js",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"api test: no-op\"",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "fastify": "^4.26.1",
+    "@fastify/cors": "^9.0.1",
+    "dotenv": "^16.4.5"
+  }
+}

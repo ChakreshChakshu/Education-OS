@@ -1,0 +1,11 @@
+{
+  "name": "@eos/domain-academics",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"academics domain build: ok\"",
+    "lint": "eslint **/*.js",
+    "test": "echo \"academics domain test: ok\""
+  }
+}

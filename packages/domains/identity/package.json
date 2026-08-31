@@ -1,0 +1,11 @@
+{
+  "name": "@eos/domain-identity",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"identity domain build: ok\"",
+    "lint": "eslint **/*.js",
+    "test": "echo \"identity domain test: ok\""
+  }
+}

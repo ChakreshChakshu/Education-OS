@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-auth build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-auth test: no-op\""
+  }
+}

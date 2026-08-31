@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+build/
+.turbo/
+.git/
+.github/
+README.md
+docs/
+*.log
+.env*

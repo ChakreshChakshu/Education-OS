@@ -1,0 +1,11 @@
+{
+  "name": "@eos/core",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"core build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"core test: no-op\""
+  }
+}

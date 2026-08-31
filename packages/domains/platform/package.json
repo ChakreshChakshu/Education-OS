@@ -1,0 +1,11 @@
+{
+  "name": "@eos/domain-platform",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"platform domain build: ok\"",
+    "lint": "eslint **/*.js",
+    "test": "echo \"platform domain test: ok\""
+  }
+}

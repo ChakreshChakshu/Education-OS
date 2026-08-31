@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-monitoring",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-monitoring build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-monitoring test: no-op\""
+  }
+}

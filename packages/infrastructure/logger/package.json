@@ -1,0 +1,11 @@
+{
+  "name": "@eos/infra-logger",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "echo \"infra-logger build: no-op\"",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"infra-logger test: no-op\""
+  }
+}

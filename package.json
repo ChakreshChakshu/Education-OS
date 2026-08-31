@@ -1,0 +1,34 @@
+{
+  "name": "education-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise-grade multi-tenant Education Operating System (EOS)",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{js,jsx,json,md,css}\"",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rimraf node_modules",
+    "typecheck": "echo \"typecheck: no typescript configured initially\"",
+    "depcruise": "depcruise --config .dependency-cruiser.js packages apps",
+    "db:generate": "echo \"db:generate: Drizzle migrations generation placeholder\"",
+    "db:migrate": "echo \"db:migrate: Drizzle migrations execution placeholder\"",
+    "db:push": "echo \"db:push: Drizzle schema push placeholder\"",
+    "db:studio": "echo \"db:studio: Drizzle studio client placeholder\"",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.6.1",
+    "@commitlint/config-conventional": "^18.6.2",
+    "dependency-cruiser": "^16.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.1.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
+    "turbo": "^1.12.4"
+  },
+  "packageManager": "pnpm@8.15.4"
+}
