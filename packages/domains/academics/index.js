@@ -1,12 +1,9 @@
-/**
- * @eos/domain-academics
- * Academic Architecture & Curriculum Bounded Context
- * Governs Courses, Course Versions, Categories, Curriculum Modules, and Lessons.
- */
+const domain = require('./domain');
+const application = require('./application');
 
 module.exports = {
-  domain: require('./domain'),
-  application: require('./application'),
-  infrastructure: require('./infrastructure'),
-  presentation: require('./presentation')
+  domain,
+  application,
+  infrastructure: {},
+  presentation: {}
 };
