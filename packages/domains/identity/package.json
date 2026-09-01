@@ -6,6 +6,9 @@
   "scripts": {
     "build": "echo \"identity domain build: ok\"",
     "lint": "eslint **/*.js",
-    "test": "echo \"identity domain test: ok\""
+    "test": "node --test test/identity.test.js"
+  },
+  "dependencies": {
+    "@eos/core": "workspace:*"
   }
 }

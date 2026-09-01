@@ -9,6 +9,42 @@ async function internalRoutes(fastify, options) {
   fastify.get('/me', async (request, reply) => {
     return { user: request.user || { id: 'mock-admin', role: 'admin' } };
   });
+
+  // Tenant Provisioning Route
+  fastify.post(
+    '/tenants',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name', 'slug', 'ownerUserId'],
+          properties: {
+            name: { type: 'string', minLength: 1 },
+            slug: { type: 'string', minLength: 3 },
+            ownerUserId: { type: 'string', format: 'uuid' },
+            orgName: { type: 'string' },
+            orgCode: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const useCase = container.resolve('CreateTenantUseCase');
+      const result = await useCase.execute(request.body);
+
+      if (result.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      return reply.status(201).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
 }
 
 module.exports = internalRoutes;

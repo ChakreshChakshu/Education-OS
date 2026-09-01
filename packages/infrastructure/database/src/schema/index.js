@@ -1,4 +1,8 @@
-// Drizzle ORM schema registry export placeholder
-const schema = {};
+const identitySchema = require('./identity.schema');
 
-module.exports = { schema };
+module.exports = {
+  schema: {
+    ...identitySchema
+  },
+  ...identitySchema
+};

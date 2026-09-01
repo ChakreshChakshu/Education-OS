@@ -8,7 +8,7 @@
     "build": "echo \"api build: no-op\"",
     "start": "node src/index.js",
     "lint": "eslint src/**/*.js",
-    "test": "echo \"api test: no-op\"",
+    "test": "node --test test/api.test.js",
     "clean": "rimraf dist"
   },
   "dependencies": {

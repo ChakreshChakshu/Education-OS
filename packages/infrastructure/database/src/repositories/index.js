@@ -1,8 +1,11 @@
-// Base concrete repository class implementation
-class BaseRepository {
-  constructor(db) {
-    this.db = db;
-  }
-}
+const { BaseRepository } = require('./BaseRepository');
+const { DrizzleUserRepository } = require('./DrizzleUserRepository');
+const { DrizzleTenantRepository } = require('./DrizzleTenantRepository');
+const { DrizzleOrganizationRepository } = require('./DrizzleOrganizationRepository');
 
-module.exports = { BaseRepository };
+module.exports = {
+  BaseRepository,
+  DrizzleUserRepository,
+  DrizzleTenantRepository,
+  DrizzleOrganizationRepository
+};
