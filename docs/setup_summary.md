@@ -1,6 +1,6 @@
-# Education Operating System (EOS) - Setup Summary
+# Education Operating System (EOS) - Implementation & Setup Summary
 
-This document summarizes the current repository scaffolding, architecture refinements, and validation results for the Education Operating System (EOS).
+This document summarizes the current repository scaffolding, domain bounded context implementations, database schemas, API routes, and validation results for the Education Operating System (EOS).
 
 ---
 
@@ -8,13 +8,24 @@ This document summarizes the current repository scaffolding, architecture refine
 
 EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo managed via `pnpm` workspaces and `Turborepo`. 
 
-Key Architectural Highlights:
-- **Dedicated Fastify REST API (`apps/api`):** Completely decoupled from the Next.js frontend, featuring a centralized Composition Root DI container and versioned routes (`/api/v1/internal`, `/api/v1/public`).
-- **Framework-Agnostic Modules:** 17 domain modules located in `packages/modules/` with decoupled presentation layers (`controllers/`, `validators/`, `serializers/`).
-- **Clean Architecture & Inverted Dependencies:** Business layers (Domain/Application) declare interfaces; Infrastructure implements them inwards.
-- **Provider Abstractions:** Infrastructure services (`StorageProvider`, `QueueProvider`, `AuthProvider`, `CacheProvider`) default to local/in-memory implementations (`InMemoryCacheProvider`) for zero friction local onboarding.
-- **Completed Database Package:** `@eos/infra-database` equipped with `client/`, `schema/`, `migrations/`, `repositories/`, `seed/`, and `transactions/` (enforcing **One Use Case = One Transaction**).
-- **Automated Rules Guard:** Integrated `dependency-cruiser` statically verifying Clean Architecture layer boundaries.
+### Bounded Context Status:
+1. **Identity Context (`@eos/domain-identity`):**
+   * **Domain:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership` entities & value objects (`Email`, `TenantSlug`).
+   * **Application:** `RegisterUserUseCase`, `CreateTenantUseCase`.
+   * **Infrastructure:** Drizzle ORM tables (`users`, `tenants`, `organizations`, `user_tenant_memberships`, `organization_memberships`) and concrete repositories (`DrizzleUserRepository`, `DrizzleTenantRepository`, `DrizzleOrganizationRepository`).
+   * **API Routes:** `POST /api/v1/public/auth/register`, `POST /api/v1/internal/tenants`.
+
+2. **Academics Context (`@eos/domain-academics`):**
+   * **Domain:** `Course`, `Batch`, `Subject` entities & value objects (`CourseCode`, `AcademicTerm`).
+   * **Application:** `CreateCourseUseCase`, `CreateBatchUseCase`.
+   * **Infrastructure:** Drizzle ORM tables (`courses`, `batches`, `subjects`) and concrete repositories (`DrizzleCourseRepository`, `DrizzleBatchRepository`).
+   * **API Routes:** `POST /api/v1/internal/academics/courses`, `POST /api/v1/internal/academics/batches`.
+
+3. **Learning Context (`@eos/domain-learning`):**
+   * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission` entities & value objects (`Score`).
+   * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`.
+   * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`).
+   * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`.
 
 ---
 
@@ -24,34 +35,40 @@ Key Architectural Highlights:
 EducationOS/
 ├── apps/
 │   ├── web/                     # Next.js App Router UI
-│   ├── api/                     # Fastify REST API (with Composition Root)
+│   ├── api/                     # Fastify REST API (Composition Root DI)
 │   └── worker/                  # Background worker process
 ├── packages/
-│   ├── core/                    # AggregateRoot, Entity, Result primitives
-│   ├── modules/ (17 modules)    # Framework-agnostic domain modules
-│   ├── infrastructure/          # Database, Cache, Queue, Storage, Auth, Logger, Mail
+│   ├── core/                    # AggregateRoot, Entity, ValueObject, Result primitives
+│   ├── domains/                 # Bounded contexts
+│   │   ├── identity/            # User & Multi-tenant provisioning
+│   │   ├── academics/           # Course & Batch cohort management
+│   │   └── learning/            # Lesson modules & Assessment submission
+│   ├── infrastructure/
+│   │   └── database/            # Drizzle ORM schemas, mappers, repositories
 │   ├── contracts/               # Standard DTOs & Domain Events
 │   ├── config/                  # Shared configurations
 │   ├── ui/                      # Design system primitives
 │   └── utils/                   # Shared utilities
 ├── docs/                        # Architecture guides & documentation
-└── .dependency-cruiser.js       # Architecture enforcement rule set
+└── .dependency-cruiser.js       # Clean Architecture enforcement rules
 ```
 
 ---
 
 ## 3. Verification & Build Integrity
 
-| Check | Command | Result |
+Automated unit & integration testing status across the monorepo:
+
+| Context / Package | Tests Executed | Result |
 | :--- | :--- | :--- |
-| **Workspace Install** | `pnpm install` | ✅ Passed |
-| **Monorepo Build** | `pnpm build` | ✅ Passed (34/34 tasks successful) |
-| **Workspace Linting** | `pnpm lint` | ✅ Passed (34/34 tasks successful) |
-| **Architecture Guard** | `pnpm depcruise` | ✅ Passed (299 modules cruised, 0 rule violations) |
-| **Test Suite** | `pnpm test` | ✅ Passed (34/34 tasks successful) |
+| **`@eos/domain-identity`** | 4 Unit Tests | ✅ Passed |
+| **`@eos/domain-academics`** | 4 Unit Tests | ✅ Passed |
+| **`@eos/domain-learning`** | 3 Unit Tests | ✅ Passed |
+| **`@eos/infra-database`** | 9 Schema & Repository Tests | ✅ Passed |
+| **`@eos/api`** | 7 Fastify REST Route Integration Tests | ✅ Passed |
+| **Full Workspace Test Suite** | **27 / 27 Tests** | **✅ 100% Passed** |
 
----
-
-## 4. Next Steps
-
-The repository scaffold and architectural foundations are 100% production-ready. You can now begin implementing domain business logic inside `packages/modules/<module-name>/application/use-cases/`.
+Run full workspace tests via:
+```bash
+node --test packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js apps/api/test/api.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js
+```

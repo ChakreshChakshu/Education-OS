@@ -7,7 +7,10 @@ const {
   DrizzleTenantRepository,
   DrizzleOrganizationRepository,
   DrizzleCourseRepository,
-  DrizzleBatchRepository
+  DrizzleBatchRepository,
+  DrizzleLessonModuleRepository,
+  DrizzleStudentProgressRepository,
+  DrizzleQuizSubmissionRepository
 } = require('./repositories');
 const { seedDatabase } = require('./seed');
 const { executeTransaction } = require('./transactions');
@@ -37,6 +40,9 @@ module.exports = {
   DrizzleOrganizationRepository,
   DrizzleCourseRepository,
   DrizzleBatchRepository,
+  DrizzleLessonModuleRepository,
+  DrizzleStudentProgressRepository,
+  DrizzleQuizSubmissionRepository,
   seedDatabase,
   executeTransaction
 };

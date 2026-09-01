@@ -1,14 +1,18 @@
-const { identityDomain, academicsDomain, infraDatabase } = require('./domain-bridge');
+const { identityDomain, academicsDomain, learningDomain, infraDatabase } = require('./domain-bridge');
 
 const { RegisterUserUseCase, CreateTenantUseCase } = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
+const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
 
 const {
   DrizzleUserRepository,
   DrizzleTenantRepository,
   DrizzleOrganizationRepository,
   DrizzleCourseRepository,
-  DrizzleBatchRepository
+  DrizzleBatchRepository,
+  DrizzleLessonModuleRepository,
+  DrizzleStudentProgressRepository,
+  DrizzleQuizSubmissionRepository
 } = infraDatabase;
 
 function registerServices(container) {
@@ -28,6 +32,11 @@ function registerServices(container) {
   // Academics Repositories
   container.register('CourseRepository', () => new DrizzleCourseRepository(mockDbClient));
   container.register('BatchRepository', () => new DrizzleBatchRepository(mockDbClient));
+
+  // Learning Repositories
+  container.register('LessonModuleRepository', () => new DrizzleLessonModuleRepository(mockDbClient));
+  container.register('StudentProgressRepository', () => new DrizzleStudentProgressRepository(mockDbClient));
+  container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(mockDbClient));
 
   // Identity Use Cases
   container.register(
@@ -66,6 +75,25 @@ function registerServices(container) {
       new CreateBatchUseCase({
         batchRepository: c.resolve('BatchRepository'),
         courseRepository: c.resolve('CourseRepository')
+      })
+  );
+
+  // Learning Use Cases
+  container.register(
+    'MarkLessonCompleteUseCase',
+    (c) =>
+      new MarkLessonCompleteUseCase({
+        studentProgressRepository: c.resolve('StudentProgressRepository'),
+        lessonModuleRepository: c.resolve('LessonModuleRepository')
+      })
+  );
+
+  container.register(
+    'SubmitQuizUseCase',
+    (c) =>
+      new SubmitQuizUseCase({
+        quizSubmissionRepository: c.resolve('QuizSubmissionRepository'),
+        lessonModuleRepository: c.resolve('LessonModuleRepository')
       })
   );
 }

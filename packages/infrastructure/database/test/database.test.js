@@ -8,12 +8,16 @@ const {
   DrizzleTenantRepository,
   DrizzleOrganizationRepository,
   DrizzleCourseRepository,
-  DrizzleBatchRepository
+  DrizzleBatchRepository,
+  DrizzleLessonModuleRepository,
+  DrizzleStudentProgressRepository,
+  DrizzleQuizSubmissionRepository
 } = require('../src');
 const { User, Tenant, Organization, UserTenantMembership, OrganizationMembership } = require('../src/domain-identity-bridge');
 const { Course, Batch } = require('../src/domain-academics-bridge');
+const { LessonModule, StudentProgress, QuizSubmission } = require('../src/domain-learning-bridge');
 
-test('Database schema exports identity & academics tables', () => {
+test('Database schema exports identity, academics, and learning tables', () => {
   assert.notEqual(schema.usersTable, undefined);
   assert.notEqual(schema.tenantsTable, undefined);
   assert.notEqual(schema.organizationsTable, undefined);
@@ -22,6 +26,9 @@ test('Database schema exports identity & academics tables', () => {
   assert.notEqual(schema.coursesTable, undefined);
   assert.notEqual(schema.batchesTable, undefined);
   assert.notEqual(schema.subjectsTable, undefined);
+  assert.notEqual(schema.lessonModulesTable, undefined);
+  assert.notEqual(schema.studentProgressTable, undefined);
+  assert.notEqual(schema.quizSubmissionsTable, undefined);
 });
 
 test('DrizzleUserRepository converts Domain Entity <-> Persistence Row correctly', () => {
@@ -168,4 +175,70 @@ test('DrizzleBatchRepository converts Batch Domain Entity <-> Row correctly', as
   assert.equal(foundList[0].name, '2026-Spring-Cohort-A');
   assert.equal(foundList[0].term.value, 'SPRING-2026');
   assert.equal(foundList[0].instructorUserId, instructorId);
+});
+
+test('DrizzleLessonModuleRepository converts LessonModule Domain <-> Row correctly', async () => {
+  const courseId = crypto.randomUUID();
+  const moduleId = crypto.randomUUID();
+
+  const module = LessonModule.create(
+    {
+      courseId,
+      title: 'Advanced System Architecture',
+      contentType: 'VIDEO',
+      contentUrl: 'https://video.skillyards.com/arch-1'
+    },
+    moduleId
+  ).getValue();
+
+  const repo = new DrizzleLessonModuleRepository();
+  await repo.save(module);
+
+  const found = await repo.findById(moduleId);
+  assert.notEqual(found, null);
+  assert.equal(found.title, 'Advanced System Architecture');
+  assert.equal(found.contentType, 'VIDEO');
+});
+
+test('DrizzleStudentProgressRepository records student progress correctly', async () => {
+  const studentUserId = crypto.randomUUID();
+  const moduleId = crypto.randomUUID();
+
+  const progress = StudentProgress.create({
+    studentUserId,
+    lessonModuleId: moduleId,
+    status: 'COMPLETED'
+  }).getValue();
+
+  const repo = new DrizzleStudentProgressRepository();
+  await repo.save(progress);
+
+  const found = await repo.findByStudentAndModule(studentUserId, moduleId);
+  assert.notEqual(found, null);
+  assert.equal(found.studentUserId, studentUserId);
+  assert.equal(found.lessonModuleId, moduleId);
+});
+
+test('DrizzleQuizSubmissionRepository converts QuizSubmission correctly', async () => {
+  const submissionId = crypto.randomUUID();
+  const studentUserId = crypto.randomUUID();
+  const moduleId = crypto.randomUUID();
+
+  const submission = QuizSubmission.create(
+    {
+      studentUserId,
+      lessonModuleId: moduleId,
+      score: 88,
+      passingScore: 70
+    },
+    submissionId
+  ).getValue();
+
+  const repo = new DrizzleQuizSubmissionRepository();
+  await repo.save(submission);
+
+  const found = await repo.findById(submissionId);
+  assert.notEqual(found, null);
+  assert.equal(found.score.value, 88);
+  assert.equal(found.passed, true);
 });

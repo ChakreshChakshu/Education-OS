@@ -5,13 +5,12 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 ## Tech Stack
 
 - **Monorepo Management:** `pnpm` workspaces & `Turborepo`
-- **Frontend:** Next.js (Latest App Router), JavaScript, TailwindCSS, shadcn/ui
-- **Backend:** Node.js & Fastify (REST API, decoupled from frontend)
+- **Frontend:** Next.js (Latest App Router), JavaScript, Vanilla CSS
+- **Backend:** Node.js & Fastify (REST API with Composition Root DI)
 - **Background Jobs:** Node.js Workers (Stateless queue consumers & cron schedulers)
 - **Database Layer:** PostgreSQL & Drizzle ORM
 - **Authentication:** JWT, HttpOnly Cookies
 - **Architecture Enforcement:** `dependency-cruiser`
-- **Media Processing:** FFmpeg, Video.js, HLS stream configurations
 
 ---
 
@@ -21,62 +20,53 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 education-os/
 ├── apps/               # Applications
 │   ├── web/            # Next.js App Router Frontend
-│   ├── api/            # Fastify REST API (with Composition Root)
+│   ├── api/            # Fastify REST API (with Composition Root DI)
 │   └── worker/         # Background Worker Service
 ├── packages/           # Shared libraries & modules
-│   ├── core/           # DDD base primitives (Entity, AggregateRoot, Result, etc.)
-│   ├── modules/        # 17 framework-agnostic domain modules (identity, courses, etc.)
-│   ├── infrastructure/ # System providers (database, storage, queue, mail, etc.)
+│   ├── core/           # DDD base primitives (Entity, AggregateRoot, ValueObject, Result)
+│   ├── domains/        # Implemented Bounded Contexts
+│   │   ├── identity/   # User registration, Tenant & Org provisioning
+│   │   ├── academics/  # Courses, Batches, Subjects & Term management
+│   │   └── learning/   # Lesson modules, Progress tracking & Quiz submissions
+│   ├── infrastructure/ # Database schemas, concrete repositories, storage, queue
 │   ├── contracts/      # API response/request DTOs and Event structures
 │   ├── config/         # System settings, feature flags, constants
 │   ├── ui/             # Design token & UI configurations
 │   └── utils/          # General helpers
-├── docs/               # Standard documentation and architecture guides
+├── docs/               # Architecture guides and specifications
 └── docker/             # Container configuration files
 ```
 
 ---
 
-## Getting Started
+## Implemented Bounded Contexts & API Endpoints
 
-### Prerequisites
+### 1. Identity Domain (`@eos/domain-identity`)
+- **Entities:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership`
+- **Endpoints:**
+  - `POST /api/v1/public/auth/register` (User registration with email VO validation)
+  - `POST /api/v1/internal/tenants` (Multi-tenant institution provisioning)
 
-- Node.js 18+
-- pnpm 8+
-- Docker & Docker Compose
+### 2. Academics Domain (`@eos/domain-academics`)
+- **Entities:** `Course`, `Batch`, `Subject`
+- **Value Objects:** `CourseCode`, `AcademicTerm`
+- **Endpoints:**
+  - `POST /api/v1/internal/academics/courses` (Course creation & code uniqueness check)
+  - `POST /api/v1/internal/academics/batches` (Cohort batch provisioning & instructor assignment)
 
-### Installation
-
-Install all package dependencies in the workspace root:
-
-```bash
-pnpm install
-```
-
-### Running Locally
-
-To spin up development servers for all apps (`web`, `api`, `worker`):
-
-```bash
-pnpm dev
-```
-
-To run a specific application (e.g. Fastify REST API):
-
-```bash
-pnpm --filter @eos/api dev
-```
+### 3. Learning Domain (`@eos/domain-learning`)
+- **Entities:** `LessonModule`, `StudentProgress`, `QuizSubmission`
+- **Value Objects:** `Score`
+- **Endpoints:**
+  - `POST /api/v1/internal/learning/lessons/complete` (Student lesson completion tracking)
+  - `POST /api/v1/internal/learning/quizzes/submit` (Quiz submission & auto-grading)
 
 ---
 
-## Scripts
+## Running Automated Tests
 
-Root commands run across the monorepo via Turborepo & dependency-cruiser:
+To execute the full workspace unit & integration test suite (`27 / 27 passing`):
 
-- `pnpm dev`: Start all apps concurrently in development mode.
-- `pnpm build`: Compile all workspace applications and packages.
-- `pnpm lint`: Lint code style and quality across the workspace.
-- `pnpm depcruise`: Validate Clean Architecture dependency rules across all modules.
-- `pnpm format`: Format all files using Prettier.
-- `pnpm test`: Execute automated test suites.
-- `pnpm clean`: Wipe out all `node_modules` and build directories.
+```bash
+node --test packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js apps/api/test/api.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js
+```

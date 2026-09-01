@@ -150,3 +150,62 @@ test('POST /api/v1/internal/academics/batches provisions a cohort batch', async 
   assert.equal(body.data.name, '2026-Fall-Batch-1');
   assert.equal(body.data.term, 'FALL-2026');
 });
+
+test('POST /api/v1/internal/learning/lessons/complete records lesson completion', async () => {
+  const app = await buildApp();
+  const courseId = crypto.randomUUID();
+  const studentUserId = crypto.randomUUID();
+
+  const moduleRepo = container.resolve('LessonModuleRepository');
+  const { LessonModule } = require('../src/bootstrap/domain-bridge').learningDomain.domain;
+  const module = LessonModule.create({
+    courseId,
+    title: 'Cloud Native Computing'
+  }).getValue();
+  await moduleRepo.save(module);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/learning/lessons/complete',
+    payload: {
+      studentUserId: studentUserId,
+      lessonModuleId: module.id
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.alreadyCompleted, false);
+});
+
+test('POST /api/v1/internal/learning/quizzes/submit processes quiz submission', async () => {
+  const app = await buildApp();
+  const courseId = crypto.randomUUID();
+  const studentUserId = crypto.randomUUID();
+
+  const moduleRepo = container.resolve('LessonModuleRepository');
+  const { LessonModule } = require('../src/bootstrap/domain-bridge').learningDomain.domain;
+  const module = LessonModule.create({
+    courseId,
+    title: 'Distributed Systems Quiz'
+  }).getValue();
+  await moduleRepo.save(module);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/learning/quizzes/submit',
+    payload: {
+      studentUserId: studentUserId,
+      lessonModuleId: module.id,
+      score: 91,
+      passingScore: 75
+    }
+  });
+
+  assert.equal(response.statusCode, 201);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.passed, true);
+  assert.equal(body.data.score, 91);
+});

@@ -31,6 +31,9 @@ try {
     timestamp: (name) => chainable(),
     integer: (name) => chainable(),
     jsonb: (name) => chainable(),
+    boolean: (name) => chainable(),
+    real: (name) => chainable(),
+    doublePrecision: (name) => chainable(),
     uniqueIndex: (name) => ({
       on: (...cols) => ({ name, type: 'unique', cols })
     }),
