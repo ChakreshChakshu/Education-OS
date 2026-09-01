@@ -1,5 +1,10 @@
+const academicsRoutes = require('./academics');
+
 async function internalRoutes(fastify, options) {
   const container = options.container;
+
+  // Register sub-routers
+  await fastify.register(academicsRoutes, { prefix: '/academics', container });
 
   fastify.get('/health', async (request, reply) => {
     const healthService = container.resolve('HealthService');

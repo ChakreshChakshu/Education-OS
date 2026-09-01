@@ -92,3 +92,61 @@ test('POST /api/v1/internal/tenants provisions tenant and organization', async (
   assert.equal(body.data.organization.name, 'Main Branch');
   assert.equal(body.data.membership.role, 'TENANT_OWNER');
 });
+
+test('POST /api/v1/internal/academics/courses creates a course', async () => {
+  const app = await buildApp();
+  const tenantId = crypto.randomUUID();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/academics/courses',
+    payload: {
+      tenantId: tenantId,
+      title: 'Database Management Systems',
+      code: 'CS-302',
+      description: 'Relational & NoSQL Systems',
+      credits: 4
+    }
+  });
+
+  assert.equal(response.statusCode, 201);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.title, 'Database Management Systems');
+  assert.equal(body.data.code, 'CS-302');
+  assert.equal(body.data.credits, 4);
+});
+
+test('POST /api/v1/internal/academics/batches provisions a cohort batch', async () => {
+  const app = await buildApp();
+  const tenantId = crypto.randomUUID();
+
+  // Create course first via endpoint
+  const courseRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/academics/courses',
+    payload: {
+      tenantId: tenantId,
+      title: 'Software Engineering',
+      code: 'CS-405'
+    }
+  });
+  const courseData = JSON.parse(courseRes.payload).data;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/academics/batches',
+    payload: {
+      courseId: courseData.id,
+      name: '2026-Fall-Batch-1',
+      term: 'FALL-2026',
+      capacity: 50
+    }
+  });
+
+  assert.equal(response.statusCode, 201);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.name, '2026-Fall-Batch-1');
+  assert.equal(body.data.term, 'FALL-2026');
+});

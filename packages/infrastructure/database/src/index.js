@@ -1,11 +1,13 @@
 const { DatabaseClient } = require('./client');
-const { schema } = require('./schema');
+const schema = require('./schema');
 const { runMigrations } = require('./migrations');
 const {
   BaseRepository,
   DrizzleUserRepository,
   DrizzleTenantRepository,
-  DrizzleOrganizationRepository
+  DrizzleOrganizationRepository,
+  DrizzleCourseRepository,
+  DrizzleBatchRepository
 } = require('./repositories');
 const { seedDatabase } = require('./seed');
 const { executeTransaction } = require('./transactions');
@@ -33,6 +35,8 @@ module.exports = {
   DrizzleUserRepository,
   DrizzleTenantRepository,
   DrizzleOrganizationRepository,
+  DrizzleCourseRepository,
+  DrizzleBatchRepository,
   seedDatabase,
   executeTransaction
 };

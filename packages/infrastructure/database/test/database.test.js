@@ -2,15 +2,26 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 
-const { schema, DrizzleUserRepository, DrizzleTenantRepository, DrizzleOrganizationRepository } = require('../src');
+const {
+  schema,
+  DrizzleUserRepository,
+  DrizzleTenantRepository,
+  DrizzleOrganizationRepository,
+  DrizzleCourseRepository,
+  DrizzleBatchRepository
+} = require('../src');
 const { User, Tenant, Organization, UserTenantMembership, OrganizationMembership } = require('../src/domain-identity-bridge');
+const { Course, Batch } = require('../src/domain-academics-bridge');
 
-test('Database schema exports identity tables', () => {
+test('Database schema exports identity & academics tables', () => {
   assert.notEqual(schema.usersTable, undefined);
   assert.notEqual(schema.tenantsTable, undefined);
   assert.notEqual(schema.organizationsTable, undefined);
   assert.notEqual(schema.userTenantMembershipsTable, undefined);
   assert.notEqual(schema.organizationMembershipsTable, undefined);
+  assert.notEqual(schema.coursesTable, undefined);
+  assert.notEqual(schema.batchesTable, undefined);
+  assert.notEqual(schema.subjectsTable, undefined);
 });
 
 test('DrizzleUserRepository converts Domain Entity <-> Persistence Row correctly', () => {
@@ -105,4 +116,56 @@ test('DrizzleOrganizationRepository converts Organization & OrgMembership correc
 
   const rehydratedOrgMem = DrizzleOrganizationRepository.membershipToDomain(orgMemRow);
   assert.equal(rehydratedOrgMem.role, 'TENANT_OWNER');
+});
+
+test('DrizzleCourseRepository converts Course Domain Entity <-> Row correctly', async () => {
+  const tenantId = crypto.randomUUID();
+  const courseId = crypto.randomUUID();
+
+  const course = Course.create(
+    {
+      tenantId,
+      title: 'Operating Systems',
+      code: 'CS-401',
+      credits: 4,
+      status: 'PUBLISHED'
+    },
+    courseId
+  ).getValue();
+
+  const repo = new DrizzleCourseRepository();
+  await repo.save(course);
+
+  const found = await repo.findByCode(tenantId, 'CS-401');
+  assert.notEqual(found, null);
+  assert.equal(found.id, courseId);
+  assert.equal(found.title, 'Operating Systems');
+  assert.equal(found.code.value, 'CS-401');
+});
+
+test('DrizzleBatchRepository converts Batch Domain Entity <-> Row correctly', async () => {
+  const courseId = crypto.randomUUID();
+  const batchId = crypto.randomUUID();
+  const instructorId = crypto.randomUUID();
+
+  const batch = Batch.create(
+    {
+      courseId,
+      name: '2026-Spring-Cohort-A',
+      term: 'SPRING-2026',
+      capacity: 40,
+      instructorUserId: instructorId
+    },
+    batchId
+  ).getValue();
+
+  const repo = new DrizzleBatchRepository();
+  await repo.save(batch);
+
+  const foundList = await repo.findByCourseId(courseId);
+  assert.equal(foundList.length, 1);
+  assert.equal(foundList[0].id, batchId);
+  assert.equal(foundList[0].name, '2026-Spring-Cohort-A');
+  assert.equal(foundList[0].term.value, 'SPRING-2026');
+  assert.equal(foundList[0].instructorUserId, instructorId);
 });
