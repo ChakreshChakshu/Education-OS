@@ -6,6 +6,6 @@
   "scripts": {
     "build": "echo \"media domain build: ok\"",
     "lint": "eslint **/*.js",
-    "test": "echo \"media domain test: ok\""
+    "test": "node --test test/media.test.js"
   }
 }

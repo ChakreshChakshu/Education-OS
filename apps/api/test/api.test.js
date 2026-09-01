@@ -209,3 +209,57 @@ test('POST /api/v1/internal/learning/quizzes/submit processes quiz submission', 
   assert.equal(body.data.passed, true);
   assert.equal(body.data.score, 91);
 });
+
+test('POST /api/v1/internal/media/presign creates presigned upload URL', async () => {
+  const app = await buildApp();
+  const tenantId = crypto.randomUUID();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/media/presign',
+    payload: {
+      tenantId,
+      filename: 'lecture-architecture.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: 1024 * 1024 * 80
+    }
+  });
+
+  assert.equal(response.statusCode, 201);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.filename, 'lecture-architecture.mp4');
+  assert.equal(body.data.status, 'PENDING_UPLOAD');
+  assert.notEqual(body.data.uploadUrl, undefined);
+});
+
+test('POST /api/v1/internal/media/confirm confirms file upload completion', async () => {
+  const app = await buildApp();
+  const tenantId = crypto.randomUUID();
+
+  // Create presigned asset first
+  const presignRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/media/presign',
+    payload: {
+      tenantId,
+      filename: 'lecture-intro.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: 1024 * 1024 * 50
+    }
+  });
+  const assetData = JSON.parse(presignRes.payload).data;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/media/confirm',
+    payload: {
+      mediaAssetId: assetData.id
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.payload);
+  assert.equal(body.success, true);
+  assert.equal(body.data.status, 'ENCODING');
+});

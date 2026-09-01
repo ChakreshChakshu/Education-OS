@@ -1,12 +1,9 @@
-/**
- * @eos/domain-media
- * Media & Video Pipeline Bounded Context
- * Governs MediaAssets, Video Transcoding, HLS Streaming, and File Storage Assets.
- */
+const domain = require('./domain');
+const application = require('./application');
 
 module.exports = {
-  domain: require('./domain'),
-  application: require('./application'),
-  infrastructure: require('./infrastructure'),
-  presentation: require('./presentation')
+  domain,
+  application,
+  infrastructure: {},
+  presentation: {}
 };

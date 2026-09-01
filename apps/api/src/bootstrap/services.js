@@ -1,8 +1,16 @@
-const { identityDomain, academicsDomain, learningDomain, infraDatabase } = require('./domain-bridge');
+const {
+  identityDomain,
+  academicsDomain,
+  learningDomain,
+  mediaDomain,
+  infraDatabase,
+  infraStorage
+} = require('./domain-bridge');
 
 const { RegisterUserUseCase, CreateTenantUseCase } = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
 const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
+const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
 
 const {
   DrizzleUserRepository,
@@ -12,8 +20,12 @@ const {
   DrizzleBatchRepository,
   DrizzleLessonModuleRepository,
   DrizzleStudentProgressRepository,
-  DrizzleQuizSubmissionRepository
+  DrizzleQuizSubmissionRepository,
+  DrizzleMediaAssetRepository,
+  DatabaseClient
 } = infraDatabase;
+
+const { LocalStorageProvider, R2StorageProvider } = infraStorage;
 
 function registerServices(container) {
   // Health Service
@@ -21,22 +33,42 @@ function registerServices(container) {
     getHealth: () => ({ status: 'ok', timestamp: new Date() })
   }));
 
-  // Database Connection Client Mock / Instance
-  const mockDbClient = {};
+  // Database Client Instance
+  const dbClient = new DatabaseClient({
+    connectionString: process.env.DATABASE_URL
+  });
+  container.register('DatabaseClient', () => dbClient);
+
+  // Storage Provider: Auto-switch between Cloudflare R2 & Local Disk
+  container.register('StorageProvider', () => {
+    if (process.env.R2_BUCKET_NAME || process.env.R2_ACCOUNT_ID) {
+      return new R2StorageProvider({
+        accountId: process.env.R2_ACCOUNT_ID,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        bucketName: process.env.R2_BUCKET_NAME,
+        publicDomain: process.env.R2_PUBLIC_DOMAIN
+      });
+    }
+    return new LocalStorageProvider({ uploadDir: './uploads' });
+  });
 
   // Identity Repositories
-  container.register('UserRepository', () => new DrizzleUserRepository(mockDbClient));
-  container.register('TenantRepository', () => new DrizzleTenantRepository(mockDbClient));
-  container.register('OrganizationRepository', () => new DrizzleOrganizationRepository(mockDbClient));
+  container.register('UserRepository', () => new DrizzleUserRepository(dbClient));
+  container.register('TenantRepository', () => new DrizzleTenantRepository(dbClient));
+  container.register('OrganizationRepository', () => new DrizzleOrganizationRepository(dbClient));
 
   // Academics Repositories
-  container.register('CourseRepository', () => new DrizzleCourseRepository(mockDbClient));
-  container.register('BatchRepository', () => new DrizzleBatchRepository(mockDbClient));
+  container.register('CourseRepository', () => new DrizzleCourseRepository(dbClient));
+  container.register('BatchRepository', () => new DrizzleBatchRepository(dbClient));
 
   // Learning Repositories
-  container.register('LessonModuleRepository', () => new DrizzleLessonModuleRepository(mockDbClient));
-  container.register('StudentProgressRepository', () => new DrizzleStudentProgressRepository(mockDbClient));
-  container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(mockDbClient));
+  container.register('LessonModuleRepository', () => new DrizzleLessonModuleRepository(dbClient));
+  container.register('StudentProgressRepository', () => new DrizzleStudentProgressRepository(dbClient));
+  container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(dbClient));
+
+  // Media Repositories
+  container.register('MediaAssetRepository', () => new DrizzleMediaAssetRepository(dbClient));
 
   // Identity Use Cases
   container.register(
@@ -94,6 +126,24 @@ function registerServices(container) {
       new SubmitQuizUseCase({
         quizSubmissionRepository: c.resolve('QuizSubmissionRepository'),
         lessonModuleRepository: c.resolve('LessonModuleRepository')
+      })
+  );
+
+  // Media Use Cases
+  container.register(
+    'CreatePresignedUploadUrlUseCase',
+    (c) =>
+      new CreatePresignedUploadUrlUseCase({
+        mediaAssetRepository: c.resolve('MediaAssetRepository'),
+        storageProvider: c.resolve('StorageProvider')
+      })
+  );
+
+  container.register(
+    'ConfirmMediaUploadUseCase',
+    (c) =>
+      new ConfirmMediaUploadUseCase({
+        mediaAssetRepository: c.resolve('MediaAssetRepository')
       })
   );
 }

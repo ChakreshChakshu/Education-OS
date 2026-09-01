@@ -11,13 +11,15 @@ const {
   DrizzleBatchRepository,
   DrizzleLessonModuleRepository,
   DrizzleStudentProgressRepository,
-  DrizzleQuizSubmissionRepository
+  DrizzleQuizSubmissionRepository,
+  DrizzleMediaAssetRepository
 } = require('../src');
 const { User, Tenant, Organization, UserTenantMembership, OrganizationMembership } = require('../src/domain-identity-bridge');
 const { Course, Batch } = require('../src/domain-academics-bridge');
 const { LessonModule, StudentProgress, QuizSubmission } = require('../src/domain-learning-bridge');
+const { MediaAsset } = require('../src/domain-media-bridge');
 
-test('Database schema exports identity, academics, and learning tables', () => {
+test('Database schema exports identity, academics, learning, and media tables', () => {
   assert.notEqual(schema.usersTable, undefined);
   assert.notEqual(schema.tenantsTable, undefined);
   assert.notEqual(schema.organizationsTable, undefined);
@@ -29,6 +31,7 @@ test('Database schema exports identity, academics, and learning tables', () => {
   assert.notEqual(schema.lessonModulesTable, undefined);
   assert.notEqual(schema.studentProgressTable, undefined);
   assert.notEqual(schema.quizSubmissionsTable, undefined);
+  assert.notEqual(schema.mediaAssetsTable, undefined);
 });
 
 test('DrizzleUserRepository converts Domain Entity <-> Persistence Row correctly', () => {
@@ -241,4 +244,28 @@ test('DrizzleQuizSubmissionRepository converts QuizSubmission correctly', async 
   assert.notEqual(found, null);
   assert.equal(found.score.value, 88);
   assert.equal(found.passed, true);
+});
+
+test('DrizzleMediaAssetRepository converts MediaAsset Entity <-> Row correctly', async () => {
+  const tenantId = crypto.randomUUID();
+  const assetId = crypto.randomUUID();
+
+  const asset = MediaAsset.create(
+    {
+      tenantId,
+      filename: 'sample-video.mp4',
+      mimeType: 'video/mp4',
+      size: 1024 * 1024 * 25
+    },
+    assetId
+  ).getValue();
+
+  const repo = new DrizzleMediaAssetRepository();
+  await repo.save(asset);
+
+  const found = await repo.findById(assetId);
+  assert.notEqual(found, null);
+  assert.equal(found.filename, 'sample-video.mp4');
+  assert.equal(found.mimeType.value, 'video/mp4');
+  assert.equal(found.size.megaBytes, 25);
 });

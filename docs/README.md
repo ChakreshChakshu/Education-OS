@@ -10,6 +10,7 @@ This document establishes the architecture master guide, principles, and directo
 | :--- | :--- | :--- |
 | **01 – Architecture Overview** | Modular Monolith, DDD, Clean Architecture | [architecture_principles.md](file:///home/chakresh/EducationOS/docs/architecture_principles.md) |
 | **02 – Architecture Principles** | Principles, solid, provider abstractions | [architecture_principles.md](file:///home/chakresh/EducationOS/docs/architecture_principles.md) |
+| **02A – Classes vs Functions Guide** | ES6 Classes vs Functional Programming rationale & trends | [classes_vs_functions_guide.md](file:///home/chakresh/EducationOS/docs/classes_vs_functions_guide.md) |
 | **03 – Domain Model & Bounded Contexts** | Identity, Academics, Learning, Media, Platform contexts | [domain_model_and_bounded_contexts.md](file:///home/chakresh/EducationOS/docs/domain_model_and_bounded_contexts.md) |
 | **04 – Multi-Tenant Architecture** | Shared DB, Shared Schema, tenant isolation rules | [multi_tenant_architecture.md](file:///home/chakresh/EducationOS/docs/multi_tenant_architecture.md) |
 | **05 – Database Design** | PostgreSQL, Drizzle ORM, UUIDv7 primary keys | [database_design.md](file:///home/chakresh/EducationOS/docs/database_design.md) |

@@ -6,6 +6,6 @@
   "scripts": {
     "build": "echo \"infra-storage build: no-op\"",
     "lint": "eslint src/**/*.js",
-    "test": "echo \"infra-storage test: no-op\""
+    "test": "node --test test/storage.test.js"
   }
 }
