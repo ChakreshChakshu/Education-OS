@@ -156,6 +156,22 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async uploadMediaFile({ filename, fileData, mimeType }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/internal/media/upload`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ filename, fileData, mimeType })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Media upload failed');
+      return data;
+    } catch (err) {
+      console.warn('API uploadMediaFile failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

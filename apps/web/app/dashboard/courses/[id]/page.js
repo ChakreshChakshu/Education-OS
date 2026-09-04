@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MediaUploader } from "@/components/ui/media-uploader";
 import { 
   ArrowLeft, 
   Plus, 
@@ -350,18 +351,28 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                   />
                 </div>
 
-                {/* VIDEO / DOCUMENT URL */}
+                {/* FILE UPLOADER FOR VIDEO / DOCUMENT */}
                 {modalType !== "QUIZ" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-muted-foreground uppercase">
-                      {modalType === "VIDEO" ? "Video Stream File / URL (.mp4)" : "PDF Document File / URL (.pdf)"}
-                    </label>
-                    <Input 
-                      placeholder={modalType === "VIDEO" ? "https://storage.provider/lecture1.mp4" : "https://storage.provider/handout.pdf"}
-                      className="h-11 text-base font-mono"
-                      value={url} 
-                      onChange={(e) => setUrl(e.target.value)} 
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">
+                        {modalType === "VIDEO" ? "Upload Video File (.mp4)" : "Upload PDF Document (.pdf)"}
+                      </label>
+                      <MediaUploader 
+                        accept={modalType === "VIDEO" ? "video/*" : "application/pdf"}
+                        onUploadSuccess={(fileUrl) => setUrl(fileUrl)} 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">Or Direct File / Stream URL</label>
+                      <Input 
+                        placeholder={modalType === "VIDEO" ? "https://storage.provider/lecture1.mp4" : "https://storage.provider/handout.pdf"}
+                        className="h-11 text-base font-mono"
+                        value={url} 
+                        onChange={(e) => setUrl(e.target.value)} 
+                      />
+                    </div>
                   </div>
                 )}
 
