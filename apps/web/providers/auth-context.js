@@ -4,10 +4,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
 
 const DEFAULT_TENANT = {
-  id: 'tenant_default',
-  name: 'SkillYards Academy',
-  slug: 'skillyards',
-  branch: 'Main Campus'
+  id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
+  name: 'Education OS Main Campus',
+  slug: 'main-campus',
+  branch: 'Main Branch Campus'
 };
 
 const AuthContext = createContext({
@@ -54,12 +54,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem('eos_token', res.token);
       localStorage.setItem('eos_user', JSON.stringify(userData));
 
-      // Use institution from user meta if available
       if (userData.institutionName) {
         const userTenant = {
-          id: 'tenant_' + (userData.institutionSlug || 'custom'),
+          id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
           name: userData.institutionName,
-          branch: 'Main Campus'
+          branch: 'Main Branch Campus'
         };
         setActiveTenant(userTenant);
         setTenants([userTenant]);
@@ -75,12 +74,25 @@ export function AuthProvider({ children }) {
   const register = async (name, email, password, institutionName) => {
     const res = await ApiClient.registerUser({ name, email, password, institutionName });
 
-    // Build registered tenant context
-    const tenantName = institutionName && institutionName.trim() ? institutionName.trim() : 'SkillYards Academy';
+    if (res.success === false) {
+      return { success: false, error: res.error || 'Registration failed' };
+    }
+
+    // Auto login after registration to receive real signed JWT
+    const loginRes = await ApiClient.loginUser({ email, password });
+    if (loginRes.token) {
+      const userData = loginRes.user || { email, name };
+      setToken(loginRes.token);
+      setUser(userData);
+      localStorage.setItem('eos_token', loginRes.token);
+      localStorage.setItem('eos_user', JSON.stringify(userData));
+    }
+
+    const tenantName = institutionName && institutionName.trim() ? institutionName.trim() : 'Education OS Main Campus';
     const newTenant = {
-      id: 'tenant_' + Date.now(),
+      id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
       name: tenantName,
-      branch: 'Main Campus'
+      branch: 'Main Branch Campus'
     };
 
     setActiveTenant(newTenant);
@@ -88,13 +100,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('eos_tenant', JSON.stringify(newTenant));
     localStorage.setItem('eos_tenant_id', newTenant.id);
 
-    const userData = { email, name, institutionName: tenantName };
-    setUser(userData);
-    setToken('mock_token_' + Date.now());
-    localStorage.setItem('eos_token', 'mock_token_' + Date.now());
-    localStorage.setItem('eos_user', JSON.stringify(userData));
-
-    return { success: true, data: res.data || userData };
+    return { success: true, data: res.data || { name, email } };
   };
 
   const switchTenant = (tenant) => {
