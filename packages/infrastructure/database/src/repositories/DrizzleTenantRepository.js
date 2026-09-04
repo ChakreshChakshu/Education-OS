@@ -7,8 +7,6 @@ class DrizzleTenantRepository extends BaseRepository {
     super(db);
     this.table = tenantsTable;
     this.utmTable = userTenantMembershipsTable;
-    this._tenantStore = new Map();
-    this._membershipStore = new Map();
   }
 
   static toDomain(row) {
@@ -81,75 +79,85 @@ class DrizzleTenantRepository extends BaseRepository {
   }
 
   async findById(id) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleTenantRepository.toDomain(rows[0]) : null;
     }
-    const raw = this._tenantStore.get(id);
-    return raw ? DrizzleTenantRepository.toDomain(raw) : null;
+    const res = await db.query('SELECT * FROM tenants WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+    return res.rows[0] ? DrizzleTenantRepository.toDomain(res.rows[0]) : null;
   }
 
   async findBySlug(slugStr) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const lower = slugStr.toLowerCase();
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
-        .where(and(eq(this.table.slug, slugStr.toLowerCase()), isNull(this.table.deletedAt)))
+        .where(and(eq(this.table.slug, lower), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleTenantRepository.toDomain(rows[0]) : null;
     }
-    const lower = slugStr.toLowerCase();
-    for (const raw of this._tenantStore.values()) {
-      if (raw.slug.toLowerCase() === lower && !raw.deletedAt) {
-        return DrizzleTenantRepository.toDomain(raw);
-      }
-    }
-    return null;
+    const res = await db.query('SELECT * FROM tenants WHERE LOWER(slug) = $1 AND deleted_at IS NULL LIMIT 1', [lower]);
+    return res.rows[0] ? DrizzleTenantRepository.toDomain(res.rows[0]) : null;
   }
 
   async save(tenant) {
     const raw = DrizzleTenantRepository.toPersistence(tenant);
-    if (this.db && this.db.insert) {
-      await this.db.insert(this.table).values(raw).onConflictDoUpdate({
+    const db = await this.db.connect();
+    if (db.insert) {
+      await db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,
         set: raw
       });
+    } else {
+      await db.query(`
+        INSERT INTO tenants (id, name, slug, status, settings_json, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          slug = EXCLUDED.slug,
+          updated_at = NOW();
+      `, [raw.id, raw.name, raw.slug, raw.status, JSON.stringify(raw.settingsJson || {}), raw.createdAt, raw.updatedAt]);
     }
-    this._tenantStore.set(tenant.id, raw);
     return tenant;
   }
 
   async saveUserMembership(membership) {
     const raw = DrizzleTenantRepository.membershipToPersistence(membership);
-    if (this.db && this.db.insert) {
-      await this.db.insert(this.utmTable).values(raw).onConflictDoUpdate({
+    const db = await this.db.connect();
+    if (db.insert) {
+      await db.insert(this.utmTable).values(raw).onConflictDoUpdate({
         target: this.utmTable.id,
         set: raw
       });
+    } else {
+      await db.query(`
+        INSERT INTO user_tenant_memberships (id, user_id, tenant_id, status, joined_at, last_active_at, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, updated_at = NOW();
+      `, [raw.id, raw.userId, raw.tenantId, raw.status, raw.joinedAt, raw.lastActiveAt, raw.createdAt, raw.updatedAt]);
     }
-    this._membershipStore.set(membership.id, raw);
     return membership;
   }
 
   async findUserMembership(userId, tenantId) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.utmTable)
         .where(and(eq(this.utmTable.userId, userId), eq(this.utmTable.tenantId, tenantId)))
         .limit(1);
       return rows[0] ? DrizzleTenantRepository.membershipToDomain(rows[0]) : null;
     }
-    for (const raw of this._membershipStore.values()) {
-      if (raw.userId === userId && raw.tenantId === tenantId) {
-        return DrizzleTenantRepository.membershipToDomain(raw);
-      }
-    }
-    return null;
+    const res = await db.query('SELECT * FROM user_tenant_memberships WHERE user_id = $1 AND tenant_id = $2 LIMIT 1', [userId, tenantId]);
+    return res.rows[0] ? DrizzleTenantRepository.membershipToDomain(res.rows[0]) : null;
   }
 }
 

@@ -6,7 +6,6 @@ class DrizzleCourseRepository extends BaseRepository {
   constructor(db) {
     super(db);
     this.table = coursesTable;
-    this._courseStore = new Map();
   }
 
   static toDomain(row) {
@@ -54,75 +53,79 @@ class DrizzleCourseRepository extends BaseRepository {
   }
 
   async findById(id) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleCourseRepository.toDomain(rows[0]) : null;
     }
-    const raw = this._courseStore.get(id);
-    return raw ? DrizzleCourseRepository.toDomain(raw) : null;
+    const res = await db.query('SELECT * FROM courses WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+    return res.rows[0] ? DrizzleCourseRepository.toDomain(res.rows[0]) : null;
   }
 
   async findByCode(tenantId, codeStr) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const upperCode = codeStr.toUpperCase();
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(
           and(
             eq(this.table.tenantId, tenantId),
-            eq(this.table.code, codeStr.toUpperCase()),
+            eq(this.table.code, upperCode),
             isNull(this.table.deletedAt)
           )
         )
         .limit(1);
       return rows[0] ? DrizzleCourseRepository.toDomain(rows[0]) : null;
     }
-    const upperCode = codeStr.toUpperCase();
-    for (const raw of this._courseStore.values()) {
-      if (raw.tenantId === tenantId && raw.code.toUpperCase() === upperCode && !raw.deletedAt) {
-        return DrizzleCourseRepository.toDomain(raw);
-      }
-    }
-    return null;
+    const res = await db.query('SELECT * FROM courses WHERE tenant_id = $1 AND code = $2 AND deleted_at IS NULL LIMIT 1', [tenantId, upperCode]);
+    return res.rows[0] ? DrizzleCourseRepository.toDomain(res.rows[0]) : null;
   }
 
   async findByTenantId(tenantId) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(
-          and(
-            eq(this.table.tenantId, tenantId),
-            isNull(this.table.deletedAt)
-          )
+          tenantId
+            ? and(eq(this.table.tenantId, tenantId), isNull(this.table.deletedAt))
+            : isNull(this.table.deletedAt)
         );
       return rows.map(r => DrizzleCourseRepository.toDomain(r)).filter(Boolean);
     }
-    const results = [];
-    for (const raw of this._courseStore.values()) {
-      if ((!tenantId || raw.tenantId === tenantId) && !raw.deletedAt) {
-        const dom = DrizzleCourseRepository.toDomain(raw);
-        if (dom) results.push(dom);
-      }
-    }
-    return results;
+    const queryStr = tenantId 
+      ? 'SELECT * FROM courses WHERE tenant_id = $1 AND deleted_at IS NULL'
+      : 'SELECT * FROM courses WHERE deleted_at IS NULL';
+    const params = tenantId ? [tenantId] : [];
+    const res = await db.query(queryStr, params);
+    return res.rows.map(r => DrizzleCourseRepository.toDomain(r)).filter(Boolean);
   }
-
 
   async save(course) {
     const raw = DrizzleCourseRepository.toPersistence(course);
-    if (this.db && this.db.insert) {
-      await this.db.insert(this.table).values(raw).onConflictDoUpdate({
+    const db = await this.db.connect();
+    if (db.insert) {
+      await db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,
         set: raw
       });
+    } else {
+      await db.query(`
+        INSERT INTO courses (id, tenant_id, code, title, description, duration, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          updated_at = NOW();
+      `, [raw.id, raw.tenantId, raw.code, raw.title, raw.description, '4 Weeks', raw.status, raw.createdAt, raw.updatedAt]);
     }
-    this._courseStore.set(course.id, raw);
     return course;
   }
 }

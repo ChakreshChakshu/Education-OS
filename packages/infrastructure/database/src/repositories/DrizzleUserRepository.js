@@ -2,13 +2,10 @@ const { BaseRepository } = require('./BaseRepository');
 const { usersTable } = require('../schema/identity.schema');
 const { eq, and, isNull } = require('../drizzle-bridge');
 
-const globalUserMemoryStore = new Map();
-
 class DrizzleUserRepository extends BaseRepository {
   constructor(db) {
     super(db);
     this.table = usersTable;
-    this._memoryStore = globalUserMemoryStore;
   }
 
   static toDomain(row) {
@@ -61,47 +58,54 @@ class DrizzleUserRepository extends BaseRepository {
   }
 
   async findById(id) {
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleUserRepository.toDomain(rows[0]) : null;
     }
-    const raw = this._memoryStore.get(id);
-    return raw ? DrizzleUserRepository.toDomain(raw) : null;
+    const res = await db.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+    return res.rows[0] ? DrizzleUserRepository.toDomain(res.rows[0]) : null;
   }
 
   async findByEmail(emailStr) {
     if (!emailStr) return null;
     const lower = emailStr.toLowerCase();
-    if (this.db && this.db.select) {
-      const rows = await this.db
+    const db = await this.db.connect();
+    if (db.select) {
+      const rows = await db
         .select()
         .from(this.table)
         .where(and(eq(this.table.email, lower), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleUserRepository.toDomain(rows[0]) : null;
     }
-    for (const raw of this._memoryStore.values()) {
-      const rawEmail = typeof raw.email === 'string' ? raw.email : raw.email?.value;
-      if (rawEmail && rawEmail.toLowerCase() === lower && !raw.deletedAt) {
-        return DrizzleUserRepository.toDomain(raw);
-      }
-    }
-    return null;
+    const res = await db.query('SELECT * FROM users WHERE LOWER(email) = $1 AND deleted_at IS NULL LIMIT 1', [lower]);
+    return res.rows[0] ? DrizzleUserRepository.toDomain(res.rows[0]) : null;
   }
 
   async save(user) {
     const raw = DrizzleUserRepository.toPersistence(user);
-    if (this.db && this.db.insert) {
-      await this.db.insert(this.table).values(raw).onConflictDoUpdate({
+    const db = await this.db.connect();
+    if (db.insert) {
+      await db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,
         set: raw
       });
+    } else {
+      await db.query(`
+        INSERT INTO users (id, email, password_hash, name, avatar, phone, timezone, language, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          password_hash = EXCLUDED.password_hash,
+          name = EXCLUDED.name,
+          updated_at = NOW();
+      `, [raw.id, raw.email, raw.passwordHash, raw.name, raw.avatar, raw.phone, raw.timezone, raw.language, raw.status, raw.createdAt, raw.updatedAt]);
     }
-    this._memoryStore.set(user.id, raw);
     return user;
   }
 }
