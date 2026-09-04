@@ -20,6 +20,7 @@ class DrizzleLessonModuleRepository extends BaseRepository {
         contentUrl: row.contentUrl || row.content_url,
         order: row.order || row.order_index || 1,
         status: row.status,
+        quiz: row.quizJson || row.quiz_json || row.quiz || null,
         createdAt: row.createdAt || row.created_at,
         updatedAt: row.updatedAt || row.updated_at,
         deletedAt: row.deletedAt || row.deleted_at,
@@ -40,10 +41,11 @@ class DrizzleLessonModuleRepository extends BaseRepository {
       contentUrl: module.contentUrl,
       order: module.order,
       status: module.status,
-      createdAt: module.props.createdAt,
-      updatedAt: module.props.updatedAt,
-      deletedAt: module.props.deletedAt,
-      version: module.props.version || 1
+      quiz: module.quiz || module.props?.quiz || null,
+      createdAt: module.props?.createdAt || new Date(),
+      updatedAt: module.props?.updatedAt || new Date(),
+      deletedAt: module.props?.deletedAt,
+      version: module.props?.version || 1
     };
   }
 
@@ -83,15 +85,17 @@ class DrizzleLessonModuleRepository extends BaseRepository {
         set: raw
       });
     } else {
+      const quizJson = raw.quiz ? JSON.stringify(raw.quiz) : null;
       await db.query(`
-        INSERT INTO lesson_modules (id, course_id, title, content_type, content_url, order_index, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO lesson_modules (id, course_id, title, content_type, content_url, quiz_json, order_index, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO UPDATE SET
           title = EXCLUDED.title,
           content_type = EXCLUDED.content_type,
           content_url = EXCLUDED.content_url,
+          quiz_json = EXCLUDED.quiz_json,
           updated_at = NOW();
-      `, [raw.id, raw.courseId, raw.title, raw.contentType, raw.contentUrl, raw.order || 1, raw.status, raw.createdAt, raw.updatedAt]);
+      `, [raw.id, raw.courseId, raw.title, raw.contentType, raw.contentUrl, quizJson, raw.order || 1, raw.status, raw.createdAt, raw.updatedAt]);
     }
     return module;
   }

@@ -1,3 +1,5 @@
+const { randomUUID } = require('crypto');
+
 async function academicsRoutes(fastify, options) {
   const container = options.container;
 
@@ -104,10 +106,18 @@ async function academicsRoutes(fastify, options) {
   // Create Module for Course Route
   fastify.post('/courses/:id/modules', async (request, reply) => {
     const moduleRepo = container.resolve('LessonModuleRepository');
+    const courseRepo = container.resolve('CourseRepository');
     const { title, contentType, contentUrl, order, quiz } = request.body || {};
 
+    const course = await courseRepo.findById(request.params.id);
+    if (!course) {
+      return reply.status(404).send({ success: false, error: 'Cannot create module for non-existent course' });
+    }
+
+    const moduleId = randomUUID();
+
     const newModule = {
-      id: 'module_' + Date.now(),
+      id: moduleId,
       courseId: request.params.id,
       title: title || 'Untitled Lesson Module',
       contentType: contentType || 'VIDEO',
