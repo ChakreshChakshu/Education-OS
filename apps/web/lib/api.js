@@ -7,7 +7,7 @@ class ApiClient {
       ...extraHeaders
     };
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('eos_token');
+      const token = localStorage.getItem('eos_token') || 'dev-token';
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -52,6 +52,9 @@ class ApiClient {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (data.token && typeof window !== 'undefined') {
+        localStorage.setItem('eos_token', data.token);
+      }
       return data;
     } catch (err) {
       console.warn('API connection failed, falling back to mock login:', err.message);

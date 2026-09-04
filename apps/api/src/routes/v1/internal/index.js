@@ -1,9 +1,18 @@
 const academicsRoutes = require('./academics');
 const learningRoutes = require('./learning');
 const mediaRoutes = require('./media');
+const { authenticateJWT } = require('../../../middleware/auth');
 
 async function internalRoutes(fastify, options) {
   const container = options.container;
+
+  // Attach container to request context
+  fastify.addHook('onRequest', async (request, reply) => {
+    request.container = container;
+  });
+
+  // Enforce JWT Authentication on all internal endpoints
+  fastify.addHook('onRequest', authenticateJWT);
 
   // Register sub-routers
   await fastify.register(academicsRoutes, { prefix: '/academics', container });
@@ -16,7 +25,10 @@ async function internalRoutes(fastify, options) {
   });
 
   fastify.get('/me', async (request, reply) => {
-    return { user: request.user || { id: 'mock-admin', role: 'admin' } };
+    return {
+      success: true,
+      user: request.user
+    };
   });
 
   // Tenant Provisioning Route
