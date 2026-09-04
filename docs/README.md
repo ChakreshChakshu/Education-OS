@@ -24,6 +24,7 @@ This document establishes the architecture master guide, principles, and directo
 | **06 – Module Architecture** | Clean Layering (`domains/`, `infrastructure/`, `shared/`) | [module_architecture.md](file:///home/chakresh/EducationOS/docs/module_architecture.md) |
 | **07 – Authentication & Authorization** | JWT, Opaque Refresh Tokens, Argon2id, Scoped RBAC | [auth_and_authorization.md](file:///home/chakresh/EducationOS/docs/auth_and_authorization.md) |
 | **08 – API Design** | REST, Business Action Routes, Envelopes, Cursor Paging | [api_design.md](file:///home/chakresh/EducationOS/docs/api_design.md) |
+| **08A – REST API Endpoints Reference** | Full 13 Endpoint Specs (Auth, Courses, Modules, Uploads, Quizzes, Tenants) | [api_endpoints_reference.md](file:///home/chakresh/EducationOS/docs/api_endpoints_reference.md) |
 | **09 – Event & Queue Architecture** | Transactional Outbox, Jobs, Worker Retries | [event_and_queue_architecture.md](file:///home/chakresh/EducationOS/docs/event_and_queue_architecture.md) |
 | **10 – Video Architecture** | Cloudflare R2 Direct Uploads, HLS Bitrate Profiles | [video_architecture.md](file:///home/chakresh/EducationOS/docs/video_architecture.md) |
 | **11 – Storage Architecture** | Single Bucket Prefix Strategy, Asset Lifecycle | [storage_architecture.md](file:///home/chakresh/EducationOS/docs/storage_architecture.md) |
