@@ -11,6 +11,7 @@ import {
   SquaresFour, 
   BookOpen, 
   Users,
+  Buildings,
   SignOut,
   Bell,
   Sun,
@@ -50,6 +51,7 @@ export default function DashboardLayout({ children }) {
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: SquaresFour },
     { name: "Course Manager", href: "/dashboard/courses", icon: BookOpen },
+    { name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings },
     { name: "Students", href: "/dashboard/students", icon: Users }
   ];
 

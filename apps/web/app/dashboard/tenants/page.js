@@ -41,12 +41,13 @@ export default function TenantsPage() {
         organizationName: branchName || "Main Campus"
       });
 
-      if (res.success) {
+      if (res.success && res.data) {
+        const tenantData = res.data.tenant || res.data;
         const created = {
-          id: res.data.tenant.id,
-          name: res.data.tenant.name,
-          slug: res.data.tenant.slug,
-          branch: res.data.organization?.name || "Main Branch"
+          id: tenantData.id || 'tenant_' + Date.now(),
+          name: tenantData.name || tenantName,
+          slug: tenantData.slug || slug,
+          branch: res.data.organization?.name || branchName || "Main Campus"
         };
         tenants.push(created);
         switchTenant(created);
@@ -54,6 +55,8 @@ export default function TenantsPage() {
         setTenantName("");
         setSlug("");
         setBranchName("");
+      } else {
+        alert("Tenant creation failed: " + (res.error || "Unknown error"));
       }
     } catch (err) {
       alert("Tenant creation error: " + err.message);
@@ -69,7 +72,7 @@ export default function TenantsPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Institution & Branch Provisioning</h1>
           <p className="text-base text-muted-foreground mt-1 font-medium">
-            Manage multi-tenant institutional boundaries, campus branches, and subdomain slugs
+            Manage multi-tenant institutional boundaries, campus branches, and subdomain slugs directly inside Neon Cloud
           </p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold px-6">
@@ -153,8 +156,8 @@ export default function TenantsPage() {
           <Card className="w-full max-w-lg bg-popover border-border shadow-2xl rounded-2xl">
             <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
               <div>
-                <CardTitle className="text-xl font-bold">Provision Campus Branch</CardTitle>
-                <CardDescription className="text-sm">Create isolated multi-tenant boundary & campus branch</CardDescription>
+                <CardTitle className="text-xl font-bold">Provision Campus Branch & Tenant</CardTitle>
+                <CardDescription className="text-sm">Create isolated multi-tenant boundary & campus branch in Neon Cloud</CardDescription>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded-lg">
                 <X size={22} />
@@ -163,7 +166,7 @@ export default function TenantsPage() {
             <form onSubmit={handleCreateTenant}>
               <CardContent className="space-y-4 pt-5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">Institution Name</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Institution / Tenant Name</label>
                   <Input required placeholder="e.g. Oxford Institute of Technology" className="h-11 text-base font-bold" value={tenantName} onChange={(e) => setTenantName(e.target.value)} />
                 </div>
 
@@ -173,14 +176,14 @@ export default function TenantsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">Branch / Campus Name</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Organization / Campus Branch</label>
                   <Input placeholder="Main Campus" className="h-11 text-base font-bold" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
                 </div>
               </CardContent>
               <div className="flex justify-end gap-3 p-5 border-t border-border bg-muted/20 rounded-b-2xl">
                 <Button type="button" variant="outline" size="lg" className="font-semibold" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                 <Button type="submit" size="lg" className="font-bold" disabled={loading}>
-                  {loading ? "Provisioning..." : "Provision Branch"}
+                  {loading ? "Provisioning..." : "Provision Tenant & Organization"}
                 </Button>
               </div>
             </form>

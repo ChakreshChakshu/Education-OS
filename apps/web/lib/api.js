@@ -56,10 +56,17 @@ class ApiClient {
 
   static async createTenant(payload) {
     try {
+      const body = {
+        name: payload.name || payload.tenantName,
+        slug: payload.slug,
+        ownerUserId: payload.ownerUserId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8',
+        orgName: payload.orgName || payload.organizationName || 'Main Campus',
+        orgCode: payload.orgCode || 'BRANCH-01'
+      };
       const res = await fetch(`${API_BASE_URL}/internal/tenants`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Tenant creation failed');
