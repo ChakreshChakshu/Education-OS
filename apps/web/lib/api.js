@@ -31,7 +31,6 @@ class ApiClient {
       return data;
     } catch (err) {
       console.warn('API connection failed, falling back to local simulation:', err.message);
-      // Fallback mock for development demo when standalone
       return {
         success: true,
         data: {
@@ -93,7 +92,21 @@ class ApiClient {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch courses');
       return data;
     } catch (err) {
-      console.warn('API getCourses failed, using local store fallback:', err.message);
+      console.warn('API getCourses failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getCourseById(courseId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/internal/academics/courses/${courseId}`, {
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch course details');
+      return data;
+    } catch (err) {
+      console.warn('API getCourseById failed:', err.message);
       return { success: false, error: err.message };
     }
   }
@@ -113,7 +126,36 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getCourseModules(courseId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules`, {
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch modules');
+      return data;
+    } catch (err) {
+      console.warn('API getCourseModules failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async createCourseModule(courseId, payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Module creation failed');
+      return data;
+    } catch (err) {
+      console.warn('API createCourseModule failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };
-

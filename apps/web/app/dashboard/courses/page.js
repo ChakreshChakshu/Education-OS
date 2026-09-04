@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -15,7 +16,9 @@ import {
   GraduationCap, 
   Clock, 
   X,
-  BookBookmark
+  BookBookmark,
+  ArrowRight,
+  Hourglass
 } from "@phosphor-icons/react";
 
 export default function CoursesPage() {
@@ -31,7 +34,7 @@ export default function CoursesPage() {
   const [newCode, setNewCode] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newCredits, setNewCredits] = useState(3);
+  const [newDuration, setNewDuration] = useState("4 Weeks");
 
   useEffect(() => {
     async function loadCourses() {
@@ -40,7 +43,8 @@ export default function CoursesPage() {
         setCourses(res.data.map(c => ({
           ...c,
           enrolled: c.enrolled || 0,
-          instructor: c.instructor || "Assigned Administrator"
+          instructor: c.instructor || "Assigned Administrator",
+          duration: c.duration || (c.credits ? `${c.credits * 2} Weeks` : "4 Weeks")
         })));
       }
     }
@@ -57,7 +61,7 @@ export default function CoursesPage() {
       title: newTitle,
       code: newCode,
       description: newDesc || "No description provided.",
-      credits: Number(newCredits)
+      credits: parseInt(newDuration) || 4
     };
 
     const res = await ApiClient.createCourse(payload);
@@ -65,6 +69,7 @@ export default function CoursesPage() {
     const created = (res.success && res.data) ? res.data : {
       id: "course_" + Date.now(),
       ...payload,
+      duration: newDuration,
       status: "ACTIVE",
       enrolled: 0,
       instructor: "Assigned Administrator"
@@ -128,7 +133,7 @@ export default function CoursesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map((course) => (
-            <Card key={course.id} className="flex flex-col justify-between hover:border-primary/50 transition-colors p-2">
+            <Card key={course.id} className="flex flex-col justify-between hover:border-primary/50 transition-colors p-2 group">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <Badge variant="outline" className="font-mono text-xs font-bold px-2.5 py-0.5">{course.code}</Badge>
@@ -136,7 +141,9 @@ export default function CoursesPage() {
                     {course.status || "ACTIVE"}
                   </Badge>
                 </div>
-                <CardTitle className="text-xl font-bold leading-tight">{course.title}</CardTitle>
+                <CardTitle className="text-xl font-bold leading-tight group-hover:text-primary transition-colors">
+                  {course.title}
+                </CardTitle>
                 <CardDescription className="line-clamp-2 text-sm mt-2 font-medium">
                   {course.description}
                 </CardDescription>
@@ -144,11 +151,16 @@ export default function CoursesPage() {
               <CardContent className="pt-0 text-sm space-y-3.5">
                 <div className="flex items-center justify-between text-muted-foreground pt-3 border-t border-border/60 font-medium">
                   <span className="flex items-center gap-2"><GraduationCap size={16} /> {course.instructor || "Assigned Administrator"}</span>
-                  <span className="font-bold text-foreground">{course.credits} Credits</span>
+                  <span className="font-bold text-foreground flex items-center gap-1.5"><Hourglass size={16} /> {course.duration || "4 Weeks"}</span>
                 </div>
-                <div className="flex items-center justify-between text-muted-foreground font-medium">
-                  <span className="flex items-center gap-2"><Users size={16} /> {course.enrolled || 0} Enrolled</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} /> Active Semester</span>
+
+                <div className="pt-2">
+                  <Link href={`/dashboard/courses/${course.id}`} className="block">
+                    <Button variant="secondary" className="w-full gap-2 font-bold justify-between">
+                      <span>Curriculum Builder</span>
+                      <ArrowRight size={16} weight="bold" />
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -177,8 +189,8 @@ export default function CoursesPage() {
                     <Input required placeholder="CS-204" className="h-11 text-base" value={newCode} onChange={(e) => setNewCode(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Credits</label>
-                    <Input type="number" min={1} max={10} className="h-11 text-base" value={newCredits} onChange={(e) => setNewCredits(e.target.value)} />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Course Duration</label>
+                    <Input placeholder="e.g. 4 Weeks or 8 Weeks" className="h-11 text-base" value={newDuration} onChange={(e) => setNewDuration(e.target.value)} />
                   </div>
                 </div>
 
