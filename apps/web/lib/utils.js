@@ -1,4 +1,3 @@
-// Utility helpers for CSS class merges
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

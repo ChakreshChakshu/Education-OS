@@ -115,7 +115,20 @@ test('POST /api/v1/internal/academics/courses creates a course', async () => {
   assert.equal(body.data.title, 'Database Management Systems');
   assert.equal(body.data.code, 'CS-302');
   assert.equal(body.data.credits, 4);
+
+  // Verify GET /courses retrieves created course
+  const listRes = await app.inject({
+    method: 'GET',
+    url: '/api/v1/internal/academics/courses',
+    headers: { 'x-tenant-id': tenantId }
+  });
+  assert.equal(listRes.statusCode, 200);
+  const listBody = JSON.parse(listRes.payload);
+  assert.equal(listBody.success, true);
+  assert.equal(listBody.data.length, 1);
+  assert.equal(listBody.data[0].code, 'CS-302');
 });
+
 
 test('POST /api/v1/internal/academics/batches provisions a cohort batch', async () => {
   const app = await buildApp();

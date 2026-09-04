@@ -1,26 +1,152 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 
+   * Single Source of Truth Brand Palette (SOLID MINIMALISM - NO GRADIENTS)
+   * 1. Obsidian Black: #0A0E14
+   * 2. Deep Slate Blue: #1F3A4B
+   * 3. Electric Orange: #FF7328
+   * 4. Crisp Off-White: #EEF2F6
+   */
+
+  /* Light Mode Palette */
+  --background: 210 25% 96%;      /* Crisp Off-White #EEF2F6 */
+  --foreground: 220 30% 8%;       /* Solid Obsidian Text */
+  
+  --card: 0 0% 100%;             /* Solid Pure White surface */
+  --card-foreground: 220 30% 8%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 30% 8%;
+  
+  --primary: 22 100% 55%;         /* Solid Electric Orange #FF7328 */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 204 41% 21%;       /* Solid Deep Slate Blue #1F3A4B */
+  --secondary-foreground: 210 25% 96%;
+  
+  --muted: 210 20% 90%;
+  --muted-foreground: 204 20% 30%; /* High contrast legible text */
+  
+  --accent: 210 20% 92%;          /* Solid subtle accent fill */
+  --accent-foreground: 220 30% 8%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  
+  --border: 210 20% 82%;
+  --input: 210 20% 82%;
+  --ring: 22 100% 55%;
+  
+  --radius: 0.75rem;
+}
+
+.dark {
+  /* Dark Mode Palette - SOLID MINIMALIST DARK */
+  --background: 220 28% 7%;       /* Solid Obsidian Black #0A0E14 */
+  --foreground: 210 25% 96%;      /* Crisp High-Legibility Off-White Text */
+  
+  --card: 204 35% 12%;            /* Solid Deep Slate Card #142530 */
+  --card-foreground: 210 25% 96%;
+  
+  --popover: 204 35% 10%;
+  --popover-foreground: 210 25% 96%;
+  
+  --primary: 22 100% 55%;         /* Solid Electric Orange #FF7328 */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 204 35% 20%;       /* Solid Deep Slate #1E3747 */
+  --secondary-foreground: 210 25% 96%;
+  
+  --muted: 204 30% 16%;
+  --muted-foreground: 204 20% 80%; /* High contrast crisp text for dark surfaces */
+  
+  --accent: 204 35% 18%;          /* Solid hover fill */
+  --accent-foreground: 210 25% 96%;
+  
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 70% 35%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 45%;
+  --warning-foreground: 0 0% 100%;
+  
+  --border: 204 25% 22%;
+  --input: 204 25% 22%;
+  --ring: 22 100% 55%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-heading), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+  --radius-xl: var(--radius);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 2rem; /* 32px */
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: 1.625rem; /* 26px */
+  line-height: 1.3;
+}
+
+h3 {
+  font-size: 1.35rem; /* 21.6px */
+  line-height: 1.35;
+}
+
+h4 {
+  font-size: 1.15rem; /* 18.4px */
+  line-height: 1.4;
 }

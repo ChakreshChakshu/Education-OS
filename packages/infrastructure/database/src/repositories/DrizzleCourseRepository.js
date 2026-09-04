@@ -90,6 +90,30 @@ class DrizzleCourseRepository extends BaseRepository {
     return null;
   }
 
+  async findByTenantId(tenantId) {
+    if (this.db && this.db.select) {
+      const rows = await this.db
+        .select()
+        .from(this.table)
+        .where(
+          and(
+            eq(this.table.tenantId, tenantId),
+            isNull(this.table.deletedAt)
+          )
+        );
+      return rows.map(r => DrizzleCourseRepository.toDomain(r)).filter(Boolean);
+    }
+    const results = [];
+    for (const raw of this._courseStore.values()) {
+      if ((!tenantId || raw.tenantId === tenantId) && !raw.deletedAt) {
+        const dom = DrizzleCourseRepository.toDomain(raw);
+        if (dom) results.push(dom);
+      }
+    }
+    return results;
+  }
+
+
   async save(course) {
     const raw = DrizzleCourseRepository.toPersistence(course);
     if (this.db && this.db.insert) {
