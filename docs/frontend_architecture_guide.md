@@ -2,66 +2,84 @@
 
 ## 1. Executive Summary & Overview
 
-The `apps/web` application is the enterprise front-end portal for the Education Operating System (EOS). Built using **Next.js 16 (App Router)**, **Tailwind CSS v4**, **Plus Jakarta Sans** typography, **shadcn UI** component patterns, and **Phosphor Icons** (`@phosphor-icons/react`), it provides a high-aesthetic, multi-tenant UI for institution administrators, instructors, and students.
+The `apps/web` application is the enterprise front-end portal for the Education Operating System (EOS). Built using **Next.js 16 (App Router)**, **Tailwind CSS v4**, **Outfit** (headings) & **Inter** (body) typography, **shadcn UI** component patterns, and **Phosphor Icons** (`@phosphor-icons/react`), it provides a solid minimalist, high-contrast, multi-tenant UI for institution administrators, instructors, and students.
 
 ---
 
-## 2. Design System Architecture: Single Source of Truth
+## 2. Design System Architecture: Solid Modern Minimalism
 
-To ensure consistent branding, theme customizability, and rapid palette swapping, all visual tokens are defined in a **Single Source of Truth**: `apps/web/app/globals.css`.
+To ensure crisp readability and executive SaaS aesthetics, all visual tokens favor **Solid Minimalist Surfaces** with **Zero Gradients**.
 
 ### Brand Color Tokens Specification (Extracted Swatch)
 
 | Swatch Layer | Color Name | Hex Code | HSL Token | Usage Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | **Layer 1** | Obsidian Pitch Black | `#0A0E14` | `220 30% 6%` | Dark Mode Viewport Background / High Contrast Text |
-| **Layer 2** | Deep Slate Blue | `#1F3A4B` | `204 41% 21%` | Secondary Containers, Dark Cards, Border Lines |
+| **Layer 2** | Deep Slate Blue | `#142530` | `204 41% 15%` | Solid Containers, Dark Cards, Border Lines |
 | **Layer 3** | Electric Vibrant Orange | `#FF7328` | `22 100% 58%` | Primary Buttons, Active States, Glowing Badges |
 | **Layer 4** | Crisp Off-White | `#EEF2F6` | `210 25% 95%` | Light Mode Viewport Background / Crisp Cards |
 
-### Typography
+### Typography Hierarchy
 
-- **Primary Sans:** `Plus_Jakarta_Sans` (Google Font) — Modern, eye-catching geometric sans-serif for UI headings & body.
-- **Code Mono:** `JetBrains_Mono` (Google Font) — Monospace font for IDs, tokens, & technical metrics.
+- **Headings (`h1`-`h6`):** `Outfit` (Google Font) — Bold, modern geometric sans-serif for high-impact titles (`500`, `600`, `700`, `800`).
+- **Body & UI Text:** `Inter` (Google Font) — High-legibility geometric sans-serif (`15px` body, `16px` inputs, `18px-32px` section titles).
+- **Code Mono:** `JetBrains_Mono` (Google Font) — Monospace font for IDs, course codes, & technical metrics.
 
 ---
 
-## 3. Directory Layout & Module Responsibilities
+## 3. Directory Layout & Key Modules
 
 ```
 apps/web/
 ├── app/
-│   ├── globals.css                # Single Source of Truth Theme CSS (Brand Swatch)
-│   ├── layout.js                 # Root Next.js Layout + Plus Jakarta Sans + AuthProvider
-│   ├── page.js                   # Hero Landing Page
+│   ├── globals.css                # Solid Minimalist Theme CSS (Zero Gradients)
+│   ├── layout.js                 # Root Layout + Outfit/Inter Fonts + AuthProvider
+│   ├── page.js                   # Hero Landing Page (Solid Minimalist)
 │   ├── login/
-│   │   └── page.js               # Dual-Tab Auth Portal (Login + Registration)
+│   │   └── page.js               # Dual-Tab Auth Portal (Dynamic Institution Registration)
 │   └── dashboard/
-│       ├── layout.js             # Collapsible Sidebar Shell + Tenant Switcher
-│       ├── page.js               # Executive Analytics & Activity Stream
+│       ├── layout.js             # Sidebar Shell (Overview, Courses, Students nav)
+│       ├── page.js               # Executive Analytics Overview
 │       ├── courses/
-│       │   └── page.js           # Course Management Grid & Modal
+│       │   ├── page.js           # Course Catalog & Duration Management
+│       │   └── [id]/
+│       │       ├── page.js       # Curriculum Builder (Video, PDF, Quiz Modules)
+│       │       └── learn/
+│       │           └── page.js   # Student LMS Video & Interactive Quiz Player
+│       ├── students/
+│       │   └── page.js           # Student Roster & Enrollment Management
 │       └── tenants/
-│           └── page.js           # Multi-Tenant Branch Provisioning
+│           └── page.js           # Institution Provisioning
 ├── components/
-│   └── ui/                       # shadcn UI Primitives
-│       ├── button.jsx            # CVA Button with 6 variants
-│       ├── card.jsx              # Card, Header, Title, Description, Content
-│       ├── input.jsx             # Accessible Input with focus ring
-│       └── badge.jsx             # Status Pill Badges
+│   └── ui/                       # shadcn UI Primitives (Button, Card, Input, Badge)
 ├── lib/
-│   ├── api.js                    # REST ApiClient with token & x-tenant-id headers
-│   └── utils.js                  # Tailwind class merger (`cn(...)`)
+│   └── api.js                    # REST ApiClient (Courses, Modules, Tenants)
 └── providers/
-    └── auth-context.js           # React Context for session & tenant switching
+    └── auth-context.js           # React AuthContext (Session & Tenant binding)
 ```
 
 ---
 
-## 4. Multi-Tenant Context Ingestion
+## 4. Work Completed & Recent Enhancements
 
-All HTTP API requests executed via `ApiClient` automatically inject:
-1. `Authorization: Bearer <jwt-token>`
-2. `x-tenant-id: <active-tenant-id>`
+1. **Solid Minimalist UI Overhaul:**
+   - Purged all background gradients across all routes (`/`, `/login`, `/dashboard`, `/dashboard/courses`).
+   - Standardized solid surface colors, 2px borders, and high-contrast text.
 
-This guarantees institutional data segregation across Bounded Context API routes.
+2. **Typography Scaling:**
+   - Upgraded titles to `Outfit` bold weights and scaled heading font sizes (`text-3xl`, `text-5xl`, `text-7xl`).
+   - Increased body font readability (15px body, 16px input text).
+
+3. **Dynamic Institution Binding & Zero Dummy Data:**
+   - Single-tenant binding tied dynamically to registered institution names.
+   - Cleared all hardcoded mock placeholders across course catalog & student rosters.
+
+4. **Course Curriculum & Quiz Builder (`/dashboard/courses/[id]`):**
+   - Lesson module builder supporting Video streams (`.mp4`), PDF document assignments, and Quiz assessments.
+   - Replaced legacy "Credits" terminology with **Course Duration** (e.g. `4 Weeks`).
+
+5. **Student LMS Video & Quiz Player (`/dashboard/courses/[id]/learn`):**
+   - Interactive classroom page featuring streaming HTML5 video player, PDF reader, and instant quiz scoring with progress tracking.
+
+6. **Student Roster Management (`/dashboard/students`):**
+   - Student enrollment form, cohort metrics cards, and student roster table.

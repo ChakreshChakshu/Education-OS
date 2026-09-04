@@ -20,6 +20,7 @@ This document establishes the architecture master guide, principles, and directo
 | **05D – Assessment Model** | Quizzes, Polymorphic Targets, Immutable Snapshotting | [assessment_model.md](file:///home/chakresh/EducationOS/docs/assessment_model.md) |
 | **05E – Media & Video Architecture** | Reusable MediaAssets, FFmpeg HLS Transcoding | [media_and_video_architecture.md](file:///home/chakresh/EducationOS/docs/media_and_video_architecture.md) |
 | **05F – Files & Storage Architecture** | StorageProvider, Presigned URLs, File Lifecycle | [files_and_storage_architecture.md](file:///home/chakresh/EducationOS/docs/files_and_storage_architecture.md) |
+| **05G – Frontend Architecture Guide** | Next.js 16, Solid Minimalism, Outfit/Inter Typography, LMS Player | [frontend_architecture_guide.md](file:///home/chakresh/EducationOS/docs/frontend_architecture_guide.md) |
 | **06 – Module Architecture** | Clean Layering (`domains/`, `infrastructure/`, `shared/`) | [module_architecture.md](file:///home/chakresh/EducationOS/docs/module_architecture.md) |
 | **07 – Authentication & Authorization** | JWT, Opaque Refresh Tokens, Argon2id, Scoped RBAC | [auth_and_authorization.md](file:///home/chakresh/EducationOS/docs/auth_and_authorization.md) |
 | **08 – API Design** | REST, Business Action Routes, Envelopes, Cursor Paging | [api_design.md](file:///home/chakresh/EducationOS/docs/api_design.md) |
