@@ -15,7 +15,9 @@ import {
   Users, 
   MapPin, 
   X,
-  Globe
+  Globe,
+  PlusCircle,
+  Gear
 } from "@phosphor-icons/react";
 
 export default function TenantsPage() {
@@ -61,94 +63,123 @@ export default function TenantsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border border-border">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Institutional Tenant Organizations</h1>
-          <p className="text-sm text-muted-foreground">Manage multi-tenant isolation, branch campuses, and domain partitioning</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Institution & Branch Provisioning</h1>
+          <p className="text-base text-muted-foreground mt-1 font-medium">
+            Manage multi-tenant institutional boundaries, campus branches, and subdomain slugs
+          </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2">
-          <Plus size={16} /> Provision New Branch
+        <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold px-6">
+          <Plus size={20} weight="bold" /> Provision Campus Branch
         </Button>
       </div>
 
-      {/* Tenant List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {tenants.map((t) => {
-          const isActive = activeTenant?.id === t.id;
-          return (
-            <Card key={t.id} className={`${isActive ? "border-primary shadow-md bg-accent/10" : "hover:border-primary/40"}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <Badge variant={isActive ? "default" : "outline"} className="text-[10px] font-mono">
-                    {isActive ? "ACTIVE CONTEXT" : "SEPARATE TENANT"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground font-mono">/{t.slug}</span>
-                </div>
-                <CardTitle className="text-xl font-bold mt-2 flex items-center gap-2">
-                  <Buildings size={22} className="text-primary" /> {t.name}
-                </CardTitle>
-                <CardDescription className="text-xs flex items-center gap-1 mt-1">
-                  <MapPin size={14} /> Branch: <span className="font-semibold text-foreground">{t.branch}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-2">
-                <div className="flex items-center justify-between text-xs py-2 border-t border-border/60">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><Shield size={14} /> Isolation Boundary</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">{t.id}</span>
-                </div>
+      {/* Active Context Banner */}
+      {activeTenant && (
+        <Card className="p-6 border-primary/50 bg-primary/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-2xl shrink-0">
+              {activeTenant.name.charAt(0)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="success" className="text-xs font-bold px-2.5 py-0.5">CURRENTLY ACTIVE CONTEXT</Badge>
+                <span className="text-xs font-mono text-muted-foreground">https://{activeTenant.slug}.education-os.edu</span>
+              </div>
+              <h2 className="text-2xl font-extrabold text-foreground mt-1">{activeTenant.name}</h2>
+              <p className="text-sm text-muted-foreground font-medium flex items-center gap-1.5 mt-0.5">
+                <MapPin size={16} /> Campus Branch: <strong className="text-foreground">{activeTenant.branch || "Main Campus"}</strong>
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="lg" className="gap-2 font-bold shrink-0">
+            <Gear size={20} weight="bold" /> Institution Settings
+          </Button>
+        </Card>
+      )}
 
-                <div className="flex items-center justify-between pt-2">
-                  {isActive ? (
-                    <Badge variant="success" className="gap-1 py-1">
-                      <Check size={14} /> Currently Selected
+      {/* Tenant List */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold text-foreground">Registered Institutions & Branches ({tenants.length})</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {tenants.map((t) => {
+            const isActive = activeTenant?.id === t.id;
+            return (
+              <Card key={t.id} className={`p-2 transition-colors ${isActive ? "border-primary bg-card" : "hover:border-primary/50 bg-card"}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant={isActive ? "success" : "outline"} className="text-xs font-bold px-2.5 py-0.5">
+                      {isActive ? "ACTIVE CONTEXT" : "SEPARATE TENANT"}
                     </Badge>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => switchTenant(t)}>
-                      Switch to Context
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                    <span className="text-xs text-muted-foreground font-mono font-bold">/{t.slug}</span>
+                  </div>
+                  <CardTitle className="text-2xl font-bold mt-2 flex items-center gap-3">
+                    <Buildings size={28} className="text-primary" /> {t.name}
+                  </CardTitle>
+                  <CardDescription className="text-sm flex items-center gap-1.5 mt-1 font-medium">
+                    <MapPin size={16} /> Campus: <span className="font-bold text-foreground">{t.branch || "Main Campus"}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between text-xs py-3 border-t border-border/60">
+                    <span className="text-muted-foreground font-medium flex items-center gap-1.5"><Shield size={16} /> Isolation Boundary</span>
+                    <span className="font-mono text-xs font-bold text-foreground">{t.id}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {isActive ? (
+                      <span className="text-sm font-bold text-success flex items-center gap-1.5">
+                        <Check size={18} weight="bold" /> Active Institutional Workspace
+                      </span>
+                    ) : (
+                      <Button variant="secondary" size="md" className="font-bold" onClick={() => switchTenant(t)}>
+                        Switch to Workspace
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* Provision Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg bg-popover border-border shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg bg-popover border-border shadow-2xl rounded-2xl">
             <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
               <div>
-                <CardTitle className="text-lg font-bold">Provision Tenant Branch</CardTitle>
-                <CardDescription>Create isolated tenant aggregate & default branch</CardDescription>
+                <CardTitle className="text-xl font-bold">Provision Campus Branch</CardTitle>
+                <CardDescription className="text-sm">Create isolated multi-tenant boundary & campus branch</CardDescription>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X size={20} />
+              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded-lg">
+                <X size={22} />
               </button>
             </CardHeader>
             <form onSubmit={handleCreateTenant}>
-              <CardContent className="space-y-4 pt-4">
+              <CardContent className="space-y-4 pt-5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Institution Name</label>
-                  <Input required placeholder="Oxford Institute of Technology" value={tenantName} onChange={(e) => setTenantName(e.target.value)} />
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Institution Name</label>
+                  <Input required placeholder="e.g. Oxford Institute of Technology" className="h-11 text-base font-bold" value={tenantName} onChange={(e) => setTenantName(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Tenant Slug (Unique Domain Handle)</label>
-                  <Input required placeholder="oxford-tech" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))} />
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Subdomain Slug</label>
+                  <Input required placeholder="oxford-tech" className="h-11 text-base font-mono font-bold" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Default Branch Organization Name</label>
-                  <Input placeholder="Main Campus" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Branch / Campus Name</label>
+                  <Input placeholder="Main Campus" className="h-11 text-base font-bold" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
                 </div>
               </CardContent>
-              <div className="flex justify-end gap-3 p-4 border-t border-border bg-muted/20">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={loading}>
+              <div className="flex justify-end gap-3 p-5 border-t border-border bg-muted/20 rounded-b-2xl">
+                <Button type="button" variant="outline" size="lg" className="font-semibold" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button type="submit" size="lg" className="font-bold" disabled={loading}>
                   {loading ? "Provisioning..." : "Provision Branch"}
                 </Button>
               </div>
