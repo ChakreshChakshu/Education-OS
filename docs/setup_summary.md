@@ -15,18 +15,21 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Application:** `RegisterUserUseCase`, `CreateTenantUseCase`.
    * **Infrastructure:** Drizzle ORM tables (`users`, `tenants`, `organizations`, `user_tenant_memberships`, `organization_memberships`) and concrete repositories (`DrizzleUserRepository`, `DrizzleTenantRepository`, `DrizzleOrganizationRepository`).
    * **API Routes:** `POST /api/v1/public/auth/register`, `POST /api/v1/internal/tenants`.
+   * **Web UI:** Web-based Tenant & Campus Branch provisioning interface (`/dashboard/tenants`) and instant registration auto-login issuing real signed JWTs.
 
 2. **Academics Context (`@eos/domain-academics`):**
    * **Domain:** `Course`, `Batch`, `Subject` entities & value objects (`CourseCode`, `AcademicTerm`).
    * **Application:** `CreateCourseUseCase`, `CreateBatchUseCase`.
    * **Infrastructure:** Drizzle ORM tables (`courses`, `batches`, `subjects`) and concrete repositories (`DrizzleCourseRepository`, `DrizzleBatchRepository`).
    * **API Routes:** `POST /api/v1/internal/academics/courses`, `POST /api/v1/internal/academics/batches`.
+   * **Web UI:** Interactive Course Catalog (`/dashboard/courses`) and Course Curriculum Builder (`/dashboard/courses/[id]`).
 
 3. **Learning Context (`@eos/domain-learning`):**
    * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission` entities & value objects (`Score`).
    * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`.
    * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`).
    * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`.
+   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/learn`) featuring HTML5 video player, PDF reader, interactive quiz player, and live completion progress tracking.
 
 4. **Media & Storage Context (`@eos/domain-media` & `@eos/infra-storage`):**
    * **Domain:** `MediaAsset`, `VideoTrack` entities & value objects (`FileSize`, `MimeType`).
@@ -34,14 +37,10 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, `LocalStorageProvider`, and `R2StorageProvider` (Cloudflare R2 AWS S3 Client & presigner).
    * **API Routes:** `POST /api/v1/internal/media/presign`, `POST /api/v1/internal/media/confirm`.
 
-5. **Multi-Tenant Database Seeder Pipeline (`@eos/infra-database`):**
-   * **Seed Generator:** `seedDatabase()` in `packages/infrastructure/database/src/seed/seed.js`.
-   * **Seed Data:** Populates super-admin users, faculty instructors, students, tenant institution (`Metropolitan University`), branch organizations, courses (`CS-101`), cohort batches, lesson modules, and quiz submissions.
-
-6. **Neon PostgreSQL & Cloudflare R2 Drivers:**
-   * `DatabaseClient` supporting Neon PostgreSQL serverless pools & connection strings (`DATABASE_URL`).
-   * `R2StorageProvider` supporting Cloudflare R2 bucket credentials & presigned upload URLs.
-   * `.env.example` templates provided at monorepo root and `apps/api/`.
+5. **Neon PostgreSQL Cloud Production Architecture:**
+   * **Database Engine:** Direct connectivity to Neon PostgreSQL Cloud instance via `pg` driver.
+   * **Zero Fallbacks:** In-memory fallback mechanisms completely eliminated across `DatabaseClient` and all 4 Drizzle repositories to guarantee data integrity.
+   * **UUID Compliance:** Strict UUID primary key enforcement for all database entities (`users`, `tenants`, `courses`, `lesson_modules`).
 
 ---
 
@@ -50,8 +49,8 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
 ```text
 EducationOS/
 ├── apps/
-│   ├── web/                     # Next.js App Router UI
-│   ├── api/                     # Fastify REST API (Composition Root DI)
+│   ├── web/                     # Next.js App Router UI (LMS Dashboard, Tenant Provisioner, Student Classroom)
+│   ├── api/                     # Fastify REST API (Composition Root DI, JWT Security Middleware)
 │   └── worker/                  # Background worker process
 ├── packages/
 │   ├── core/                    # AggregateRoot, Entity, ValueObject, Result primitives
@@ -61,7 +60,7 @@ EducationOS/
 │   │   ├── learning/            # Lesson modules & Assessment submission
 │   │   └── media/               # Media assets, presigned upload URLs & video tracks
 │   ├── infrastructure/
-│   │   ├── database/            # Drizzle ORM schemas, mappers, repositories & seeder
+│   │   ├── database/            # Drizzle ORM schemas, mappers, Neon repositories & seeder
 │   │   ├── storage/             # Local & Cloudflare R2 S3 storage adapters
 │   │   └── auth/                # Authentication providers
 │   ├── contracts/               # Standard DTOs & Domain Events

@@ -5,12 +5,12 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 ## Tech Stack
 
 - **Monorepo Management:** `pnpm` workspaces & `Turborepo`
-- **Frontend:** Next.js (Latest App Router), JavaScript, Vanilla CSS
-- **Backend:** Node.js & Fastify (REST API with Composition Root DI)
+- **Frontend:** Next.js 16 (App Router), Vanilla CSS, Outfit & Inter Typography
+- **Backend:** Node.js & Fastify (REST API with Composition Root DI & JWT Auth)
 - **Background Jobs:** Node.js Workers (Stateless queue consumers & cron schedulers)
-- **Database Layer:** Neon PostgreSQL & Drizzle ORM
-- **Object Storage:** Cloudflare R2 (S3-compatible API with presigned URLs)
-- **Authentication:** JWT, HttpOnly Cookies
+- **Database Layer:** Neon PostgreSQL Cloud & Drizzle ORM (Direct SQL connection)
+- **Object Storage:** Cloudflare R2 / S3 (Presigned URLs & direct media uploads)
+- **Authentication:** JWT, Bearer Auth Middleware
 - **Architecture Enforcement:** `dependency-cruiser`
 
 ---
@@ -20,8 +20,8 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 ```text
 education-os/
 ├── apps/               # Applications
-│   ├── web/            # Next.js App Router Frontend
-│   ├── api/            # Fastify REST API (with Composition Root DI)
+│   ├── web/            # Next.js App Router Frontend (LMS Dashboard, Tenant Provisioner, Student Classroom)
+│   ├── api/            # Fastify REST API (Composition Root DI & JWT Auth Middleware)
 │   └── worker/         # Background Worker Service
 ├── packages/           # Shared libraries & modules
 │   ├── core/           # DDD base primitives (Entity, AggregateRoot, ValueObject, Result)
@@ -47,14 +47,17 @@ education-os/
 - **Entities:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership`
 - **Endpoints:**
   - `POST /api/v1/public/auth/register` (User registration with email VO validation)
-  - `POST /api/v1/internal/tenants` (Multi-tenant institution provisioning)
+  - `POST /api/v1/public/auth/login` (User authentication & signed JWT generation)
+  - `POST /api/v1/internal/tenants` (Multi-tenant institution & campus branch provisioning)
 
 ### 2. Academics Domain (`@eos/domain-academics`)
 - **Entities:** `Course`, `Batch`, `Subject`
 - **Value Objects:** `CourseCode`, `AcademicTerm`
 - **Endpoints:**
+  - `GET /api/v1/internal/academics/courses` (Multi-tenant course list)
   - `POST /api/v1/internal/academics/courses` (Course creation & code uniqueness check)
-  - `POST /api/v1/internal/academics/batches` (Cohort batch provisioning & instructor assignment)
+  - `GET /api/v1/internal/academics/courses/:id/modules` (List course lesson modules)
+  - `POST /api/v1/internal/academics/courses/:id/modules` (Create lesson module with UUID)
 
 ### 3. Learning Domain (`@eos/domain-learning`)
 - **Entities:** `LessonModule`, `StudentProgress`, `QuizSubmission`
@@ -67,16 +70,16 @@ education-os/
 - **Entities:** `MediaAsset`, `VideoTrack`
 - **Value Objects:** `FileSize`, `MimeType`
 - **Endpoints:**
+  - `POST /api/v1/internal/media/upload` (Direct media file upload)
   - `POST /api/v1/internal/media/presign` (Generates presigned upload URL for direct S3/R2 upload)
-  - `POST /api/v1/internal/media/confirm` (Confirms upload completion & triggers encoding)
 
 ---
 
-## Multi-Tenant Database Seeder & Storage Drivers
+## Neon Cloud PostgreSQL & Data Layer
 
-* **Database Seeder:** Run `seedDatabase(repositories)` to populate super-admins, instructors, students, tenant institutions, courses, lesson modules, and quiz submissions.
-* **Storage Provider:** Auto-switches between `R2StorageProvider` (Cloudflare R2) and `LocalStorageProvider` based on environment variables.
-* **PostgreSQL Client:** Connects to Neon PostgreSQL serverless instances via `DATABASE_URL`.
+* **Direct Database Connectivity:** All local memory fallbacks removed from `DatabaseClient` and repositories (`DrizzleUserRepository`, `DrizzleCourseRepository`, `DrizzleLessonModuleRepository`, `DrizzleTenantRepository`). All operations interact directly with Neon Cloud PostgreSQL.
+* **UUID Compliance:** Strict UUID primary keys for all database models.
+* **Storage Provider:** Auto-switches between `R2StorageProvider` (Cloudflare R2) and `LocalStorageProvider`.
 
 ---
 

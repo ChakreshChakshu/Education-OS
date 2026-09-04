@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary & Overview
 
-The `apps/web` application is the enterprise front-end portal for the Education Operating System (EOS). Built using **Next.js 16 (App Router)**, **Tailwind CSS v4**, **Outfit** (headings) & **Inter** (body) typography, **shadcn UI** component patterns, and **Phosphor Icons** (`@phosphor-icons/react`), it provides a solid minimalist, high-contrast, multi-tenant UI for institution administrators, instructors, and students.
+The `apps/web` application is the enterprise front-end portal for the Education Operating System (EOS). Built using **Next.js 16 (App Router)**, **Vanilla CSS**, **Outfit** (headings) & **Inter** (body) typography, **shadcn UI** component patterns, and **Phosphor Icons** (`@phosphor-icons/react`), it provides a solid minimalist, high-contrast, multi-tenant UI for institution administrators, instructors, and students.
 
 ---
 
@@ -38,7 +38,7 @@ apps/web/
 │   ├── login/
 │   │   └── page.js               # Dual-Tab Auth Portal (Dynamic Institution Registration)
 │   └── dashboard/
-│       ├── layout.js             # Sidebar Shell (Overview, Courses, Students nav)
+│       ├── layout.js             # Sidebar Shell (Overview, Courses, Tenants, Students nav)
 │       ├── page.js               # Executive Analytics Overview
 │       ├── courses/
 │       │   ├── page.js           # Course Catalog & Duration Management
@@ -49,37 +49,30 @@ apps/web/
 │       ├── students/
 │       │   └── page.js           # Student Roster & Enrollment Management
 │       └── tenants/
-│           └── page.js           # Institution Provisioning
+│           └── page.js           # Institution & Campus Branch Provisioning UI
 ├── components/
 │   └── ui/                       # shadcn UI Primitives (Button, Card, Input, Badge)
 ├── lib/
-│   └── api.js                    # REST ApiClient (Courses, Modules, Tenants)
+│   └── api.js                    # Direct REST ApiClient (No mock client fallbacks)
 └── providers/
-    └── auth-context.js           # React AuthContext (Session & Tenant binding)
+    └── auth-context.js           # React AuthContext (JWT Token & Tenant binding)
 ```
 
 ---
 
 ## 4. Work Completed & Recent Enhancements
 
-1. **Solid Minimalist UI Overhaul:**
-   - Purged all background gradients across all routes (`/`, `/login`, `/dashboard`, `/dashboard/courses`).
-   - Standardized solid surface colors, 2px borders, and high-contrast text.
+1. **Direct Backend API Connectivity:**
+   * Removed legacy client-side array fallbacks in `ApiClient`. API requests interact directly with the Fastify REST backend & Neon Cloud PostgreSQL.
 
-2. **Typography Scaling:**
-   - Upgraded titles to `Outfit` bold weights and scaled heading font sizes (`text-3xl`, `text-5xl`, `text-7xl`).
-   - Increased body font readability (15px body, 16px input text).
+2. **JWT Authentication & Auto-Login (`auth-context.js`):**
+   * Registration automatically performs a backend login, receiving and storing a real signed **HS256 JWT** into `localStorage` (`eos_token`).
 
-3. **Dynamic Institution Binding & Zero Dummy Data:**
-   - Single-tenant binding tied dynamically to registered institution names.
-   - Cleared all hardcoded mock placeholders across course catalog & student rosters.
+3. **Web-Based Institution & Campus Provisioning (`/dashboard/tenants`):**
+   * Integrated 1-click **Provision Campus Branch & Tenant** modal interface posting directly to `POST /api/v1/internal/tenants`.
 
-4. **Course Curriculum & Quiz Builder (`/dashboard/courses/[id]`):**
-   - Lesson module builder supporting Video streams (`.mp4`), PDF document assignments, and Quiz assessments.
-   - Replaced legacy "Credits" terminology with **Course Duration** (e.g. `4 Weeks`).
+4. **Student LMS Video & Quiz Player (`/dashboard/courses/[id]/learn`):**
+   * Interactive classroom page featuring HTML5 video streaming player, PDF reader, and instant quiz scoring with progress tracking.
 
-5. **Student LMS Video & Quiz Player (`/dashboard/courses/[id]/learn`):**
-   - Interactive classroom page featuring streaming HTML5 video player, PDF reader, and instant quiz scoring with progress tracking.
-
-6. **Student Roster Management (`/dashboard/students`):**
-   - Student enrollment form, cohort metrics cards, and student roster table.
+5. **Course Curriculum & Quiz Builder (`/dashboard/courses/[id]`):**
+   * Lesson module builder supporting Video streams (`.mp4`), PDF document assignments, and Quiz assessments using standard UUID primary keys.
