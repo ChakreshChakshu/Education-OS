@@ -5,11 +5,42 @@ async function publicRoutes(fastify, options) {
     return { status: 'pong' };
   });
 
-  fastify.post('/auth/login', async (request, reply) => {
-    return { token: 'mock-jwt-token-from-fastify' };
-  });
+  // User Login Route (Bcrypt Hash Check & Real JWT Generation)
+  fastify.post(
+    '/auth/login',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string' },
+            password: { type: 'string', minLength: 1 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const useCase = container.resolve('LoginUserUseCase');
+      const result = await useCase.execute(request.body);
 
-  // User Registration Route
+      if (result.isFailure) {
+        return reply.status(401).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      const data = result.getValue();
+      return reply.status(200).send({
+        success: true,
+        token: data.token,
+        data: data.user
+      });
+    }
+  );
+
+  // User Registration Route (Bcrypt Password Hashing & Neon Database Save)
   fastify.post(
     '/auth/register',
     {

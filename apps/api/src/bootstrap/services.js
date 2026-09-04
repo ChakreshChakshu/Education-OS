@@ -1,3 +1,6 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
 const {
   identityDomain,
   academicsDomain,
@@ -7,7 +10,7 @@ const {
   infraStorage
 } = require('./domain-bridge');
 
-const { RegisterUserUseCase, CreateTenantUseCase } = identityDomain.application;
+const { RegisterUserUseCase, CreateTenantUseCase, LoginUserUseCase } = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
 const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
 const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
@@ -27,11 +30,38 @@ const {
 
 const { LocalStorageProvider, R2StorageProvider } = infraStorage;
 
+const JWT_SECRET = process.env.JWT_SECRET || 'eos-secret-key-development-2026';
+
 function registerServices(container) {
   // Health Service
   container.register('HealthService', () => ({
     getHealth: () => ({ status: 'ok', timestamp: new Date() })
   }));
+
+  // Password Hasher & Token Services
+  const passwordHasher = {
+    hash: async (password) => bcrypt.hash(password, 10),
+    compare: async (password, hash) => {
+      if (hash && hash.startsWith('hashed_')) {
+        return hash === `hashed_${password}`;
+      }
+      return bcrypt.compare(password, hash);
+    }
+  };
+
+  const tokenService = {
+    generateToken: (payload) => jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }),
+    verifyToken: (token) => {
+      try {
+        return jwt.verify(token, JWT_SECRET);
+      } catch (err) {
+        return null;
+      }
+    }
+  };
+
+  container.register('PasswordHasher', () => passwordHasher);
+  container.register('TokenService', () => tokenService);
 
   // Database Client Instance
   const dbClient = new DatabaseClient({
@@ -76,9 +106,17 @@ function registerServices(container) {
     (c) =>
       new RegisterUserUseCase({
         userRepository: c.resolve('UserRepository'),
-        passwordHasher: {
-          hash: async (password) => `hashed_${password}`
-        }
+        passwordHasher: c.resolve('PasswordHasher')
+      })
+  );
+
+  container.register(
+    'LoginUserUseCase',
+    (c) =>
+      new LoginUserUseCase({
+        userRepository: c.resolve('UserRepository'),
+        passwordHasher: c.resolve('PasswordHasher'),
+        tokenService: c.resolve('TokenService')
       })
   );
 

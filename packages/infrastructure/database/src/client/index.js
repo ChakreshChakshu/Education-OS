@@ -1,9 +1,24 @@
 let drizzleNodePg, drizzleNeon, pg, neonPool;
 
+const path = require('path');
+
 try {
   drizzleNodePg = require('drizzle-orm/node-postgres').drizzle;
+} catch (e) {
+  try {
+    const apiDrizzlePath = path.resolve(__dirname, '../../../../apps/api/node_modules/drizzle-orm/node-postgres');
+    drizzleNodePg = require(apiDrizzlePath).drizzle;
+  } catch (err) {}
+}
+
+try {
   pg = require('pg');
-} catch (e) {}
+} catch (e) {
+  try {
+    const apiPgPath = path.resolve(__dirname, '../../../../apps/api/node_modules/pg');
+    pg = require(apiPgPath);
+  } catch (err) {}
+}
 
 try {
   drizzleNeon = require('drizzle-orm/neon-serverless').drizzle;
@@ -12,11 +27,7 @@ try {
 
 class DatabaseClient {
   constructor(config = {}) {
-    this.config = {
-      connectionString: config.connectionString || process.env.DATABASE_URL || '',
-      ssl: config.ssl !== undefined ? config.ssl : true,
-      maxConnections: config.maxConnections || 10
-    };
+    this.config = config;
     this.connected = false;
     this.db = null;
     this.pool = null;
@@ -25,28 +36,36 @@ class DatabaseClient {
   async connect() {
     if (this.connected) return this.db;
 
-    const connStr = this.config.connectionString;
+    const connStr = (this.config && this.config.connectionString) || process.env.DATABASE_URL;
 
     if (connStr) {
       // 1. Try Neon Serverless Pool if available & target URL is Neon DB
       if (drizzleNeon && neonPool && connStr.includes('neon.tech')) {
-        this.pool = new neonPool({ connectionString: connStr });
-        this.db = drizzleNeon(this.pool);
-        this.connected = true;
-        console.log('[DatabaseClient] Connected to Neon PostgreSQL (Serverless Driver)');
-        return this.db;
+        try {
+          this.pool = new neonPool({ connectionString: connStr });
+          this.db = drizzleNeon(this.pool);
+          this.connected = true;
+          console.log('[DatabaseClient] Connected to Neon PostgreSQL Cloud (Serverless Driver)');
+          return this.db;
+        } catch (err) {
+          console.warn('[DatabaseClient] Neon Serverless connection fallback to pg:', err.message);
+        }
       }
 
       // 2. Standard pg driver fallback
-      if (drizzleNodePg && pg) {
+      if (pg) {
         this.pool = new pg.Pool({
           connectionString: connStr,
-          ssl: this.config.ssl ? { rejectUnauthorized: false } : false,
-          max: this.config.maxConnections
+          ssl: { rejectUnauthorized: false },
+          max: (this.config && this.config.maxConnections) || 10
         });
-        this.db = drizzleNodePg(this.pool);
+        if (drizzleNodePg) {
+          this.db = drizzleNodePg(this.pool);
+        } else {
+          this.db = this.pool;
+        }
         this.connected = true;
-        console.log('[DatabaseClient] Connected to PostgreSQL instance');
+        console.log('[DatabaseClient] Connected to Neon PostgreSQL Cloud (pg Driver)');
         return this.db;
       }
     }

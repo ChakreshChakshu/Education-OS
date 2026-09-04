@@ -12,8 +12,11 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "fastify": "^4.26.1",
     "@fastify/cors": "^9.0.1",
-    "dotenv": "^16.4.5"
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.6.1",
+    "fastify": "^4.26.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.0"
   }
 }

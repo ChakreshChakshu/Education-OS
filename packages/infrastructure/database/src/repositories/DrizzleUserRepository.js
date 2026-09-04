@@ -2,18 +2,21 @@ const { BaseRepository } = require('./BaseRepository');
 const { usersTable } = require('../schema/identity.schema');
 const { eq, and, isNull } = require('../drizzle-bridge');
 
+const globalUserMemoryStore = new Map();
+
 class DrizzleUserRepository extends BaseRepository {
   constructor(db) {
     super(db);
     this.table = usersTable;
-    this._memoryStore = new Map();
+    this._memoryStore = globalUserMemoryStore;
   }
 
   static toDomain(row) {
     if (!row) return null;
     const { User, Email } = require('../domain-identity-bridge');
     
-    const emailRes = Email.create(row.email);
+    const emailStr = typeof row.email === 'string' ? row.email : row.email?.value;
+    const emailRes = Email.create(emailStr);
     if (emailRes.isFailure) return null;
 
     const userRes = User.create(
@@ -41,7 +44,7 @@ class DrizzleUserRepository extends BaseRepository {
   static toPersistence(user) {
     return {
       id: user.id,
-      email: user.email.value,
+      email: typeof user.email === 'string' ? user.email : user.email.value,
       passwordHash: user.passwordHash,
       name: user.name,
       avatar: user.props.avatar,
@@ -71,17 +74,19 @@ class DrizzleUserRepository extends BaseRepository {
   }
 
   async findByEmail(emailStr) {
+    if (!emailStr) return null;
+    const lower = emailStr.toLowerCase();
     if (this.db && this.db.select) {
       const rows = await this.db
         .select()
         .from(this.table)
-        .where(and(eq(this.table.email, emailStr.toLowerCase()), isNull(this.table.deletedAt)))
+        .where(and(eq(this.table.email, lower), isNull(this.table.deletedAt)))
         .limit(1);
       return rows[0] ? DrizzleUserRepository.toDomain(rows[0]) : null;
     }
-    const lower = emailStr.toLowerCase();
     for (const raw of this._memoryStore.values()) {
-      if (raw.email.toLowerCase() === lower && !raw.deletedAt) {
+      const rawEmail = typeof raw.email === 'string' ? raw.email : raw.email?.value;
+      if (rawEmail && rawEmail.toLowerCase() === lower && !raw.deletedAt) {
         return DrizzleUserRepository.toDomain(raw);
       }
     }
