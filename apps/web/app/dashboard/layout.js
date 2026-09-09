@@ -22,7 +22,7 @@ import {
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, activeTenant, logout } = useAuth();
+  const { user, activeTenant, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDark, setIsDark] = useState(true);
 
@@ -32,6 +32,19 @@ export default function DashboardLayout({ children }) {
       setIsDark(isDarkMode);
     }
   }, []);
+
+  // Bounce to login once the session bootstrap (GET /me) has resolved and found
+  // no valid session — access_token is an httpOnly cookie now, so this is the
+  // only reliable signal; there's nothing in localStorage to check synchronously.
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
+    return null;
+  }
 
   const toggleTheme = () => {
     if (typeof window !== "undefined") {
