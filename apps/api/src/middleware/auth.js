@@ -13,13 +13,19 @@ const DEV_BYPASS_USER = {
 async function authenticateJWT(request, reply) {
   const authHeader = request.headers.authorization;
 
-  // Allow health check without token
-  if (request.url.endsWith('/health')) {
+  // Allow health check without token. Compare the pathname only: request.url includes
+  // the query string, so a bare endsWith('/health') would let anyone bypass auth on ANY
+  // route via e.g. GET /academics/courses?x=/health (Fastify routes on the path alone).
+  const pathname = request.url.split('?')[0];
+  if (pathname.endsWith('/health')) {
     return;
   }
 
-  // If no authorization header provided
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const bearerToken =
+    authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
+  const token = request.cookies.access_token || bearerToken;
+
+  if (!token) {
     if (DEV_AUTH_BYPASS_ENABLED) {
       request.user = DEV_BYPASS_USER;
       return;
@@ -27,11 +33,9 @@ async function authenticateJWT(request, reply) {
 
     return reply.status(401).send({
       success: false,
-      error: 'Unauthorized: Missing or malformed Authorization header. Expected format: "Bearer <token>"'
+      error: 'Unauthorized: No access token cookie or Authorization header present'
     });
   }
-
-  const token = authHeader.substring(7).trim();
 
   // If token is dev/mock token, allow only with explicit opt-in
   if (DEV_AUTH_BYPASS_ENABLED && (token === 'dev-token' || token.startsWith('mock_token_') || token.startsWith('mock-jwt-token'))) {

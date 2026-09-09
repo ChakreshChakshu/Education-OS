@@ -32,6 +32,14 @@ class Organization extends Entity {
     return this.props.status;
   }
 
+  get createdAt() {
+    return this.props.createdAt;
+  }
+
+  get updatedAt() {
+    return this.props.updatedAt;
+  }
+
   static create(props, id) {
     if (!props.tenantId) {
       return Result.fail('Tenant ID is required for organization.');

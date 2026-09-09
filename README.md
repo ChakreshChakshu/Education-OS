@@ -10,7 +10,7 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 - **Background Jobs:** Node.js Workers (Stateless queue consumers & cron schedulers)
 - **Database Layer:** Neon PostgreSQL Cloud & Drizzle ORM (Direct SQL connection)
 - **Object Storage:** Cloudflare R2 / S3 (Presigned URLs & direct media uploads)
-- **Authentication:** JWT, Bearer Auth Middleware
+- **Authentication:** JWT — httpOnly cookies for the web app, Bearer header for mobile/API clients
 - **Architecture Enforcement:** `dependency-cruiser`
 
 ---
@@ -45,7 +45,7 @@ education-os/
 
 ### 1. Identity Domain (`@eos/domain-identity`)
 - **Entities:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership`
-- **Auth & Sessions:** Short-lived (15 min) JWT access tokens paired with rotating, SHA-256-hashed opaque refresh tokens persisted in `user_sessions` (see [docs/auth_and_authorization.md](docs/auth_and_authorization.md)).
+- **Auth & Sessions:** Short-lived (15 min) JWT access tokens paired with rotating, SHA-256-hashed opaque refresh tokens persisted in `user_sessions`. Web clients get httpOnly cookies + double-submit CSRF protection; mobile/API clients use a Bearer header (see [docs/auth_and_authorization.md](docs/auth_and_authorization.md)).
 - **Authorization:** Scoped multi-tenant RBAC (`roles`, `permissions`, `role_assignments`) resolved dynamically per request — never trusted from the JWT. Default seeded roles: `ADMIN`, `INSTRUCTOR`, `STUDENT`.
 - **Endpoints:**
   - `POST /api/v1/public/auth/register` (User registration with email VO validation; auto-provisions a default tenant workspace)

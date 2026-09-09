@@ -24,10 +24,19 @@ async function internalRoutes(fastify, options) {
     return healthService.getHealth();
   });
 
+  // Session bootstrap for cookie-based web clients: since access_token is httpOnly,
+  // the frontend can't tell it's logged in by reading a cookie — it calls this on load
+  // instead. A 401 here (via authenticateJWT above) means "not logged in."
   fastify.get('/me', async (request, reply) => {
+    const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+    const tenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
+      request.user.userId || request.user.sub
+    );
+
     return {
       success: true,
-      user: request.user
+      user: request.user,
+      tenants
     };
   });
 

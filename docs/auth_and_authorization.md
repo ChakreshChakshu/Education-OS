@@ -16,6 +16,9 @@ It provides a secure, multi-tenant, enterprise-grade identity foundation support
 | Opaque, rotating refresh token + `user_sessions` (§1–3) | ✅ Implemented — `POST /auth/refresh` rotates on use and rejects reuse of a rotated-out token |
 | Single-device logout / session revocation (§3) | ✅ Implemented — `POST /auth/logout` |
 | Global logout (all devices) | ⚠️ Repository method exists (`revokeAllForUser`) but no route calls it yet |
+| Web cookie transport (§ Security Configuration Summary) | ✅ Implemented — `access_token`/`refresh_token` set as `httpOnly` cookies (`SameSite=Lax`/`Strict` respectively) via `apps/api/src/middleware/authCookies.js`; `Secure` is gated on `NODE_ENV=production` so plain-http local dev still works. Bearer-header auth still works unmodified for mobile/API clients — cookie wins if both are present |
+| CSRF protection (Double-Submit Cookie Header) | ✅ Implemented — `apps/api/src/middleware/csrf.js` requires a non-httpOnly `csrf_token` cookie to match an `x-csrf-token` header on any mutating request that carries an auth cookie. Bearer-only clients are exempt (verified) since a cross-site page can't attach that header without ever seeing the cookie |
+| `@eos/infra-auth` provider abstraction (Core Design Principles) | ❌ Not actually used — the real login/token/hash logic lives inline in `apps/api/src/bootstrap/services.js` (plain `bcryptjs` + `jsonwebtoken`). The `@eos/infra-auth` package was a fully mock, unused `JwtAuthProvider` and has since been deleted |
 | Password hashing | ⚠️ **bcryptjs (10 rounds)**, not Argon2id as described in §4. Switching algorithms now would invalidate every existing user's stored hash with no migration path — flagged as a deliberate deferral, not an oversight |
 | Password strength enforcement (§4) | ❌ Not implemented — only a minimum length check |
 | Scoped multi-tenant RBAC (§5) | ✅ Implemented — `roles`, `permissions`, `role_assignments` tables match this doc's schema; seeded roles: `ADMIN`, `INSTRUCTOR`, `STUDENT`. `authorize(permission)` middleware resolves permissions dynamically per request, never from the JWT, matching the caution in §2. Wired onto `course.create` as the reference example — not yet applied to every route |
@@ -248,6 +251,9 @@ req.user ──> Load Tenant & Org Scopes ──> Resolve Active Role Assignment
 | :--- | :--- | :--- | :--- |
 | **Web Browser** | HTTP-Only, Secure, SameSite=Lax Cookie | HTTP-Only, Secure, SameSite=Strict Cookie | Double-Submit Cookie Header |
 | **Mobile App** | In-Memory (State) | iOS Keychain / Android Keystore | OAuth Bearer Header |
+
+> [!NOTE]
+> The Web Browser row is implemented as written (see Implementation Status above). One deviation: `Secure` is only set when `NODE_ENV=production`, since browsers reject `Secure` cookies over plain HTTP and local dev runs the API over http. The refresh token cookie is additionally scoped to `Path=/api/v1/public/auth` (not sent on every request) to limit exposure. The Mobile App row is unimplemented — there's no mobile client yet — but the API already supports it: `Authorization: Bearer` auth and refresh-token-in-body both work as a fallback whenever the request carries no auth cookie.
 
 ---
 

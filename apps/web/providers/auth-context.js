@@ -5,9 +5,9 @@ import { ApiClient } from '@/lib/api';
 
 const AuthContext = createContext({
   user: null,
-  token: null,
   activeTenant: null,
   tenants: [],
+  loading: true,
   login: async () => {},
   register: async () => {},
   switchTenant: () => {},
@@ -28,57 +28,63 @@ function toUiTenant(apiTenant) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [activeTenant, setActiveTenant] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const applyTenants = (realTenants, preferredId) => {
+    setTenants(realTenants);
+    const preferred = preferredId && realTenants.find((t) => t.id === preferredId);
+    const next = preferred || realTenants[0] || null;
+    setActiveTenant(next);
+    if (next) {
+      localStorage.setItem('eos_tenant', JSON.stringify(next));
+      localStorage.setItem('eos_tenant_id', next.id);
+    } else {
+      localStorage.removeItem('eos_tenant');
+      localStorage.removeItem('eos_tenant_id');
+    }
+  };
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('eos_token');
-    const savedUser = localStorage.getItem('eos_user');
-    const savedTenant = localStorage.getItem('eos_tenant');
+    // Access/refresh tokens live in httpOnly cookies now — the browser attaches
+    // them automatically, but JS can't read them, so this is the only way to
+    // learn whether there's an active session (a 401 here just means logged out).
+    let savedTenantId = null;
+    try {
+      savedTenantId = JSON.parse(localStorage.getItem('eos_tenant') || 'null')?.id || null;
+    } catch (e) {
+      savedTenantId = null;
+    }
 
-    if (savedToken) setToken(savedToken);
-    if (savedUser) {
-      try { setUser(JSON.parse(savedUser)); } catch (e) {}
-    }
-    if (savedTenant) {
-      try {
-        const parsedTenant = JSON.parse(savedTenant);
-        setActiveTenant(parsedTenant);
-        setTenants([parsedTenant]);
-      } catch (e) {}
-    }
+    ApiClient.getMe()
+      .then((res) => {
+        if (res.success) {
+          setUser(res.user);
+          const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
+          applyTenants(realTenants, savedTenantId);
+        } else {
+          setUser(null);
+          applyTenants([], null);
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
     const res = await ApiClient.loginUser({ email, password });
-    if (res.token) {
-      const userData = res.user || res.data || { email, name: email.split('@')[0] };
-      setToken(res.token);
-      setUser(userData);
-      localStorage.setItem('eos_token', res.token);
-      localStorage.setItem('eos_user', JSON.stringify(userData));
-      if (res.refreshToken) {
-        localStorage.setItem('eos_refresh_token', res.refreshToken);
-      }
-
-      // Use the tenants the backend actually returns for this user — never a
-      // placeholder ID, since that silently scopes their data to the wrong tenant.
-      const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
-      setTenants(realTenants);
-      const primary = realTenants[0] || null;
-      setActiveTenant(primary);
-      if (primary) {
-        localStorage.setItem('eos_tenant', JSON.stringify(primary));
-        localStorage.setItem('eos_tenant_id', primary.id);
-      } else {
-        localStorage.removeItem('eos_tenant');
-        localStorage.removeItem('eos_tenant_id');
-      }
-
-      return { success: true };
+    if (res.success === false) {
+      return { success: false, error: res.error || 'Login failed' };
     }
-    return { success: false, error: res.error || 'Login failed' };
+
+    setUser(res.user || res.data || { email, name: email.split('@')[0] });
+
+    // Use the tenants the backend actually returns for this user — never a
+    // placeholder ID, since that silently scopes their data to the wrong tenant.
+    const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
+    applyTenants(realTenants, null);
+
+    return { success: true };
   };
 
   const register = async (name, email, password, institutionName) => {
@@ -105,17 +111,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    const refreshToken = localStorage.getItem('eos_refresh_token');
-    if (refreshToken) {
-      ApiClient.logout(refreshToken).catch(() => {});
-    }
+    ApiClient.logout().catch(() => {});
     setUser(null);
-    setToken(null);
     setActiveTenant(null);
     setTenants([]);
-    localStorage.removeItem('eos_token');
-    localStorage.removeItem('eos_refresh_token');
-    localStorage.removeItem('eos_user');
     localStorage.removeItem('eos_tenant');
     localStorage.removeItem('eos_tenant_id');
   };
@@ -124,9 +123,9 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        token,
         activeTenant,
         tenants,
+        loading,
         login,
         register,
         switchTenant,

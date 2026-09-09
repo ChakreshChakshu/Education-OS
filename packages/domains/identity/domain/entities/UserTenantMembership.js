@@ -27,6 +27,14 @@ class UserTenantMembership extends Entity {
     return this.props.status;
   }
 
+  get createdAt() {
+    return this.props.createdAt;
+  }
+
+  get updatedAt() {
+    return this.props.updatedAt;
+  }
+
   static create(props, id) {
     if (!props.userId) {
       return Result.fail('User ID is required for tenant membership.');

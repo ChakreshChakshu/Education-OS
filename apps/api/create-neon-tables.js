@@ -177,13 +177,89 @@ async function runNeonMigration() {
         role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (user_id, tenant_id, organization_id, role_id)
+      );`,
+
+      // 13. User Tenant Memberships Table
+      `CREATE TABLE IF NOT EXISTS user_tenant_memberships (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_active_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, tenant_id)
+      );`,
+
+      // 14. Organization Memberships Table
+      `CREATE TABLE IF NOT EXISTS organization_memberships (
+        id UUID PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_active_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (organization_id, user_id)
+      );`,
+
+      // 15. Batches Table
+      `CREATE TABLE IF NOT EXISTS batches (
+        id UUID PRIMARY KEY,
+        course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        term VARCHAR(50),
+        capacity INTEGER NOT NULL DEFAULT 50,
+        instructor_user_id UUID REFERENCES users(id),
+        start_date TIMESTAMPTZ,
+        end_date TIMESTAMPTZ,
+        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 16. Subjects Table
+      `CREATE TABLE IF NOT EXISTS subjects (
+        id UUID PRIMARY KEY,
+        course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        "order" INTEGER NOT NULL DEFAULT 1,
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 17. Student Progress Table
+      `CREATE TABLE IF NOT EXISTS student_progress (
+        id UUID PRIMARY KEY,
+        student_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        batch_id UUID REFERENCES batches(id),
+        lesson_module_id UUID NOT NULL REFERENCES lesson_modules(id) ON DELETE CASCADE,
+        status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
+        completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 18. Quiz Submissions Table
+      `CREATE TABLE IF NOT EXISTS quiz_submissions (
+        id UUID PRIMARY KEY,
+        student_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lesson_module_id UUID NOT NULL REFERENCES lesson_modules(id) ON DELETE CASCADE,
+        score DOUBLE PRECISION NOT NULL,
+        passed BOOLEAN NOT NULL DEFAULT FALSE,
+        submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );`
     ];
 
     for (const sql of sqlStatements) {
       await client.query(sql);
     }
-    console.log('🎉 SUCCESS: All 12 tables created directly inside Neon PostgreSQL Cloud!');
+    console.log('🎉 SUCCESS: All 18 tables created directly inside Neon PostgreSQL Cloud!');
 
     const res = await client.query(`
       SELECT table_name 

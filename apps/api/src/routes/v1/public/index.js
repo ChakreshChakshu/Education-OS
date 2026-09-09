@@ -1,3 +1,5 @@
+const { setAuthCookies, clearAuthCookies, generateCsrfToken } = require('../../../middleware/authCookies');
+
 function slugify(input) {
   return input
     .toLowerCase()
@@ -44,11 +46,18 @@ async function publicRoutes(fastify, options) {
       }
 
       const data = result.getValue();
+
+      // Web clients: httpOnly cookies (see docs/auth_and_authorization.md). Mobile/API
+      // clients that ignore Set-Cookie still get the tokens in the body below.
+      const csrfToken = generateCsrfToken();
+      setAuthCookies(reply, { accessToken: data.accessToken, refreshToken: data.refreshToken, csrfToken });
+
       return reply.status(200).send({
         success: true,
         token: data.token,
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
+        csrfToken,
         tenants: data.tenants,
         // `data` kept for backward compatibility; `user` is the field the web client actually reads.
         data: data.user,
@@ -64,7 +73,6 @@ async function publicRoutes(fastify, options) {
       schema: {
         body: {
           type: 'object',
-          required: ['refreshToken'],
           properties: {
             refreshToken: { type: 'string', minLength: 1 }
           }
@@ -72,23 +80,31 @@ async function publicRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      // Cookie-based web clients never put it in the body; mobile/API clients do.
+      const refreshToken = request.cookies.refresh_token || (request.body && request.body.refreshToken);
+
       const useCase = container.resolve('RefreshTokenUseCase');
       const result = await useCase.execute({
-        refreshToken: request.body.refreshToken,
+        refreshToken,
         userAgent: request.headers['user-agent'],
         ipAddress: request.ip
       });
 
       if (result.isFailure) {
+        clearAuthCookies(reply);
         return reply.status(401).send({ success: false, error: result.error });
       }
 
       const data = result.getValue();
+      const csrfToken = generateCsrfToken();
+      setAuthCookies(reply, { accessToken: data.accessToken, refreshToken: data.refreshToken, csrfToken });
+
       return reply.status(200).send({
         success: true,
         token: data.token,
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken
+        refreshToken: data.refreshToken,
+        csrfToken
       });
     }
   );
@@ -100,7 +116,6 @@ async function publicRoutes(fastify, options) {
       schema: {
         body: {
           type: 'object',
-          required: ['refreshToken'],
           properties: {
             refreshToken: { type: 'string', minLength: 1 }
           }
@@ -108,8 +123,11 @@ async function publicRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      const refreshToken = request.cookies.refresh_token || (request.body && request.body.refreshToken);
       const useCase = container.resolve('LogoutUseCase');
-      const result = await useCase.execute({ refreshToken: request.body.refreshToken });
+      const result = await useCase.execute({ refreshToken });
+
+      clearAuthCookies(reply);
 
       if (result.isFailure) {
         return reply.status(400).send({ success: false, error: result.error });

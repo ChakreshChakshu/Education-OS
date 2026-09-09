@@ -33,6 +33,14 @@ class Tenant extends AggregateRoot {
     return this.props.settingsJson;
   }
 
+  get createdAt() {
+    return this.props.createdAt;
+  }
+
+  get updatedAt() {
+    return this.props.updatedAt;
+  }
+
   suspend() {
     this.props.status = 'SUSPENDED';
     this.props.updatedAt = new Date();

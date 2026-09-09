@@ -16,9 +16,16 @@ This document provides a comprehensive specification of all **16 active REST API
 
 ```http
 Content-Type: application/json
-Authorization: Bearer <jwt_access_token>
+Authorization: Bearer <jwt_access_token>   # mobile/API clients only — see below
 x-tenant-id: <tenant_uuid_or_slug>
+x-csrf-token: <csrf_token>                 # required on mutations, web clients only — see below
 ```
+
+**Web browser clients** don't set `Authorization` at all — `/auth/login` and `/auth/refresh` set the access and refresh tokens as `httpOnly` cookies (`credentials: 'include'` on every request), and the browser attaches them automatically. Instead, every mutating request (`POST`/`PUT`/`PATCH`/`DELETE`) must echo the value of the readable `csrf_token` cookie back as an `x-csrf-token` header (double-submit CSRF check) or it's rejected with `403`. `GET` requests and any request carrying no auth cookie (i.e. Bearer-header clients) are exempt.
+
+**Mobile/API clients** use `Authorization: Bearer <jwt_access_token>` exactly as before — no cookies, no CSRF header needed. If both a cookie and a Bearer header are present, the cookie wins.
+
+See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/CSRF design.
 
 ---
 
@@ -63,7 +70,7 @@ x-tenant-id: <tenant_uuid_or_slug>
 ### 2. User & Admin Login
 * **Endpoint:** `POST /api/v1/public/auth/login`
 * **Scope:** Public
-* **Purpose:** Authenticates user credentials (bcrypt compare) and issues a short-lived (15 min) JWT access token plus a rotating opaque refresh token (30-day session, SHA-256 hash persisted in `user_sessions`). Also returns every tenant the user has a role in.
+* **Purpose:** Authenticates user credentials (bcrypt compare) and issues a short-lived (15 min) JWT access token plus a rotating opaque refresh token (30-day session, SHA-256 hash persisted in `user_sessions`). Also returns every tenant the user has a role in. Sets three cookies on the response: `access_token` (httpOnly), `refresh_token` (httpOnly, scoped to `/api/v1/public/auth`), and `csrf_token` (readable — see Common Headers above). The token fields are still returned in the body for mobile/API clients that ignore `Set-Cookie`.
 * **Request Body:**
   ```json
   {
@@ -102,8 +109,8 @@ x-tenant-id: <tenant_uuid_or_slug>
 ### 2A. Refresh Access Token
 * **Endpoint:** `POST /api/v1/public/auth/refresh`
 * **Scope:** Public
-* **Purpose:** Exchanges a valid, unexpired refresh token for a new access/refresh token pair. The presented refresh token is single-use — it's revoked and a new one issued (rotation). Reusing an already-rotated-out refresh token fails.
-* **Request Body:**
+* **Purpose:** Exchanges a valid, unexpired refresh token for a new access/refresh token pair. The presented refresh token is single-use — it's revoked and a new one issued (rotation). Reusing an already-rotated-out refresh token fails. Re-sets all three cookies (see Login above) on success. Requires the `x-csrf-token` header when called with cookies (it's a mutating, cookie-authenticated request).
+* **Request Body:** Web clients send `{}` — the refresh token comes from the `refresh_token` cookie automatically. Mobile/API clients (no cookies) pass it explicitly:
   ```json
   { "refreshToken": "9f3a1c...(80 hex chars)" }
   ```
@@ -123,8 +130,8 @@ x-tenant-id: <tenant_uuid_or_slug>
 ### 2B. Logout (Single Device)
 * **Endpoint:** `POST /api/v1/public/auth/logout`
 * **Scope:** Public
-* **Purpose:** Revokes the session matching the given refresh token. The corresponding access token remains valid until it naturally expires (≤15 min).
-* **Request Body:**
+* **Purpose:** Revokes the session matching the given refresh token and clears all three auth cookies on the response. The corresponding access token remains valid until it naturally expires (≤15 min). Requires the `x-csrf-token` header when called with cookies.
+* **Request Body:** Web clients send `{}` (refresh token comes from the cookie); mobile/API clients pass it explicitly:
   ```json
   { "refreshToken": "9f3a1c...(80 hex chars)" }
   ```

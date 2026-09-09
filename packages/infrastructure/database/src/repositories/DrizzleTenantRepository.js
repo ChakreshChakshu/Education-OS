@@ -40,8 +40,8 @@ class DrizzleTenantRepository extends BaseRepository {
       slug: tenant.slug.value,
       status: tenant.status,
       settingsJson: tenant.settingsJson,
-      createdAt: tenant.createdAt,
-      updatedAt: tenant.updatedAt,
+      createdAt: tenant.props.createdAt,
+      updatedAt: tenant.props.updatedAt,
       deletedAt: tenant.props.deletedAt,
       version: tenant.props.version || 1
     };

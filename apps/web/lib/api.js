@@ -1,60 +1,68 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
+// Reads the non-httpOnly csrf_token cookie the API sets on login/refresh. It's
+// deliberately readable by JS — the double-submit check just confirms this
+// request came from same-origin code, since a cross-site page can't read it.
+function readCsrfCookie() {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 class ApiClient {
-  static getHeaders(extraHeaders = {}) {
+  static getHeaders(extraHeaders = {}, { mutating = false } = {}) {
     const headers = {
       'Content-Type': 'application/json',
       ...extraHeaders
     };
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('eos_token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
       const tenantId = localStorage.getItem('eos_tenant_id');
       if (tenantId) {
         headers['x-tenant-id'] = tenantId;
+      }
+      if (mutating) {
+        const csrfToken = readCsrfCookie();
+        if (csrfToken) {
+          headers['x-csrf-token'] = csrfToken;
+        }
       }
     }
     return headers;
   }
 
-  // Attempts a single silent access-token refresh using the stored refresh token.
-  // Access tokens are short-lived (15 min, see docs/auth_and_authorization.md), so
-  // without this every internal request would start failing mid-session.
+  // Attempts a single silent access-token refresh via the httpOnly refresh_token
+  // cookie. Access tokens are short-lived (15 min, see docs/auth_and_authorization.md),
+  // so without this every internal request would start failing mid-session.
   static async _tryRefreshAccessToken() {
-    if (typeof window === 'undefined') return false;
-    const refreshToken = localStorage.getItem('eos_refresh_token');
-    if (!refreshToken) return false;
-
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',
+        headers: this.getHeaders({}, { mutating: true }),
+        body: JSON.stringify({})
       });
-      const data = await res.json();
-      if (!res.ok || !data.accessToken) return false;
-
-      localStorage.setItem('eos_token', data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('eos_refresh_token', data.refreshToken);
-      }
-      return true;
+      return res.ok;
     } catch (err) {
       return false;
     }
   }
 
-  // Shared fetch wrapper for authenticated internal routes: retries exactly once
-  // after a silent refresh if the access token has expired (401).
+  // Shared fetch wrapper for authenticated internal routes: sends cookies, attaches
+  // the CSRF header on mutations, and retries once after a silent refresh on a 401.
   static async _authorizedFetch(url, options = {}) {
-    let res = await fetch(url, { ...options, headers: this.getHeaders(options.headers) });
+    const mutating = Boolean(options.method) && options.method !== 'GET';
+    const build = () => ({
+      ...options,
+      credentials: 'include',
+      headers: this.getHeaders(options.headers, { mutating })
+    });
+
+    let res = await fetch(url, build());
 
     if (res.status === 401) {
       const refreshed = await this._tryRefreshAccessToken();
       if (refreshed) {
-        res = await fetch(url, { ...options, headers: this.getHeaders(options.headers) });
+        res = await fetch(url, build());
       }
     }
 
@@ -65,6 +73,7 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/register`, {
         method: 'POST',
+        credentials: 'include',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)
       });
@@ -81,14 +90,12 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
-      if (data.token && typeof window !== 'undefined') {
-        localStorage.setItem('eos_token', data.token);
-      }
       return data;
     } catch (err) {
       console.error('API loginUser Error:', err.message);
@@ -96,12 +103,25 @@ class ApiClient {
     }
   }
 
-  static async logout(refreshToken) {
+  // Session bootstrap for page load: the access_token cookie is httpOnly, so this
+  // is the only way the client can tell whether it's actually logged in.
+  static async getMe() {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/me`);
+      if (!res.ok) return { success: false };
+      return await res.json();
+    } catch (err) {
+      return { success: false };
+    }
+  }
+
+  static async logout() {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/logout`, {
         method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',
+        headers: this.getHeaders({}, { mutating: true }),
+        body: JSON.stringify({})
       });
       return await res.json();
     } catch (err) {
@@ -113,8 +133,8 @@ class ApiClient {
   static async createTenant(payload) {
     try {
       // ownerUserId is intentionally omitted — the API derives the owner from the
-      // authenticated JWT (see apps/api/src/routes/v1/internal/index.js) so a tenant
-      // can never be provisioned "owned by" someone else's account.
+      // authenticated session (see apps/api/src/routes/v1/internal/index.js) so a
+      // tenant can never be provisioned "owned by" someone else's account.
       const body = {
         name: payload.name || payload.tenantName,
         slug: payload.slug,

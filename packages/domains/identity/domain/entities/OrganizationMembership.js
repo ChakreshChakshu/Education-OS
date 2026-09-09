@@ -34,6 +34,14 @@ class OrganizationMembership extends Entity {
     return this.props.status;
   }
 
+  get createdAt() {
+    return this.props.createdAt;
+  }
+
+  get updatedAt() {
+    return this.props.updatedAt;
+  }
+
   static create(props, id) {
     if (!props.organizationId) {
       return Result.fail('Organization ID is required for organization membership.');
