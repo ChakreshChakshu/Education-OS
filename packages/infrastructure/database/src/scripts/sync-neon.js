@@ -150,13 +150,63 @@ async function syncNeonDatabase() {
         storage_url TEXT NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'READY',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 8. User Sessions Table (Opaque Refresh Tokens)
+      `CREATE TABLE IF NOT EXISTS user_sessions (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        refresh_token_hash VARCHAR(64) NOT NULL UNIQUE,
+        device_name VARCHAR(100),
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        revoked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 9. Roles Table
+      `CREATE TABLE IF NOT EXISTS roles (
+        id UUID PRIMARY KEY,
+        name VARCHAR(50) NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 10. Permissions Table
+      `CREATE TABLE IF NOT EXISTS permissions (
+        id UUID PRIMARY KEY,
+        key VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+
+      // 11. Role Permissions Table
+      `CREATE TABLE IF NOT EXISTS role_permissions (
+        id UUID PRIMARY KEY,
+        role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+        permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (role_id, permission_id)
+      );`,
+
+      // 12. Role Assignments Table (Scoped Multi-Tenant RBAC)
+      `CREATE TABLE IF NOT EXISTS role_assignments (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, tenant_id, organization_id, role_id)
       );`
     ];
 
     for (const sql of sqlStatements) {
       await client.query(sql);
     }
-    console.log('[Neon Sync] SUCCESS! All 7 database tables created on Neon PostgreSQL cloud! 🚀');
+    console.log('[Neon Sync] SUCCESS! All 12 database tables created on Neon PostgreSQL cloud! 🚀');
 
     await client.end();
   } catch (err) {

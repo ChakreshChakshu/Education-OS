@@ -3,29 +3,34 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
 
-const DEFAULT_TENANT = {
-  id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
-  name: 'Education OS Main Campus',
-  slug: 'main-campus',
-  branch: 'Main Branch Campus'
-};
-
 const AuthContext = createContext({
   user: null,
   token: null,
-  activeTenant: DEFAULT_TENANT,
-  tenants: [DEFAULT_TENANT],
+  activeTenant: null,
+  tenants: [],
   login: async () => {},
   register: async () => {},
   switchTenant: () => {},
   logout: () => {}
 });
 
+// Maps the {tenantId, name, slug, role} shape returned by the API's tenant list
+// into the {id, name, slug, branch} shape the rest of the dashboard UI expects.
+function toUiTenant(apiTenant) {
+  return {
+    id: apiTenant.tenantId || apiTenant.id,
+    name: apiTenant.name,
+    slug: apiTenant.slug,
+    role: apiTenant.role,
+    branch: apiTenant.branch || 'Main Branch Campus'
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [activeTenant, setActiveTenant] = useState(DEFAULT_TENANT);
-  const [tenants, setTenants] = useState([DEFAULT_TENANT]);
+  const [activeTenant, setActiveTenant] = useState(null);
+  const [tenants, setTenants] = useState([]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('eos_token');
@@ -48,22 +53,27 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await ApiClient.loginUser({ email, password });
     if (res.token) {
-      const userData = res.user || { email, name: email.split('@')[0] };
+      const userData = res.user || res.data || { email, name: email.split('@')[0] };
       setToken(res.token);
       setUser(userData);
       localStorage.setItem('eos_token', res.token);
       localStorage.setItem('eos_user', JSON.stringify(userData));
+      if (res.refreshToken) {
+        localStorage.setItem('eos_refresh_token', res.refreshToken);
+      }
 
-      if (userData.institutionName) {
-        const userTenant = {
-          id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
-          name: userData.institutionName,
-          branch: 'Main Branch Campus'
-        };
-        setActiveTenant(userTenant);
-        setTenants([userTenant]);
-        localStorage.setItem('eos_tenant', JSON.stringify(userTenant));
-        localStorage.setItem('eos_tenant_id', userTenant.id);
+      // Use the tenants the backend actually returns for this user — never a
+      // placeholder ID, since that silently scopes their data to the wrong tenant.
+      const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
+      setTenants(realTenants);
+      const primary = realTenants[0] || null;
+      setActiveTenant(primary);
+      if (primary) {
+        localStorage.setItem('eos_tenant', JSON.stringify(primary));
+        localStorage.setItem('eos_tenant_id', primary.id);
+      } else {
+        localStorage.removeItem('eos_tenant');
+        localStorage.removeItem('eos_tenant_id');
       }
 
       return { success: true };
@@ -78,27 +88,12 @@ export function AuthProvider({ children }) {
       return { success: false, error: res.error || 'Registration failed' };
     }
 
-    // Auto login after registration to receive real signed JWT
-    const loginRes = await ApiClient.loginUser({ email, password });
-    if (loginRes.token) {
-      const userData = loginRes.user || { email, name };
-      setToken(loginRes.token);
-      setUser(userData);
-      localStorage.setItem('eos_token', loginRes.token);
-      localStorage.setItem('eos_user', JSON.stringify(userData));
+    // Auto login after registration — this also picks up the real tenant the
+    // backend just auto-provisioned for the new user (see apps/api's /auth/register).
+    const loginRes = await login(email, password);
+    if (!loginRes.success) {
+      return { success: false, error: loginRes.error || 'Auto-login after registration failed' };
     }
-
-    const tenantName = institutionName && institutionName.trim() ? institutionName.trim() : 'Education OS Main Campus';
-    const newTenant = {
-      id: '01917f8a-9c42-7a1b-8c4d-123456789abc',
-      name: tenantName,
-      branch: 'Main Branch Campus'
-    };
-
-    setActiveTenant(newTenant);
-    setTenants([newTenant]);
-    localStorage.setItem('eos_tenant', JSON.stringify(newTenant));
-    localStorage.setItem('eos_tenant_id', newTenant.id);
 
     return { success: true, data: res.data || { name, email } };
   };
@@ -110,10 +105,16 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('eos_refresh_token');
+    if (refreshToken) {
+      ApiClient.logout(refreshToken).catch(() => {});
+    }
     setUser(null);
     setToken(null);
-    setActiveTenant(DEFAULT_TENANT);
+    setActiveTenant(null);
+    setTenants([]);
     localStorage.removeItem('eos_token');
+    localStorage.removeItem('eos_refresh_token');
     localStorage.removeItem('eos_user');
     localStorage.removeItem('eos_tenant');
     localStorage.removeItem('eos_tenant_id');

@@ -1,6 +1,6 @@
 # EOS REST API Endpoint Reference Guide
 
-This document provides a comprehensive specification of all **13 active REST API endpoints** implemented in `apps/api` for the Education Operating System (EOS).
+This document provides a comprehensive specification of all **16 active REST API endpoints** implemented in `apps/api` for the Education Operating System (EOS).
 
 ---
 
@@ -29,14 +29,14 @@ x-tenant-id: <tenant_uuid_or_slug>
 ### 1. User Registration
 * **Endpoint:** `POST /api/v1/public/auth/register`
 * **Scope:** Public
-* **Purpose:** Registers a new user account with role assignment (e.g., `ADMIN`, `INSTRUCTOR`, `STUDENT`) and hashes password securely using Argon2id.
+* **Purpose:** Registers a new user account and hashes the password with bcrypt. Auto-provisions a default tenant workspace (via the same logic as endpoint #13) with the new user as tenant-wide `ADMIN`, so the account has real multi-tenant scoping immediately — no separate manual step required. Pass `institutionName` to name the tenant; otherwise it defaults to `"<name>'s Workspace"`.
 * **Request Body:**
   ```json
   {
     "email": "admin@institution.edu",
     "password": "SecurePassword123!",
     "name": "Jane Doe",
-    "role": "ADMIN"
+    "institutionName": "Oxford Institute of Technology"
   }
   ```
 * **Success Response (201 Created):**
@@ -44,20 +44,26 @@ x-tenant-id: <tenant_uuid_or_slug>
   {
     "success": true,
     "data": {
-      "id": "usr_018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "id": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
       "email": "admin@institution.edu",
       "name": "Jane Doe",
-      "role": "ADMIN"
+      "status": "ACTIVE"
+    },
+    "tenant": {
+      "id": "tnt_01917f8d-5678",
+      "name": "Oxford Institute of Technology",
+      "slug": "oxford-institute-of-technology-018f92ab"
     }
   }
   ```
+  `tenant` is `null` if auto-provisioning fails (best-effort — registration itself still succeeds; the user can provision a tenant manually via endpoint #13).
 
 ---
 
 ### 2. User & Admin Login
 * **Endpoint:** `POST /api/v1/public/auth/login`
 * **Scope:** Public
-* **Purpose:** Authenticates user credentials and returns a signed JWT access token for multi-tenant HTTP authorization.
+* **Purpose:** Authenticates user credentials (bcrypt compare) and issues a short-lived (15 min) JWT access token plus a rotating opaque refresh token (30-day session, SHA-256 hash persisted in `user_sessions`). Also returns every tenant the user has a role in.
 * **Request Body:**
   ```json
   {
@@ -69,16 +75,62 @@ x-tenant-id: <tenant_uuid_or_slug>
   ```json
   {
     "success": true,
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "9f3a1c...(80 hex chars)",
+    "tenants": [
+      { "tenantId": "01917f8d-5678", "organizationId": null, "role": "ADMIN", "name": "Oxford Institute of Technology", "slug": "oxford-institute-of-technology-018f92ab" }
+    ],
     "data": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      "user": {
-        "id": "usr_018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
-        "email": "admin@institution.edu",
-        "name": "Jane Doe",
-        "role": "ADMIN"
-      }
+      "id": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "email": "admin@institution.edu",
+      "name": "Jane Doe",
+      "status": "ACTIVE"
+    },
+    "user": {
+      "id": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "email": "admin@institution.edu",
+      "name": "Jane Doe",
+      "status": "ACTIVE"
     }
   }
+  ```
+  `token`/`data` are kept for backward compatibility; new clients should read `accessToken`/`refreshToken`/`user`.
+
+---
+
+### 2A. Refresh Access Token
+* **Endpoint:** `POST /api/v1/public/auth/refresh`
+* **Scope:** Public
+* **Purpose:** Exchanges a valid, unexpired refresh token for a new access/refresh token pair. The presented refresh token is single-use — it's revoked and a new one issued (rotation). Reusing an already-rotated-out refresh token fails.
+* **Request Body:**
+  ```json
+  { "refreshToken": "9f3a1c...(80 hex chars)" }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "0a7e2b...(new token)"
+  }
+  ```
+* **Failure Response (401 Unauthorized):** returned for a missing, expired, revoked, or already-rotated-out refresh token.
+
+---
+
+### 2B. Logout (Single Device)
+* **Endpoint:** `POST /api/v1/public/auth/logout`
+* **Scope:** Public
+* **Purpose:** Revokes the session matching the given refresh token. The corresponding access token remains valid until it naturally expires (≤15 min).
+* **Request Body:**
+  ```json
+  { "refreshToken": "9f3a1c...(80 hex chars)" }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  { "success": true }
   ```
 
 ---
@@ -357,14 +409,14 @@ x-tenant-id: <tenant_uuid_or_slug>
 
 ### 13. Provision Institution & Branch Tenant
 * **Endpoint:** `POST /api/v1/internal/tenants`
-* **Scope:** Internal
-* **Purpose:** Provisions a new multi-tenant institution workspace, subdomain slug, and default campus branch organization.
+* **Scope:** Internal (requires a valid JWT)
+* **Purpose:** Provisions a new multi-tenant institution workspace, subdomain slug, and default campus branch organization. The owner is always the authenticated caller (`request.user.userId`) — there is no `ownerUserId` request field, so a tenant can never be provisioned "owned by" another account. Also grants the caller a tenant-wide `ADMIN` role assignment (see [auth_and_authorization.md](auth_and_authorization.md)).
 * **Request Body:**
   ```json
   {
-    "tenantName": "Oxford Institute of Technology",
+    "name": "Oxford Institute of Technology",
     "slug": "oxford-tech",
-    "organizationName": "Main Campus"
+    "orgName": "Main Campus"
   }
   ```
 * **Success Response (201 Created):**

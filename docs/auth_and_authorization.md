@@ -8,6 +8,22 @@ It provides a secure, multi-tenant, enterprise-grade identity foundation support
 
 ---
 
+## Implementation Status
+
+| Area | Status |
+| :--- | :--- |
+| Short-lived JWT access token (15 min) | ✅ Implemented |
+| Opaque, rotating refresh token + `user_sessions` (§1–3) | ✅ Implemented — `POST /auth/refresh` rotates on use and rejects reuse of a rotated-out token |
+| Single-device logout / session revocation (§3) | ✅ Implemented — `POST /auth/logout` |
+| Global logout (all devices) | ⚠️ Repository method exists (`revokeAllForUser`) but no route calls it yet |
+| Password hashing | ⚠️ **bcryptjs (10 rounds)**, not Argon2id as described in §4. Switching algorithms now would invalidate every existing user's stored hash with no migration path — flagged as a deliberate deferral, not an oversight |
+| Password strength enforcement (§4) | ❌ Not implemented — only a minimum length check |
+| Scoped multi-tenant RBAC (§5) | ✅ Implemented — `roles`, `permissions`, `role_assignments` tables match this doc's schema; seeded roles: `ADMIN`, `INSTRUCTOR`, `STUDENT`. `authorize(permission)` middleware resolves permissions dynamically per request, never from the JWT, matching the caution in §2. Wired onto `course.create` as the reference example — not yet applied to every route |
+| Time-bound `permission_grants` (§6) | ❌ Not implemented |
+| Enterprise SSO/OAuth | ❌ Not implemented (future work per `docs/future_evolution.md`) |
+
+---
+
 # Core Design Principles
 
 - **Secure by Default:** Zero-trust pipeline; explicit authorization required for all non-public routes.
@@ -96,6 +112,9 @@ Access tokens are short-lived (15 minutes).
   "exp": 1710000900
 }
 ```
+
+> [!NOTE]
+> The implemented payload currently carries `userId`/`email`/`name` (+ `iat`/`exp`) — no `tenantId` or `sessionId` claim yet. Since tenant is already sent per-request via `x-tenant-id` and resolved server-side against `role_assignments` (never trusted from the token), omitting it here is consistent with the no-stale-claims caution below; adding a `sessionId` claim would let `authorize()` skip a lookup but isn't implemented yet.
 
 > [!CAUTION]
 > **Do not embed roles or permissions in the JWT.**

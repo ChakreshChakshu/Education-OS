@@ -11,9 +11,11 @@ const {
   DrizzleLessonModuleRepository,
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
-  DrizzleMediaAssetRepository
+  DrizzleMediaAssetRepository,
+  DrizzleUserSessionRepository,
+  DrizzleRoleAssignmentRepository
 } = require('./repositories');
-const { seedDatabase } = require('./seed');
+const { seedDatabase, seedRbacDefaults } = require('./seed');
 const { executeTransaction } = require('./transactions');
 
 class DatabaseProvider {
@@ -45,6 +47,9 @@ module.exports = {
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
   DrizzleMediaAssetRepository,
+  DrizzleUserSessionRepository,
+  DrizzleRoleAssignmentRepository,
   seedDatabase,
+  seedRbacDefaults,
   executeTransaction
 };

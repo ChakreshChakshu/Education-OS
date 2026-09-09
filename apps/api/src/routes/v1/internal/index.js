@@ -38,11 +38,10 @@ async function internalRoutes(fastify, options) {
       schema: {
         body: {
           type: 'object',
-          required: ['name', 'slug', 'ownerUserId'],
+          required: ['name', 'slug'],
           properties: {
             name: { type: 'string', minLength: 1 },
             slug: { type: 'string', minLength: 3 },
-            ownerUserId: { type: 'string', format: 'uuid' },
             orgName: { type: 'string' },
             orgCode: { type: 'string' }
           }
@@ -51,7 +50,9 @@ async function internalRoutes(fastify, options) {
     },
     async (request, reply) => {
       const useCase = container.resolve('CreateTenantUseCase');
-      const result = await useCase.execute(request.body);
+      // Owner is always the authenticated caller — never trust a client-supplied ownerUserId,
+      // or any user could provision a tenant "owned" by someone else's account.
+      const result = await useCase.execute({ ...request.body, ownerUserId: request.user.userId });
 
       if (result.isFailure) {
         return reply.status(400).send({

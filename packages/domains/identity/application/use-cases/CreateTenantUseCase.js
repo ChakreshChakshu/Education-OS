@@ -6,10 +6,11 @@ const { OrganizationMembership } = require('../../domain/entities/OrganizationMe
 const { TenantSlug } = require('../../domain/value-objects/TenantSlug');
 
 class CreateTenantUseCase {
-  constructor({ tenantRepository, userRepository, organizationRepository }) {
+  constructor({ tenantRepository, userRepository, organizationRepository, roleAssignmentRepository }) {
     this.tenantRepository = tenantRepository;
     this.userRepository = userRepository;
     this.organizationRepository = organizationRepository;
+    this.roleAssignmentRepository = roleAssignmentRepository;
   }
 
   async execute(dto) {
@@ -75,6 +76,16 @@ class CreateTenantUseCase {
     }
     const organizationMembership = omResult.getValue();
     await this.organizationRepository.saveMembership(organizationMembership);
+
+    // 5. Grant tenant-wide ADMIN via the scoped RBAC model (docs/auth_and_authorization.md).
+    if (this.roleAssignmentRepository) {
+      await this.roleAssignmentRepository.assignRole({
+        userId: ownerUser.id,
+        tenantId: tenant.id,
+        organizationId: null,
+        roleName: 'ADMIN'
+      });
+    }
 
     return Result.ok({
       tenant: {

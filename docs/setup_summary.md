@@ -12,10 +12,11 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
 
 1. **Identity Context (`@eos/domain-identity`):**
    * **Domain:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership` entities & value objects (`Email`, `TenantSlug`).
-   * **Application:** `RegisterUserUseCase`, `CreateTenantUseCase`.
-   * **Infrastructure:** Drizzle ORM tables (`users`, `tenants`, `organizations`, `user_tenant_memberships`, `organization_memberships`) and concrete repositories (`DrizzleUserRepository`, `DrizzleTenantRepository`, `DrizzleOrganizationRepository`).
-   * **API Routes:** `POST /api/v1/public/auth/register`, `POST /api/v1/internal/tenants`.
-   * **Web UI:** Web-based Tenant & Campus Branch provisioning interface (`/dashboard/tenants`) and instant registration auto-login issuing real signed JWTs.
+   * **Application:** `RegisterUserUseCase`, `CreateTenantUseCase`, `LoginUserUseCase`, `RefreshTokenUseCase`, `LogoutUseCase`.
+   * **Infrastructure:** Drizzle ORM tables (`users`, `tenants`, `organizations`, `user_tenant_memberships`, `organization_memberships`, `user_sessions`, `roles`, `permissions`, `role_permissions`, `role_assignments`) and concrete repositories (`DrizzleUserRepository`, `DrizzleTenantRepository`, `DrizzleOrganizationRepository`, `DrizzleUserSessionRepository`, `DrizzleRoleAssignmentRepository`).
+   * **Auth:** 15-min JWT access tokens + rotating opaque refresh tokens (`user_sessions`); scoped multi-tenant RBAC via `role_assignments`, enforced by the `authorize(permission)` middleware. See [auth_and_authorization.md](auth_and_authorization.md) for implementation status vs. the original design.
+   * **API Routes:** `POST /api/v1/public/auth/register` (auto-provisions a default tenant), `POST /api/v1/public/auth/login`, `POST /api/v1/public/auth/refresh`, `POST /api/v1/public/auth/logout`, `POST /api/v1/internal/tenants` (owner derived from the authenticated JWT).
+   * **Web UI:** Web-based Tenant & Campus Branch provisioning interface (`/dashboard/tenants`) and instant registration auto-login issuing real signed JWTs plus a real tenant membership.
 
 2. **Academics Context (`@eos/domain-academics`):**
    * **Domain:** `Course`, `Batch`, `Subject` entities & value objects (`CourseCode`, `AcademicTerm`).
@@ -79,14 +80,14 @@ Automated unit & integration testing status across the monorepo:
 
 | Context / Package | Tests Executed | Result |
 | :--- | :--- | :--- |
-| **`@eos/domain-identity`** | 4 Unit Tests | ✅ Passed |
+| **`@eos/domain-identity`** | 9 Unit Tests (incl. refresh token rotation, logout, RBAC role assignment) | ✅ Passed |
 | **`@eos/domain-academics`** | 4 Unit Tests | ✅ Passed |
 | **`@eos/domain-learning`** | 3 Unit Tests | ✅ Passed |
 | **`@eos/domain-media`** | 4 Unit Tests | ✅ Passed |
 | **`@eos/infra-storage`** | 2 Unit Tests | ✅ Passed |
 | **`@eos/infra-database`** | 11 Schema, Repository & Seeder Tests | ✅ Passed |
 | **`@eos/api`** | 9 Fastify REST Route Integration Tests | ✅ Passed |
-| **Full Workspace Test Suite** | **37 / 37 Tests** | **✅ 100% Passed** |
+| **Full Workspace Test Suite** | **42 / 42 Tests** | **✅ 100% Passed** |
 
 Run full workspace tests via:
 ```bash

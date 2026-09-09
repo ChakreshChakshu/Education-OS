@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { authorize } = require('../../../middleware/authorize');
 
 async function academicsRoutes(fastify, options) {
   const container = options.container;
@@ -51,6 +52,7 @@ async function academicsRoutes(fastify, options) {
   fastify.post(
     '/courses',
     {
+      preHandler: authorize('course.create'),
       schema: {
         body: {
           type: 'object',

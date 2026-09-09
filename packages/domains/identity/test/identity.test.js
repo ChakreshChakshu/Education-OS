@@ -11,7 +11,14 @@ const {
   OrganizationMembership
 } = require('../domain');
 
-const { RegisterUserUseCase, CreateTenantUseCase } = require('../application');
+const {
+  RegisterUserUseCase,
+  CreateTenantUseCase,
+  LoginUserUseCase,
+  RefreshTokenUseCase,
+  LogoutUseCase
+} = require('../application');
+const crypto = require('crypto');
 
 // In-Memory Test Repositories
 class InMemoryUserRepository {
@@ -86,6 +93,50 @@ class InMemoryOrganizationRepository {
     );
   }
 }
+
+class InMemoryUserSessionRepository {
+  constructor() {
+    this.sessions = new Map();
+  }
+  async create(session) {
+    this.sessions.set(session.id, { ...session, revokedAt: null });
+    return session;
+  }
+  async findActiveByRefreshTokenHash(hash) {
+    for (const s of this.sessions.values()) {
+      if (s.refreshTokenHash === hash && !s.revokedAt && s.expiresAt > new Date()) return s;
+    }
+    return null;
+  }
+  async revoke(id) {
+    const s = this.sessions.get(id);
+    if (s) s.revokedAt = new Date();
+  }
+  async revokeByRefreshTokenHash(hash) {
+    for (const s of this.sessions.values()) {
+      if (s.refreshTokenHash === hash) s.revokedAt = new Date();
+    }
+  }
+}
+
+class InMemoryRoleAssignmentRepository {
+  constructor() {
+    this.assignments = [];
+  }
+  async assignRole({ userId, tenantId, organizationId, roleName }) {
+    this.assignments.push({ userId, tenantId, organizationId, roleName });
+  }
+  async findTenantsWithRolesForUser(userId) {
+    return this.assignments
+      .filter((a) => a.userId === userId)
+      .map((a) => ({ tenantId: a.tenantId, organizationId: a.organizationId, role: a.roleName, name: 'Test Tenant', slug: 'test-tenant' }));
+  }
+}
+
+const fakeTokenService = {
+  generateToken: (payload) => `fake-jwt.${JSON.stringify(payload)}`,
+  verifyToken: (token) => null
+};
 
 test('Email ValueObject validates format and normalizes case', () => {
   const valid = Email.create('  USER@Domain.com  ');
@@ -169,4 +220,167 @@ test('CreateTenantUseCase provisions tenant, default org, and memberships', asyn
   assert.equal(tenantRepo.memberships.length, 1);
   assert.equal(orgRepo.memberships.length, 1);
   assert.equal(orgRepo.memberships[0].role, 'TENANT_OWNER');
+});
+
+test('CreateTenantUseCase grants tenant-wide ADMIN role assignment when a RoleAssignmentRepository is provided', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const tenantRepo = new InMemoryTenantRepository();
+  const orgRepo = new InMemoryOrganizationRepository();
+  const roleAssignmentRepo = new InMemoryRoleAssignmentRepository();
+
+  const regUseCase = new RegisterUserUseCase({
+    userRepository: userRepo,
+    passwordHasher: { hash: async (p) => `hashed_${p}` }
+  });
+  const ownerId = (
+    await regUseCase.execute({ email: 'owner2@skillyards.com', password: 'password123', name: 'Owner Two' })
+  ).getValue().id;
+
+  const createTenantUseCase = new CreateTenantUseCase({
+    tenantRepository: tenantRepo,
+    userRepository: userRepo,
+    organizationRepository: orgRepo,
+    roleAssignmentRepository: roleAssignmentRepo
+  });
+
+  const result = await createTenantUseCase.execute({
+    name: 'RBAC Test Tenant',
+    slug: 'rbac-test-tenant',
+    ownerUserId: ownerId
+  });
+
+  assert.equal(result.isSuccess, true);
+  assert.equal(roleAssignmentRepo.assignments.length, 1);
+  assert.equal(roleAssignmentRepo.assignments[0].roleName, 'ADMIN');
+  assert.equal(roleAssignmentRepo.assignments[0].organizationId, null);
+});
+
+test('LoginUserUseCase issues an access token, persists a hashed refresh token session, and returns tenants', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const sessionRepo = new InMemoryUserSessionRepository();
+  const roleAssignmentRepo = new InMemoryRoleAssignmentRepository();
+
+  const passwordHasher = {
+    hash: async (p) => `hashed_${p}`,
+    compare: async (p, hash) => hash === `hashed_${p}`
+  };
+
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  const userId = (
+    await regUseCase.execute({ email: 'login-test@skillyards.com', password: 'password123', name: 'Login Test' })
+  ).getValue().id;
+  await roleAssignmentRepo.assignRole({ userId, tenantId: 'tenant-1', organizationId: null, roleName: 'ADMIN' });
+
+  const loginUseCase = new LoginUserUseCase({
+    userRepository: userRepo,
+    passwordHasher,
+    tokenService: fakeTokenService,
+    userSessionRepository: sessionRepo,
+    roleAssignmentRepository: roleAssignmentRepo
+  });
+
+  const result = await loginUseCase.execute({ email: 'login-test@skillyards.com', password: 'password123' });
+
+  assert.equal(result.isSuccess, true);
+  const data = result.getValue();
+  assert.equal(typeof data.accessToken, 'string');
+  assert.equal(typeof data.refreshToken, 'string');
+  assert.equal(data.tenants.length, 1);
+  assert.equal(data.tenants[0].role, 'ADMIN');
+
+  // The raw refresh token must never be stored — only its SHA-256 hash.
+  assert.equal(sessionRepo.sessions.size, 1);
+  const storedSession = [...sessionRepo.sessions.values()][0];
+  assert.notEqual(storedSession.refreshTokenHash, data.refreshToken);
+  assert.equal(storedSession.refreshTokenHash, crypto.createHash('sha256').update(data.refreshToken).digest('hex'));
+});
+
+test('LoginUserUseCase rejects an incorrect password', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const passwordHasher = {
+    hash: async (p) => `hashed_${p}`,
+    compare: async (p, hash) => hash === `hashed_${p}`
+  };
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  await regUseCase.execute({ email: 'wrongpass@skillyards.com', password: 'correctPassword', name: 'Someone' });
+
+  const loginUseCase = new LoginUserUseCase({
+    userRepository: userRepo,
+    passwordHasher,
+    tokenService: fakeTokenService
+  });
+
+  const result = await loginUseCase.execute({ email: 'wrongpass@skillyards.com', password: 'wrongPassword' });
+  assert.equal(result.isFailure, true);
+});
+
+test('RefreshTokenUseCase rotates the refresh token and rejects reuse of the old one', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const sessionRepo = new InMemoryUserSessionRepository();
+  const passwordHasher = { hash: async (p) => `hashed_${p}`, compare: async (p, hash) => hash === `hashed_${p}` };
+
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  const userId = (
+    await regUseCase.execute({ email: 'refresh-test@skillyards.com', password: 'password123', name: 'Refresh Test' })
+  ).getValue().id;
+
+  const loginUseCase = new LoginUserUseCase({
+    userRepository: userRepo,
+    passwordHasher,
+    tokenService: fakeTokenService,
+    userSessionRepository: sessionRepo
+  });
+  const loginData = (
+    await loginUseCase.execute({ email: 'refresh-test@skillyards.com', password: 'password123' })
+  ).getValue();
+
+  const refreshUseCase = new RefreshTokenUseCase({
+    userSessionRepository: sessionRepo,
+    userRepository: userRepo,
+    tokenService: fakeTokenService
+  });
+
+  const refreshResult = await refreshUseCase.execute({ refreshToken: loginData.refreshToken });
+  assert.equal(refreshResult.isSuccess, true);
+  const newTokens = refreshResult.getValue();
+  assert.notEqual(newTokens.refreshToken, loginData.refreshToken);
+
+  // Reusing the rotated-out (old) refresh token must now fail.
+  const reuseResult = await refreshUseCase.execute({ refreshToken: loginData.refreshToken });
+  assert.equal(reuseResult.isFailure, true);
+
+  // The newly issued refresh token still works.
+  const secondRefresh = await refreshUseCase.execute({ refreshToken: newTokens.refreshToken });
+  assert.equal(secondRefresh.isSuccess, true);
+});
+
+test('LogoutUseCase revokes the session so its refresh token can no longer be used', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const sessionRepo = new InMemoryUserSessionRepository();
+  const passwordHasher = { hash: async (p) => `hashed_${p}`, compare: async (p, hash) => hash === `hashed_${p}` };
+
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  await regUseCase.execute({ email: 'logout-test@skillyards.com', password: 'password123', name: 'Logout Test' });
+
+  const loginUseCase = new LoginUserUseCase({
+    userRepository: userRepo,
+    passwordHasher,
+    tokenService: fakeTokenService,
+    userSessionRepository: sessionRepo
+  });
+  const loginData = (
+    await loginUseCase.execute({ email: 'logout-test@skillyards.com', password: 'password123' })
+  ).getValue();
+
+  const logoutUseCase = new LogoutUseCase({ userSessionRepository: sessionRepo });
+  const logoutResult = await logoutUseCase.execute({ refreshToken: loginData.refreshToken });
+  assert.equal(logoutResult.isSuccess, true);
+
+  const refreshUseCase = new RefreshTokenUseCase({
+    userSessionRepository: sessionRepo,
+    userRepository: userRepo,
+    tokenService: fakeTokenService
+  });
+  const refreshAfterLogout = await refreshUseCase.execute({ refreshToken: loginData.refreshToken });
+  assert.equal(refreshAfterLogout.isFailure, true);
 });

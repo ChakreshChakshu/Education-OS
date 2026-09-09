@@ -1,4 +1,4 @@
-let LocalStorageProvider, PostgresQueueProvider, InMemoryCacheProvider, JwtAuthProvider;
+let LocalStorageProvider, PostgresQueueProvider, InMemoryCacheProvider;
 
 try {
   LocalStorageProvider = require('@eos/infra-storage').LocalStorageProvider;
@@ -18,17 +18,10 @@ try {
   InMemoryCacheProvider = require('../../../../packages/infrastructure/cache/src').InMemoryCacheProvider;
 }
 
-try {
-  JwtAuthProvider = require('@eos/infra-auth').JwtAuthProvider;
-} catch (e) {
-  JwtAuthProvider = require('../../../../packages/infrastructure/auth/src').JwtAuthProvider;
-}
-
 function registerProviders(container) {
   container.register('StorageProvider', () => new LocalStorageProvider());
   container.register('QueueProvider', () => new PostgresQueueProvider());
   container.register('CacheProvider', () => new InMemoryCacheProvider());
-  container.register('AuthProvider', () => new JwtAuthProvider());
 }
 
 module.exports = { registerProviders };

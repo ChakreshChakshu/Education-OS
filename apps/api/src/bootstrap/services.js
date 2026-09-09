@@ -10,7 +10,13 @@ const {
   infraStorage
 } = require('./domain-bridge');
 
-const { RegisterUserUseCase, CreateTenantUseCase, LoginUserUseCase } = identityDomain.application;
+const {
+  RegisterUserUseCase,
+  CreateTenantUseCase,
+  LoginUserUseCase,
+  RefreshTokenUseCase,
+  LogoutUseCase
+} = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
 const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
 const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
@@ -25,11 +31,23 @@ const {
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
   DrizzleMediaAssetRepository,
-  DatabaseClient
+  DrizzleUserSessionRepository,
+  DrizzleRoleAssignmentRepository,
+  DatabaseClient,
+  seedRbacDefaults
 } = infraDatabase;
 
 const { LocalStorageProvider, R2StorageProvider } = infraStorage;
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET environment variable is required in production.');
+}
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    '[services] WARNING: JWT_SECRET is not set. Falling back to an insecure development default. ' +
+      'Set JWT_SECRET in your .env file before deploying.'
+  );
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'eos-secret-key-development-2026';
 
 function registerServices(container) {
@@ -50,7 +68,7 @@ function registerServices(container) {
   };
 
   const tokenService = {
-    generateToken: (payload) => jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }),
+    generateToken: (payload, options = {}) => jwt.sign(payload, JWT_SECRET, { expiresIn: options.expiresIn || '15m' }),
     verifyToken: (token) => {
       try {
         return jwt.verify(token, JWT_SECRET);
@@ -68,6 +86,12 @@ function registerServices(container) {
     connectionString: process.env.DATABASE_URL
   });
   container.register('DatabaseClient', () => dbClient);
+
+  // Best-effort RBAC bootstrap: seeds default roles/permissions if the tables are reachable
+  // and empty. Non-fatal — the app must still boot when DATABASE_URL isn't configured (local dev).
+  seedRbacDefaults(dbClient).catch((err) => {
+    console.warn('[RBAC Seed] Skipped — could not seed default roles/permissions:', err.message);
+  });
 
   // Storage Provider: Auto-switch between Cloudflare R2 & Local Disk
   container.register('StorageProvider', () => {
@@ -87,6 +111,8 @@ function registerServices(container) {
   container.register('UserRepository', () => new DrizzleUserRepository(dbClient));
   container.register('TenantRepository', () => new DrizzleTenantRepository(dbClient));
   container.register('OrganizationRepository', () => new DrizzleOrganizationRepository(dbClient));
+  container.register('UserSessionRepository', () => new DrizzleUserSessionRepository(dbClient));
+  container.register('RoleAssignmentRepository', () => new DrizzleRoleAssignmentRepository(dbClient));
 
   // Academics Repositories
   container.register('CourseRepository', () => new DrizzleCourseRepository(dbClient));
@@ -116,7 +142,27 @@ function registerServices(container) {
       new LoginUserUseCase({
         userRepository: c.resolve('UserRepository'),
         passwordHasher: c.resolve('PasswordHasher'),
+        tokenService: c.resolve('TokenService'),
+        userSessionRepository: c.resolve('UserSessionRepository'),
+        roleAssignmentRepository: c.resolve('RoleAssignmentRepository')
+      })
+  );
+
+  container.register(
+    'RefreshTokenUseCase',
+    (c) =>
+      new RefreshTokenUseCase({
+        userSessionRepository: c.resolve('UserSessionRepository'),
+        userRepository: c.resolve('UserRepository'),
         tokenService: c.resolve('TokenService')
+      })
+  );
+
+  container.register(
+    'LogoutUseCase',
+    (c) =>
+      new LogoutUseCase({
+        userSessionRepository: c.resolve('UserSessionRepository')
       })
   );
 
@@ -126,7 +172,8 @@ function registerServices(container) {
       new CreateTenantUseCase({
         tenantRepository: c.resolve('TenantRepository'),
         userRepository: c.resolve('UserRepository'),
-        organizationRepository: c.resolve('OrganizationRepository')
+        organizationRepository: c.resolve('OrganizationRepository'),
+        roleAssignmentRepository: c.resolve('RoleAssignmentRepository')
       })
   );
 

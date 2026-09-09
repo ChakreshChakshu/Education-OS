@@ -45,10 +45,14 @@ education-os/
 
 ### 1. Identity Domain (`@eos/domain-identity`)
 - **Entities:** `User`, `Tenant`, `Organization`, `UserTenantMembership`, `OrganizationMembership`
+- **Auth & Sessions:** Short-lived (15 min) JWT access tokens paired with rotating, SHA-256-hashed opaque refresh tokens persisted in `user_sessions` (see [docs/auth_and_authorization.md](docs/auth_and_authorization.md)).
+- **Authorization:** Scoped multi-tenant RBAC (`roles`, `permissions`, `role_assignments`) resolved dynamically per request — never trusted from the JWT. Default seeded roles: `ADMIN`, `INSTRUCTOR`, `STUDENT`.
 - **Endpoints:**
-  - `POST /api/v1/public/auth/register` (User registration with email VO validation)
-  - `POST /api/v1/public/auth/login` (User authentication & signed JWT generation)
-  - `POST /api/v1/internal/tenants` (Multi-tenant institution & campus branch provisioning)
+  - `POST /api/v1/public/auth/register` (User registration with email VO validation; auto-provisions a default tenant workspace)
+  - `POST /api/v1/public/auth/login` (Bcrypt credential check, issues access + refresh token pair, returns the user's tenants)
+  - `POST /api/v1/public/auth/refresh` (Rotates a refresh token for a new access/refresh pair)
+  - `POST /api/v1/public/auth/logout` (Revokes a single session by its refresh token)
+  - `POST /api/v1/internal/tenants` (Multi-tenant institution & campus branch provisioning; owner is always the authenticated caller)
 
 ### 2. Academics Domain (`@eos/domain-academics`)
 - **Entities:** `Course`, `Batch`, `Subject`
@@ -85,7 +89,7 @@ education-os/
 
 ## Running Automated Tests
 
-To execute the full workspace unit & integration test suite (`37 / 37 passing`):
+To execute the full workspace unit & integration test suite (`42 / 42 passing` with `DATABASE_URL` configured against a reachable Postgres instance):
 
 ```bash
 node --test packages/infrastructure/storage/test/storage.test.js packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js packages/infrastructure/database/test/seed.test.js apps/api/test/api.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js packages/domains/media/test/media.test.js
