@@ -13,7 +13,8 @@ const {
   DrizzleQuizSubmissionRepository,
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
-  DrizzleRoleAssignmentRepository
+  DrizzleRoleAssignmentRepository,
+  DrizzleOutboxRepository
 } = require('./repositories');
 const { seedDatabase, seedRbacDefaults } = require('./seed');
 const { executeTransaction } = require('./transactions');
@@ -49,6 +50,7 @@ module.exports = {
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
   DrizzleRoleAssignmentRepository,
+  DrizzleOutboxRepository,
   seedDatabase,
   seedRbacDefaults,
   executeTransaction

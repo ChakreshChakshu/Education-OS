@@ -3,11 +3,13 @@ const academicsSchema = require('./academics.schema');
 const learningSchema = require('./learning.schema');
 const mediaSchema = require('./media.schema');
 const authSchema = require('./auth.schema');
+const queueSchema = require('./queue.schema');
 
 module.exports = {
   ...identitySchema,
   ...academicsSchema,
   ...learningSchema,
   ...mediaSchema,
-  ...authSchema
+  ...authSchema,
+  ...queueSchema
 };

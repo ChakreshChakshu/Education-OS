@@ -76,6 +76,19 @@ class DatabaseClient {
     throw new Error('[DatabaseClient FATAL] Could not initialize PostgreSQL driver (pg). Direct Neon Cloud connection failed.');
   }
 
+  async query(...args) {
+    if (!this.connected) {
+      await this.connect();
+    }
+    if (this.pool && typeof this.pool.query === 'function') {
+      return this.pool.query(...args);
+    }
+    if (this.db && typeof this.db.query === 'function') {
+      return this.db.query(...args);
+    }
+    throw new Error('[DatabaseClient] Query failed: client not connected');
+  }
+
   async disconnect() {
     if (this.pool && typeof this.pool.end === 'function') {
       await this.pool.end();

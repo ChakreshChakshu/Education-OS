@@ -253,13 +253,48 @@ async function runNeonMigration() {
         passed BOOLEAN NOT NULL DEFAULT FALSE,
         submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );`
+      );`,
+
+      // 19. Outbox Events Table
+      `CREATE TABLE IF NOT EXISTS outbox_events (
+        id UUID PRIMARY KEY,
+        event_name VARCHAR(100) NOT NULL,
+        aggregate_type VARCHAR(100) NOT NULL,
+        aggregate_id UUID NOT NULL,
+        payload JSONB NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        processed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_outbox_status_created ON outbox_events(status, created_at);`,
+
+      // 20. Jobs Table (Queue Engine)
+      `CREATE TABLE IF NOT EXISTS jobs (
+        id UUID PRIMARY KEY,
+        job_name VARCHAR(100) NOT NULL,
+        queue_name VARCHAR(50) NOT NULL DEFAULT 'default',
+        payload JSONB NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+        priority INTEGER NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        max_attempts INTEGER NOT NULL DEFAULT 5,
+        available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        failed_at TIMESTAMPTZ,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_jobs_status_available ON jobs(status, available_at, priority DESC);`,
+      `CREATE INDEX IF NOT EXISTS idx_jobs_queue_name ON jobs(queue_name);`
     ];
 
     for (const sql of sqlStatements) {
       await client.query(sql);
     }
-    console.log('🎉 SUCCESS: All 18 tables created directly inside Neon PostgreSQL Cloud!');
+    console.log('🎉 SUCCESS: All 20 tables created directly inside Neon PostgreSQL Cloud!');
 
     const res = await client.query(`
       SELECT table_name 

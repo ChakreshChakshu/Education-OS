@@ -33,6 +33,7 @@ const {
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
   DrizzleRoleAssignmentRepository,
+  DrizzleOutboxRepository,
   DatabaseClient,
   seedRbacDefaults
 } = infraDatabase;
@@ -125,6 +126,9 @@ function registerServices(container) {
 
   // Media Repositories
   container.register('MediaAssetRepository', () => new DrizzleMediaAssetRepository(dbClient));
+
+  // Queue & Outbox Repositories
+  container.register('OutboxRepository', () => new DrizzleOutboxRepository(dbClient));
 
   // Identity Use Cases
   container.register(

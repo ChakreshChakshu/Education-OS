@@ -186,6 +186,24 @@ async function publicRoutes(fastify, options) {
         request.log.warn(`Auto tenant provisioning failed for user ${registeredUser.id}: ${tenantResult.error}`);
       }
 
+      // Persist Transactional Outbox Event for async worker dispatch (e.g. welcome email)
+      try {
+        const outboxRepo = container.resolve('OutboxRepository');
+        await outboxRepo.create({
+          eventName: 'UserRegistered',
+          aggregateType: 'User',
+          aggregateId: registeredUser.id,
+          payload: {
+            id: registeredUser.id,
+            email: registeredUser.email,
+            name: registeredUser.name,
+            tenantId: tenantResult.isSuccess && tenantResult.getValue().tenant ? tenantResult.getValue().tenant.id : null
+          }
+        });
+      } catch (outboxErr) {
+        request.log.warn(`Failed to persist outbox event for user ${registeredUser.id}: ${outboxErr.message}`);
+      }
+
       return reply.status(201).send({
         success: true,
         data: registeredUser,

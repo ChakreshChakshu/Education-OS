@@ -85,9 +85,27 @@ async function mediaRoutes(fastify, options) {
       });
     }
 
+    const media = result.getValue();
+    try {
+      const outboxRepo = container.resolve('OutboxRepository');
+      await outboxRepo.create({
+        eventName: 'MediaUploaded',
+        aggregateType: 'MediaAsset',
+        aggregateId: media.id,
+        payload: {
+          mediaAssetId: media.id,
+          filename: media.filename,
+          storageKey: media.storageKey,
+          tenantId: media.tenantId
+        }
+      });
+    } catch (e) {
+      request.log.warn(`Failed to create MediaUploaded outbox event: ${e.message}`);
+    }
+
     return reply.status(200).send({
       success: true,
-      data: result.getValue()
+      data: media
     });
   });
 }
