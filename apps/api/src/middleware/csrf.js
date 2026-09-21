@@ -13,12 +13,18 @@ async function verifyCsrf(request, reply) {
     return;
   }
 
-  const hasAuthCookie = Boolean(request.cookies.access_token || request.cookies.refresh_token);
+  const pathname = (request.url || '').split('?')[0];
+  if (pathname.endsWith('/auth/login') || pathname.endsWith('/auth/register')) {
+    return;
+  }
+
+  const cookies = request.cookies || {};
+  const hasAuthCookie = Boolean(cookies.access_token || cookies.refresh_token);
   if (!hasAuthCookie) {
     return;
   }
 
-  const cookieToken = request.cookies.csrf_token;
+  const cookieToken = cookies.csrf_token;
   const headerToken = request.headers['x-csrf-token'];
 
   if (!cookieToken || !headerToken || cookieToken !== headerToken) {
@@ -30,3 +36,6 @@ async function verifyCsrf(request, reply) {
 }
 
 module.exports = { verifyCsrf };
+
+
+
