@@ -1,5 +1,4 @@
-// Dev-only auth bypass. Requires BOTH NODE_ENV=development AND an explicit opt-in flag,
-// so it can never activate just because NODE_ENV was left unset/misconfigured in a real deployment.
+
 const DEV_AUTH_BYPASS_ENABLED =
   process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
 
@@ -13,9 +12,7 @@ const DEV_BYPASS_USER = {
 async function authenticateJWT(request, reply) {
   const authHeader = request.headers.authorization;
 
-  // Allow health check without token. Compare the pathname only: request.url includes
-  // the query string, so a bare endsWith('/health') would let anyone bypass auth on ANY
-  // route via e.g. GET /academics/courses?x=/health (Fastify routes on the path alone).
+
   const pathname = request.url.split('?')[0];
   if (pathname.endsWith('/health')) {
     return;
