@@ -33,6 +33,7 @@ This document establishes the architecture master guide, principles, and directo
 | **14 – Deployment & DevOps** | Docker Compose, Nginx, GitHub Actions, R2 Backups | [deployment_and_devops.md](file:///home/chakresh/EducationOS/docs/deployment_and_devops.md) |
 | **15 – Testing Strategy** | Testing Pyramid, Testcontainers, Coverage Gates | [testing_strategy.md](file:///home/chakresh/EducationOS/docs/testing_strategy.md) |
 | **16 – Future Evolution** | Roadmap, Microservice Extraction, AI Plugins | [future_evolution.md](file:///home/chakresh/EducationOS/docs/future_evolution.md) |
+| **17 – Work Division & Ownership** | Task breakdown and workflow for Chakresh & Adarsh | [work_division.md](file:///home/chakresh/EducationOS/docs/work_division.md) |
 
 ---
 
