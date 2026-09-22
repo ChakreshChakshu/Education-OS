@@ -7,6 +7,7 @@ import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import HlsVideoPlayer from "@/components/media/HlsVideoPlayer";
 import { 
   ArrowLeft, 
   Video, 
@@ -197,29 +198,27 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
               {/* VIDEO PLAYER */}
               {activeModule?.contentType === "VIDEO" && (
                 <div className="space-y-4">
-                  <div className="aspect-video w-full rounded-xl bg-black overflow-hidden border border-border flex items-center justify-center relative">
-                    {activeModule.contentUrl && activeModule.contentUrl.endsWith(".mp4") ? (
-                      <video 
-                        controls 
-                        className="w-full h-full object-contain"
-                        src={activeModule.contentUrl}
-                      />
-                    ) : (
-                      <div className="text-center space-y-3 p-8">
-                        <PlayCircle size={64} className="text-primary mx-auto animate-pulse" />
-                        <p className="text-base font-bold text-foreground">{activeModule.title}</p>
-                        <p className="text-xs font-mono text-muted-foreground">{activeModule.contentUrl}</p>
-                        <a href={activeModule.contentUrl} target="_blank" rel="noreferrer">
-                          <Button size="sm" className="gap-2 font-bold mt-2">
-                            Open Video Stream Source
-                          </Button>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4 rounded-xl border border-border bg-background space-y-1">
-                    <p className="text-sm font-bold">Lecture Instructions</p>
-                    <p className="text-xs text-muted-foreground font-medium">Watch the video lecture carefully to unlock the next module.</p>
+                  <HlsVideoPlayer
+                    src={activeModule.hlsUrl || activeModule.contentUrl || "http://localhost:3001/uploads/hls/3300f639-98b8-491d-bac2-769503c599ea/master.m3u8"}
+                    title={activeModule.title}
+                    chapters={[
+                      { time: 0, title: "Introduction" },
+                      { time: 60, title: "Architecture Core" },
+                      { time: 180, title: "Implementation Summary" }
+                    ]}
+                    onEnded={() => toggleComplete(activeModule.id)}
+                  />
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Lecture Workspace</p>
+                      <p className="text-xs text-muted-foreground">Open in full minimalist classroom view with interactive chapter checkpoints and autosaved notes.</p>
+                    </div>
+                    <Link href={`/dashboard/courses/${courseId}/lesson/${activeModule.id}`}>
+                      <Button size="sm" className="font-bold gap-2 shrink-0">
+                        <span>Open Classroom View</span>
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               )}
