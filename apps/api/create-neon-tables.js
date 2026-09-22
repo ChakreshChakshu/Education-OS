@@ -288,7 +288,14 @@ async function runNeonMigration() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );`,
       `CREATE INDEX IF NOT EXISTS idx_jobs_status_available ON jobs(status, available_at, priority DESC);`,
-      `CREATE INDEX IF NOT EXISTS idx_jobs_queue_name ON jobs(queue_name);`
+      `CREATE INDEX IF NOT EXISTS idx_jobs_queue_name ON jobs(queue_name);`,
+
+      // 21. Media Assets Schema Enhancements (for HLS & Storage Keys)
+      `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS storage_key TEXT;`,
+      `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS hls_manifest_url TEXT;`,
+      `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();`,
+      `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`,
+      `ALTER TABLE media_assets ALTER COLUMN storage_url DROP NOT NULL;`
     ];
 
     for (const sql of sqlStatements) {

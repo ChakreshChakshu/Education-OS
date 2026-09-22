@@ -38,12 +38,29 @@ async function start() {
   // Bearer-header clients (mobile/API) never carry our cookies, so they're unaffected.
   fastify.addHook('onRequest', verifyCsrf);
 
-  // Serve uploads directory
-  fastify.get('/uploads/:filename', async (request, reply) => {
-    const filePath = path.join(process.cwd(), 'uploads', request.params.filename);
-    if (!fs.existsSync(filePath)) {
+  // Serve uploads directory (including HLS multi-bitrate streams & segments)
+  fastify.get('/uploads/*', async (request, reply) => {
+    const subpath = request.params['*'] || '';
+    const filePath = path.join(process.cwd(), 'uploads', subpath);
+
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       return reply.status(404).send({ error: 'File not found' });
     }
+
+    if (filePath.endsWith('.m3u8')) {
+      reply.header('Content-Type', 'application/vnd.apple.mpegurl');
+      reply.header('Cache-Control', 'no-cache');
+    } else if (filePath.endsWith('.ts')) {
+      reply.header('Content-Type', 'video/mp2t');
+      reply.header('Cache-Control', 'public, max-age=86400');
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+      reply.header('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.png')) {
+      reply.header('Content-Type', 'image/png');
+    } else if (filePath.endsWith('.mp4')) {
+      reply.header('Content-Type', 'video/mp4');
+    }
+
     const stream = fs.createReadStream(filePath);
     return reply.send(stream);
   });
