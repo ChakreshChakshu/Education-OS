@@ -1,6 +1,6 @@
 # EOS REST API Endpoint Reference Guide
 
-This document provides a comprehensive specification of all **16 active REST API endpoints** implemented in `apps/api` for the Education Operating System (EOS).
+This document provides a comprehensive specification of all **17 active REST API endpoints** implemented in `apps/api` for the Education Operating System (EOS).
 
 ---
 
@@ -341,7 +341,7 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 ### 10. Upload Media File
 * **Endpoint:** `POST /api/v1/internal/media/upload`
 * **Scope:** Internal
-* **Purpose:** Accepts base64 encoded lecture videos (`.mp4`) or PDF documents, saves them directly to local `./uploads/` storage on disk, and returns a public URL.
+* **Purpose:** Accepts base64 encoded lecture videos (`.mp4`) or PDF documents, saves them directly to local `./uploads/` storage on disk, and returns public URLs. When a video is uploaded, it automatically provisions a `media_assets` row with status `ENCODING`, publishes a `MediaUploaded` Transactional Outbox event, and initiates asynchronous multi-bitrate HLS transcoding (360p, 720p, 1080p).
 * **Request Body:**
   ```json
   {
@@ -355,9 +355,12 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
   {
     "success": true,
     "data": {
+      "id": "a816d807-ecc7-4692-b238-a5515e53ab29",
       "filename": "1741234_lecture1.mp4",
       "path": "/home/chakresh/EducationOS/apps/api/uploads/1741234_lecture1.mp4",
       "url": "http://localhost:3001/uploads/1741234_lecture1.mp4",
+      "hlsUrl": "http://localhost:3001/uploads/hls/a816d807-ecc7-4692-b238-a5515e53ab29/master.m3u8",
+      "status": "ENCODING",
       "mimeType": "video/mp4"
     }
   }
@@ -447,6 +450,26 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 ---
 
 ### 14. Static Media Streaming Server
-* **Endpoint:** `GET /uploads/:filename`
+* **Endpoint:** `GET /uploads/*`
 * **Scope:** Public / Media Stream
-* **Purpose:** Serves video files (`.mp4`) and documents (`.pdf`) saved on local disk to the Next.js LMS Classroom Player.
+* **Purpose:** Serves video files (`.mp4`), PDF documents (`.pdf`), HLS master manifests (`.m3u8`), stream variant playlists, and transport stream segments (`.ts`) saved on local disk to the Next.js LMS Classroom Player. Sets appropriate MIME types (`application/vnd.apple.mpegurl`, `video/mp2t`, `video/mp4`, `image/jpeg`).
+
+---
+
+### 15. Check Media Transcoding Status
+* **Endpoint:** `GET /api/v1/internal/media/status/:id`
+* **Scope:** Internal
+* **Purpose:** Retrieves the current transcoding status of an uploaded media asset (`ENCODING` $\rightarrow$ `READY`) along with the live `hlsUrl` for immediate playback streaming.
+* **Parameters:** `id` (Media Asset UUID)
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "a816d807-ecc7-4692-b238-a5515e53ab29",
+      "status": "READY",
+      "filename": "1741234_lecture1.mp4",
+      "hlsUrl": "http://localhost:3001/uploads/hls/a816d807-ecc7-4692-b238-a5515e53ab29/master.m3u8"
+    }
+  }
+  ```

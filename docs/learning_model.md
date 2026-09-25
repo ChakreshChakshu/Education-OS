@@ -291,6 +291,26 @@ Treat each enrollment in a `CourseOffering` as an immutable record. Re-enrolling
 
 ---
 
+## ADR-013: Web LMS Player & Real-time Progress Persistence
+
+### Status
+**Accepted & Implemented**
+
+### Context
+Students need continuous feedback on lesson progress, adaptive video streaming with quality adjustments, in-browser notes that persist across sessions, and instant knowledge assessment evaluations with database-backed completion recording.
+
+### Implementation Details
+1. **Interactive Classroom Player (`HlsVideoPlayer.jsx`)**:
+   - Supports HTTP Live Streaming (HLS) multi-bitrate manifests with dynamic variant switching (`Auto`, `1080p`, `720p`, `360p`).
+   - Chapter checkpoints with visual time markers and seek triggers.
+   - Autosaved student notes persisted locally to `localStorage` (`eos_notes_<lessonId>`).
+2. **Persistence Flow**:
+   - Marking a lesson complete triggers `ApiClient.completeLesson({ studentUserId, lessonModuleId, batchId })` $\rightarrow$ `POST /api/v1/internal/learning/lessons/complete` $\rightarrow$ inserts or updates row in `student_progress` table.
+   - Submitting a quiz assessment triggers `ApiClient.submitQuiz({ studentUserId, lessonModuleId, score, passingScore })` $\rightarrow$ `POST /api/v1/internal/learning/quizzes/submit` $\rightarrow$ evaluates score and persists to `quiz_submissions` table.
+
+---
+
 # Guiding Principle
 
 > **Learning is tied to an enrollment, progress is tracked atomically per lesson, and course completion is derived from learner activity rather than manually maintained.**
+

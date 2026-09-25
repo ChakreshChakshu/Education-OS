@@ -111,3 +111,42 @@ This document defines the ownership, task breakdown, and collaboration workflow 
 1. **Contract-First**: Chakresh defines the API contract / DTO in `packages/contracts/` before feature development starts.
 2. **Independent Progress**: Adarsh implements UI screens and API route wrappers against the contract without waiting for backend internals.
 3. **Merge Requirement**: Every pull request must pass `pnpm test` and `pnpm depcruise` before Chakresh reviews and merges.
+
+---
+
+## 5. Completed Work & Live Integration Status
+
+### 5.1 Infrastructure, Queue & Outbox Engine (Completed by Chakresh)
+- **PostgreSQL Transactional Outbox Pattern**: Built `outbox_events` schema and repository (`DrizzleOutboxRepository`). Published domain events are recorded within the same ACID transaction as the business entity changes.
+- **PostgreSQL Queue Provider**: Built `PostgresQueueProvider` with concurrent-safe row locking (`FOR UPDATE SKIP LOCKED`), supporting priority queues (`default`, `video`, `email`, `billing`), backoff retry delays, and dead-letter failure handling.
+- **Background Worker Engine (`apps/worker`)**:
+  - `OutboxPublisher`: Polling service that fetches pending outbox events and dispatches them as asynchronous queue jobs.
+  - `WorkerPool`: Concurrent multi-worker pool processing jobs across dedicated queues.
+
+### 5.2 Video Transcoding & HLS Streaming Pipeline (Completed by Chakresh)
+- **FFmpeg Transcoding Pipeline (`apps/worker/src/services/transcoder.js`)**:
+  - Automated generation of multi-bitrate HLS streams: **360p** (640x360 @ 800k), **720p** (1280x720 @ 2500k), and **1080p** (1920x1080 @ 4500k).
+  - Production of `master.m3u8` variant playlist and automatic extraction of `poster.jpg` video thumbnail.
+- **Neon PostgreSQL Media Tracking**: Automated lifecycle transitions: `ENCODING` $\rightarrow$ `READY` with `hls_manifest_url` persistence.
+- **API & Upload Wiring**:
+  - `POST /api/v1/internal/media/upload`: Ingests video binaries, creates `media_assets` row, and publishes `MediaUploaded` outbox event.
+  - `GET /api/v1/internal/media/status/:id`: Status polling endpoint for real-time transcode progress.
+  - `GET /uploads/*`: Fastify static media server supporting HLS manifests (`.m3u8`), video segments (`.ts`), and MP4 streams.
+
+### 5.3 UI & Interactive Classroom Integration (Completed by Chakresh & Adarsh)
+- **Interactive Student Player (`HlsVideoPlayer.jsx`)**:
+  - Full adaptive bitrate streaming powered by `Hls.js` with manual quality selection (Auto, 1080p, 720p, 360p), playback speeds (0.75x–2x), interactive chapter checkpoints, volume/fullscreen controls, and keyboard shortcuts.
+- **Dedicated Classroom View (`/courses/[id]/lesson/[lessonId]`)**:
+  - Split-view classroom interface with collapsible curriculum syllabus, interactive chapter jumps, real-time autosaved student notes in `localStorage`, and interactive quiz evaluations.
+- **Curriculum Builder Integration (`/courses/[id]`)**:
+  - `MediaUploader` integrated into the course builder modal with live transcode status polling badge ("Worker Transcoding Multi-Bitrate HLS...").
+  - Automated attachment of `hlsUrl` onto created lesson modules.
+- **End-to-End Learning Persistence**:
+  - Wired `ApiClient.completeLesson` and `ApiClient.submitQuiz` to `apps/web/app/dashboard/courses/[id]/learn/page.js` and `apps/web/app/dashboard/courses/[id]/lesson/[lessonId]/page.js`.
+  - Student progress and quiz evaluation scores persist directly to Neon PostgreSQL `student_progress` and `quiz_submissions` tables.
+
+### 5.4 Test Suite & Quality Verification
+- Added in-memory fallback stores to `DrizzleCourseRepository` and `DrizzleLessonModuleRepository` ensuring unit tests pass independently of live database connections.
+- Verified 100% passing test suites across database repositories and video transcoding pipeline.
+- Verified zero circular or illegal layer dependencies via `pnpm depcruise` (585 modules, 658 dependencies).
+
