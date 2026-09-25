@@ -1,9 +1,13 @@
-let LocalStorageProvider, PostgresQueueProvider, InMemoryCacheProvider;
+let LocalStorageProvider, R2StorageProvider, PostgresQueueProvider, InMemoryCacheProvider;
 
 try {
-  LocalStorageProvider = require('@eos/infra-storage').LocalStorageProvider;
+  const storage = require('@eos/infra-storage');
+  LocalStorageProvider = storage.LocalStorageProvider;
+  R2StorageProvider = storage.R2StorageProvider;
 } catch (e) {
-  LocalStorageProvider = require('../../../../packages/infrastructure/storage/src').LocalStorageProvider;
+  const storage = require('../../../../packages/infrastructure/storage/src');
+  LocalStorageProvider = storage.LocalStorageProvider;
+  R2StorageProvider = storage.R2StorageProvider;
 }
 
 try {
@@ -19,7 +23,19 @@ try {
 }
 
 function registerProviders(container) {
-  container.register('StorageProvider', () => new LocalStorageProvider());
+  const hasR2 = Boolean(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY
+  );
+
+  if (hasR2 && R2StorageProvider) {
+    container.register('StorageProvider', () => new R2StorageProvider());
+    console.log('[StorageProvider] Initialized Cloudflare R2StorageProvider');
+  } else {
+    container.register('StorageProvider', () => new LocalStorageProvider());
+  }
+
   container.register('QueueProvider', () => new PostgresQueueProvider());
   container.register('CacheProvider', () => new InMemoryCacheProvider());
 }

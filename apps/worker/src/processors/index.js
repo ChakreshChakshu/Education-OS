@@ -3,14 +3,40 @@ const fs = require('fs');
 const { JOBS } = require('../jobs');
 const { VideoTranscoder } = require('../services/transcoder');
 
-let DatabaseClient;
+let DatabaseClient, R2StorageProvider;
 try {
   DatabaseClient = require('@eos/infra-database').DatabaseClient;
 } catch (e) {
   DatabaseClient = require('../../../../packages/infrastructure/database/src').DatabaseClient;
 }
 
+try {
+  R2StorageProvider = require('@eos/infra-storage').R2StorageProvider;
+} catch (e) {
+  R2StorageProvider = require('../../../../packages/infrastructure/storage/src').R2StorageProvider;
+}
+
 const transcoder = new VideoTranscoder();
+
+async function uploadDirectoryToR2(r2Provider, localDir, r2Prefix) {
+  const entries = fs.readdirSync(localDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(localDir, entry.name);
+    const targetKey = `${r2Prefix}/${entry.name}`;
+    if (entry.isDirectory()) {
+      await uploadDirectoryToR2(r2Provider, fullPath, targetKey);
+    } else {
+      let mime = 'application/octet-stream';
+      if (entry.name.endsWith('.m3u8')) mime = 'application/vnd.apple.mpegurl';
+      else if (entry.name.endsWith('.ts')) mime = 'video/mp2t';
+      else if (entry.name.endsWith('.jpg') || entry.name.endsWith('.jpeg')) mime = 'image/jpeg';
+      else if (entry.name.endsWith('.mp4')) mime = 'video/mp4';
+
+      const buffer = fs.readFileSync(fullPath);
+      await r2Provider.upload(targetKey, buffer, mime);
+    }
+  }
+}
 
 function resolveInputVideoPath(payload) {
   const candidatePaths = [
@@ -62,7 +88,26 @@ const PROCESSORS = {
       segmentDuration: 4
     });
 
-    const manifestUrl = `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8`;
+    let manifestUrl = `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8`;
+
+    // Check if Cloudflare R2 credentials are present
+    const hasR2 = Boolean(
+      process.env.R2_ACCOUNT_ID &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY
+    );
+
+    if (hasR2 && R2StorageProvider) {
+      try {
+        const r2 = new R2StorageProvider();
+        console.log(`[video.transcode] Syncing HLS stream directory to Cloudflare R2 for asset ${mediaAssetId}...`);
+        await uploadDirectoryToR2(r2, apiUploadsDir, `hls/${mediaAssetId}`);
+        manifestUrl = r2.getPublicUrl(`hls/${mediaAssetId}/master.m3u8`);
+        console.log(`[video.transcode] R2 Sync Complete! Manifest URL: ${manifestUrl}`);
+      } catch (r2Err) {
+        console.warn(`[video.transcode] Cloudflare R2 upload warning: ${r2Err.message}`);
+      }
+    }
 
     // 4. Update media_assets row in Neon PostgreSQL
     try {
