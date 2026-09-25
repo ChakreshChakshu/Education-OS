@@ -40,3 +40,7 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+
+# Media Uploads & HLS Transcode outputs
+uploads/
+apps/api/uploads/

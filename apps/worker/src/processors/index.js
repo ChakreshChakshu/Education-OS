@@ -15,11 +15,11 @@ const transcoder = new VideoTranscoder();
 function resolveInputVideoPath(payload) {
   const candidatePaths = [
     // 1. In API uploads folder by filename
-    payload.filename ? path.resolve(__dirname, '../../../../apps/api/uploads', payload.filename) : null,
+    payload.filename ? path.resolve(__dirname, '../../../api/uploads', payload.filename) : null,
     // 2. In local worker uploads folder by filename
     payload.filename ? path.resolve(process.cwd(), 'uploads', payload.filename) : null,
     // 3. By storageKey in API uploads
-    payload.storageKey ? path.resolve(__dirname, '../../../../apps/api/uploads', payload.storageKey) : null,
+    payload.storageKey ? path.resolve(__dirname, '../../../api/uploads', payload.storageKey) : null,
     // 4. By storageKey in local uploads
     payload.storageKey ? path.resolve(process.cwd(), 'uploads', payload.storageKey) : null,
     // 5. Absolute path if provided
@@ -46,14 +46,14 @@ const PROCESSORS = {
 
     if (!inputPath) {
       console.warn(`[video.transcode] Source video not found on disk. Generating synthetic test video for asset ${mediaAssetId}...`);
-      const tempDir = path.resolve(__dirname, '../../../../apps/api/uploads/temp');
+      const tempDir = path.resolve(__dirname, '../../../api/uploads/temp');
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
       inputPath = path.join(tempDir, `test_source_${mediaAssetId}.mp4`);
       await transcoder.createSyntheticVideo(inputPath, 3);
     }
 
     // 2. Prepare HLS output directory
-    const apiUploadsDir = path.resolve(__dirname, '../../../../apps/api/uploads/hls', mediaAssetId);
+    const apiUploadsDir = path.resolve(__dirname, '../../../api/uploads/hls', mediaAssetId);
     if (!fs.existsSync(apiUploadsDir)) fs.mkdirSync(apiUploadsDir, { recursive: true });
 
     // 3. Execute Multi-bitrate HLS Transcoding

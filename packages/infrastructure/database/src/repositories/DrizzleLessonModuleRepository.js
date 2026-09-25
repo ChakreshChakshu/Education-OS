@@ -6,6 +6,7 @@ class DrizzleLessonModuleRepository extends BaseRepository {
   constructor(db) {
     super(db);
     this.table = lessonModulesTable;
+    this._moduleStore = new Map();
   }
 
   static toDomain(row) {
@@ -50,7 +51,11 @@ class DrizzleLessonModuleRepository extends BaseRepository {
   }
 
   async findById(id) {
-    const db = await this.db.connect();
+    if (!this.db) {
+      const raw = this._moduleStore.get(id);
+      return raw ? DrizzleLessonModuleRepository.toDomain(raw) : null;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.select) {
       const rows = await db
         .select()
@@ -64,7 +69,17 @@ class DrizzleLessonModuleRepository extends BaseRepository {
   }
 
   async findByCourseId(courseId) {
-    const db = await this.db.connect();
+    if (!this.db) {
+      const results = [];
+      for (const raw of this._moduleStore.values()) {
+        if (raw.courseId === courseId && !raw.deletedAt) {
+          const dom = DrizzleLessonModuleRepository.toDomain(raw);
+          if (dom) results.push(dom);
+        }
+      }
+      return results;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.select) {
       const rows = await db
         .select()
@@ -78,7 +93,11 @@ class DrizzleLessonModuleRepository extends BaseRepository {
 
   async save(module) {
     const raw = DrizzleLessonModuleRepository.toPersistence(module);
-    const db = await this.db.connect();
+    this._moduleStore.set(module.id, raw);
+    if (!this.db) {
+      return module;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.insert) {
       await db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,

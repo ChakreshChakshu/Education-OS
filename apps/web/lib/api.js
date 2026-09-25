@@ -234,6 +234,48 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getMediaStatus(mediaId) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/media/status/${mediaId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch media status');
+      return data;
+    } catch (err) {
+      console.error('API getMediaStatus Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async completeLesson({ studentUserId, lessonModuleId, batchId }) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ studentUserId, lessonModuleId, batchId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete lesson');
+      return data;
+    } catch (err) {
+      console.error('API completeLesson Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async submitQuiz({ studentUserId, lessonModuleId, score, passingScore = 70 }) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/quizzes/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ studentUserId, lessonModuleId, score, passingScore })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit quiz');
+      return data;
+    } catch (err) {
+      console.error('API submitQuiz Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

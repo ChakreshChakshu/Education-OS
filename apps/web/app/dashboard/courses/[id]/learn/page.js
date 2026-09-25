@@ -99,26 +99,45 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
 
   const activeModule = modules[activeModuleIndex] || null;
 
-  const toggleComplete = (modId) => {
+  const toggleComplete = async (modId) => {
     const next = new Set(completedModuleIds);
-    if (next.has(modId)) {
-      next.delete(modId);
-    } else {
+    const isNowDone = !next.has(modId);
+    if (isNowDone) {
       next.add(modId);
+    } else {
+      next.delete(modId);
     }
     setCompletedModuleIds(next);
+
+    if (isNowDone && user?.id) {
+      await ApiClient.completeLesson({
+        studentUserId: user.id,
+        lessonModuleId: modId,
+        batchId: course?.batchId
+      });
+    }
   };
 
-  const handleQuizSubmit = (e) => {
+  const handleQuizSubmit = async (e) => {
     e.preventDefault();
     if (!selectedQuizOption || !activeModule?.quiz) return;
 
     const isCorrect = selectedQuizOption === activeModule.quiz.correct;
+    const score = isCorrect ? 100 : 0;
     setQuizSubmitted(true);
-    setQuizScore(isCorrect ? 100 : 0);
+    setQuizScore(score);
 
     if (isCorrect) {
       setCompletedModuleIds(new Set([...completedModuleIds, activeModule.id]));
+    }
+
+    if (user?.id) {
+      await ApiClient.submitQuiz({
+        studentUserId: user.id,
+        lessonModuleId: activeModule.id,
+        score,
+        passingScore: 70
+      });
     }
   };
 

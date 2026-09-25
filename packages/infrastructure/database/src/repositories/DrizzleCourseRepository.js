@@ -6,6 +6,7 @@ class DrizzleCourseRepository extends BaseRepository {
   constructor(db) {
     super(db);
     this.table = coursesTable;
+    this._courseStore = new Map();
   }
 
   static toDomain(row) {
@@ -53,7 +54,11 @@ class DrizzleCourseRepository extends BaseRepository {
   }
 
   async findById(id) {
-    const db = await this.db.connect();
+    if (!this.db) {
+      const raw = this._courseStore.get(id);
+      return raw ? DrizzleCourseRepository.toDomain(raw) : null;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.select) {
       const rows = await db
         .select()
@@ -68,7 +73,15 @@ class DrizzleCourseRepository extends BaseRepository {
 
   async findByCode(tenantId, codeStr) {
     const upperCode = codeStr.toUpperCase();
-    const db = await this.db.connect();
+    if (!this.db) {
+      for (const raw of this._courseStore.values()) {
+        if (raw.tenantId === tenantId && raw.code?.toUpperCase() === upperCode && !raw.deletedAt) {
+          return DrizzleCourseRepository.toDomain(raw);
+        }
+      }
+      return null;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.select) {
       const rows = await db
         .select()
@@ -110,7 +123,11 @@ class DrizzleCourseRepository extends BaseRepository {
 
   async save(course) {
     const raw = DrizzleCourseRepository.toPersistence(course);
-    const db = await this.db.connect();
+    this._courseStore.set(course.id, raw);
+    if (!this.db) {
+      return course;
+    }
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.insert) {
       await db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,

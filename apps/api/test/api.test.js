@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');
 const crypto = require('crypto');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const { container } = require('../src/bootstrap/container');
 const { registerProviders } = require('../src/bootstrap/providers');

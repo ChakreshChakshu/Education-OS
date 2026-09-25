@@ -17,13 +17,31 @@ import {
 export function MediaUploader({ onUploadSuccess, accept = "video/*,application/pdf" }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [transcodeStatus, setTranscodeStatus] = useState(null); // 'ENCODING' | 'READY' | null
   const [uploadedFile, setUploadedFile] = useState(null);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
+  const pollTranscodeStatus = (mediaId) => {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) {
+        clearInterval(interval);
+        return;
+      }
+      const st = await ApiClient.getMediaStatus(mediaId);
+      if (st.success && st.data?.status === 'READY') {
+        setTranscodeStatus('READY');
+        clearInterval(interval);
+      }
+    }, 2000);
+  };
+
   const handleFileSelect = async (file) => {
     if (!file) return;
     setUploading(true);
+    setTranscodeStatus(null);
     setError(null);
 
     try {
@@ -40,12 +58,18 @@ export function MediaUploader({ onUploadSuccess, accept = "video/*,application/p
         if (res.success && res.data) {
           const fileInfo = {
             url: res.data.url,
+            hlsUrl: res.data.hlsUrl,
+            mediaAssetId: res.data.id,
             filename: res.data.filename,
             size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
           };
           setUploadedFile(fileInfo);
+          if (res.data.status === 'ENCODING' && res.data.id) {
+            setTranscodeStatus('ENCODING');
+            pollTranscodeStatus(res.data.id);
+          }
           if (onUploadSuccess) {
-            onUploadSuccess(fileInfo.url, fileInfo.filename);
+            onUploadSuccess(fileInfo.url, fileInfo.filename, res.data);
           }
         } else {
           setError(res.error || "Upload failed");
@@ -72,8 +96,9 @@ export function MediaUploader({ onUploadSuccess, accept = "video/*,application/p
 
   const clearFile = () => {
     setUploadedFile(null);
+    setTranscodeStatus(null);
     if (onUploadSuccess) {
-      onUploadSuccess("", "");
+      onUploadSuccess("", "", null);
     }
   };
 
@@ -124,9 +149,21 @@ export function MediaUploader({ onUploadSuccess, accept = "video/*,application/p
             <div className="h-10 w-10 rounded-lg bg-success text-success-foreground flex items-center justify-center shrink-0 font-bold">
               <CheckCircle size={22} weight="bold" />
             </div>
-            <div className="truncate">
+            <div className="truncate space-y-1">
               <p className="text-sm font-bold truncate text-foreground">{uploadedFile.filename}</p>
               <p className="text-xs font-mono text-muted-foreground truncate">{uploadedFile.url}</p>
+              {transcodeStatus === 'ENCODING' && (
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-bold">
+                  <Spinner size={12} className="animate-spin" />
+                  <span>Worker Transcoding Multi-Bitrate HLS (360p/720p/1080p)...</span>
+                </div>
+              )}
+              {transcodeStatus === 'READY' && (
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[11px] font-bold">
+                  <CheckCircle size={12} weight="bold" />
+                  <span>HLS Stream Ready: {uploadedFile.hlsUrl}</span>
+                </div>
+              )}
             </div>
           </div>
 

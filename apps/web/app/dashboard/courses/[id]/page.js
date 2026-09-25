@@ -48,6 +48,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
   const [optC, setOptC] = useState("");
   const [optD, setOptD] = useState("");
   const [correctOpt, setCorrectOpt] = useState("A");
+  const [hlsUrl, setHlsUrl] = useState("");
 
   useEffect(() => {
     async function loadCourseData() {
@@ -90,6 +91,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       title,
       contentType: modalType,
       contentUrl: url || "#",
+      hlsUrl: hlsUrl || (url.includes('.m3u8') ? url : null),
       order: modules.length + 1
     };
 
@@ -123,6 +125,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
     setModalType(null);
     setTitle("");
     setUrl("");
+    setHlsUrl("");
     setDuration(15);
     setQuizQuestion("");
     setOptA("");
@@ -360,7 +363,12 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                       </label>
                       <MediaUploader 
                         accept={modalType === "VIDEO" ? "video/*" : "application/pdf"}
-                        onUploadSuccess={(fileUrl) => setUrl(fileUrl)} 
+                        onUploadSuccess={(fileUrl, fileName, mediaData) => {
+                          setUrl(fileUrl);
+                          if (mediaData?.hlsUrl) {
+                            setHlsUrl(mediaData.hlsUrl);
+                          }
+                        }} 
                       />
                     </div>
 

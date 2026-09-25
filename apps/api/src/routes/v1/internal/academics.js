@@ -98,6 +98,7 @@ async function academicsRoutes(fastify, options) {
         title: m.title,
         contentType: m.contentType,
         contentUrl: m.contentUrl,
+        hlsUrl: m.props?.hlsUrl || (m.contentUrl && m.contentUrl.includes('.m3u8') ? m.contentUrl : null),
         order: m.order,
         status: m.status,
         quiz: m.quiz || null
@@ -109,7 +110,7 @@ async function academicsRoutes(fastify, options) {
   fastify.post('/courses/:id/modules', async (request, reply) => {
     const moduleRepo = container.resolve('LessonModuleRepository');
     const courseRepo = container.resolve('CourseRepository');
-    const { title, contentType, contentUrl, order, quiz } = request.body || {};
+    const { title, contentType, contentUrl, hlsUrl, order, quiz } = request.body || {};
 
     const course = await courseRepo.findById(request.params.id);
     if (!course) {
@@ -127,14 +128,17 @@ async function academicsRoutes(fastify, options) {
       order: order || 1,
       status: 'PUBLISHED',
       quiz: quiz || null,
-      props: { createdAt: new Date() }
+      props: { createdAt: new Date(), hlsUrl: hlsUrl || null }
     };
 
     await moduleRepo.save(newModule);
 
     return reply.status(201).send({
       success: true,
-      data: newModule
+      data: {
+        ...newModule,
+        hlsUrl: hlsUrl || null
+      }
     });
   });
 

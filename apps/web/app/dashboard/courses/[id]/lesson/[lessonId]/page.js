@@ -155,23 +155,41 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
   };
 
-  const toggleLessonComplete = (id) => {
+  const toggleLessonComplete = async (id) => {
     const next = new Set(completedLessons);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
+    const isNowDone = !next.has(id);
+    if (isNowDone) {
       next.add(id);
+    } else {
+      next.delete(id);
     }
     setCompletedLessons(next);
+
+    if (isNowDone && user?.id) {
+      await ApiClient.completeLesson({
+        studentUserId: user.id,
+        lessonModuleId: id,
+        batchId: course?.batchId
+      });
+    }
   };
 
-  const handleQuizAnswer = (optionKey) => {
+  const handleQuizAnswer = async (optionKey) => {
     setSelectedOption(optionKey);
     setQuizSubmitted(true);
     const correct = optionKey === "B";
     setQuizCorrect(correct);
     if (correct) {
       setCompletedLessons(new Set([...completedLessons, currentLesson.id]));
+    }
+
+    if (user?.id) {
+      await ApiClient.submitQuiz({
+        studentUserId: user.id,
+        lessonModuleId: currentLesson.id,
+        score: correct ? 100 : 0,
+        passingScore: 70
+      });
     }
   };
 
