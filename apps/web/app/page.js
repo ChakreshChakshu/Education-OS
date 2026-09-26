@@ -70,9 +70,9 @@ export default function Home() {
               Sign In
             </Button>
           </Link>
-          <Link href="/login?tab=register">
+          <Link href="/register">
             <Button size="sm" className="font-bold text-sm gap-2 shadow-sm">
-              Register Institution <ArrowRight size={16} weight="bold" />
+              Launch Institution <ArrowRight size={16} weight="bold" />
             </Button>
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default function Home() {
                 Explore Live Campus Portal <ArrowRight size={18} weight="bold" />
               </Button>
             </Link>
-            <Link href="/login?tab=register" className="w-full sm:w-auto">
+            <Link href="/register" className="w-full sm:w-auto">
               <Button variant="outline" size="lg" className="w-full sm:w-auto text-base font-bold px-8 h-13 rounded-xl bg-card border-border hover:bg-secondary transition-colors">
                 Onboard Your Institution
               </Button>
@@ -607,7 +607,7 @@ export default function Home() {
                   Launch Web Portal <ArrowRight size={18} weight="bold" />
                 </Button>
               </Link>
-              <Link href="/login?tab=register">
+              <Link href="/register">
                 <Button variant="outline" size="lg" className="w-full sm:w-auto text-base font-bold px-8 h-12 rounded-xl bg-card">
                   Register New Institution
                 </Button>

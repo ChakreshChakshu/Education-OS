@@ -137,6 +137,41 @@ async function publicRoutes(fastify, options) {
     }
   );
 
+  // Slug Availability Check Route
+  fastify.get(
+    '/auth/check-slug',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          required: ['slug'],
+          properties: {
+            slug: { type: 'string', minLength: 1 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const tenantRepository = container.resolve('TenantRepository');
+      const normalizedSlug = slugify(request.query.slug || '');
+      if (normalizedSlug.length < 3) {
+        return reply.status(200).send({
+          success: true,
+          slug: normalizedSlug,
+          available: false,
+          reason: 'Subdomain must be at least 3 characters'
+        });
+      }
+
+      const existingTenant = await tenantRepository.findBySlug(normalizedSlug);
+      return reply.status(200).send({
+        success: true,
+        slug: normalizedSlug,
+        available: !existingTenant
+      });
+    }
+  );
+
   // User Registration Route (Bcrypt Password Hashing & Neon Database Save)
   fastify.post(
     '/auth/register',
@@ -149,9 +184,13 @@ async function publicRoutes(fastify, options) {
             email: { type: 'string', format: 'email' },
             password: { type: 'string', minLength: 8 },
             name: { type: 'string', minLength: 1 },
+            institutionName: { type: 'string' },
+            slug: { type: 'string' },
+            branchName: { type: 'string' },
             phone: { type: 'string' },
             timezone: { type: 'string' },
-            language: { type: 'string' }
+            language: { type: 'string' },
+            settingsJson: { type: 'object' }
           }
         }
       }
@@ -169,17 +208,19 @@ async function publicRoutes(fastify, options) {
 
       const registeredUser = result.getValue();
 
-      // Auto-provision a default tenant workspace so a fresh signup has real
-      // multi-tenant scoping immediately, instead of relying on a client-side
-      // placeholder tenant ID (see docs/multi_tenant_architecture.md).
+      // Auto-provision tenant workspace with custom branding & settings
       const createTenantUseCase = container.resolve('CreateTenantUseCase');
-      const institutionName = request.body.institutionName && request.body.institutionName.trim();
-      const tenantName = institutionName || `${registeredUser.name}'s Workspace`;
-      const slugSuffix = registeredUser.id.replace(/-/g, '').slice(0, 8);
+      const institutionName = (request.body.institutionName && request.body.institutionName.trim()) || `${registeredUser.name}'s Workspace`;
+      const requestedSlug = request.body.slug && slugify(request.body.slug);
+      const slugSuffix = registeredUser.id.replace(/-/g, '').slice(0, 6);
+      const finalSlug = requestedSlug && requestedSlug.length >= 3 ? requestedSlug : `${slugify(institutionName)}-${slugSuffix}`;
+
       const tenantResult = await createTenantUseCase.execute({
-        name: tenantName,
-        slug: `${slugify(tenantName)}-${slugSuffix}`,
-        ownerUserId: registeredUser.id
+        name: institutionName,
+        slug: finalSlug,
+        ownerUserId: registeredUser.id,
+        orgName: request.body.branchName || 'Main Campus',
+        settingsJson: request.body.settingsJson || {}
       });
 
       if (tenantResult.isFailure) {

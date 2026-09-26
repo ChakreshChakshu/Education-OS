@@ -69,6 +69,17 @@ class ApiClient {
     return res;
   }
 
+  static async checkSlug(slug) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/check-slug?slug=${encodeURIComponent(slug)}`);
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('API checkSlug Error:', err.message);
+      return { success: false, available: false, error: err.message };
+    }
+  }
+
   static async registerUser(payload) {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/register`, {

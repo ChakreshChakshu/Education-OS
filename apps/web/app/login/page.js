@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/providers/auth-context";
 import { Button } from "@/components/ui/button";
@@ -11,37 +11,23 @@ import {
   GraduationCap, 
   EnvelopeSimple, 
   LockSimple, 
-  User, 
-  Buildings,
-  ArrowRight,
-  CheckCircle,
-  WarningCircle
+  ArrowRight, 
+  CheckCircle, 
+  WarningCircle, 
+  Sparkle, 
+  RocketLaunch 
 } from "@phosphor-icons/react";
 
 function LoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login, register } = useAuth();
+  const { login } = useAuth();
 
-  const [tab, setTab] = useState("login"); // "login" | "register"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-
-  // Register form state
-  const [regName, setRegName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [regInstitutionName, setRegInstitutionName] = useState("");
-
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "register") setTab("register");
-  }, [searchParams]);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -51,7 +37,7 @@ function LoginContent() {
     try {
       const res = await login(loginEmail, loginPassword);
       if (res.success) {
-        setSuccess("Login successful! Redirecting...");
+        setSuccess("Login successful! Entering dashboard...");
         setTimeout(() => router.push("/dashboard"), 600);
       } else {
         setError(res.error || "Invalid credentials");
@@ -63,171 +49,87 @@ function LoginContent() {
     }
   };
 
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const res = await register(regName, regEmail, regPassword, regInstitutionName);
-      if (res.success) {
-        setSuccess(`Institution '${regInstitutionName || 'Academy'}' registered! Redirecting...`);
-        setTimeout(() => router.push("/dashboard"), 600);
-      } else {
-        setError(res.error || "Registration failed");
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <Card className="border-border shadow-xl rounded-2xl bg-card">
-      {/* Tab Buttons */}
-      <div className="grid grid-cols-2 p-1.5 bg-muted/40 rounded-t-2xl border-b border-border text-center text-base font-bold">
-        <button
-          onClick={() => { setTab("login"); setError(""); setSuccess(""); }}
-          className={`py-3 rounded-xl transition-all cursor-pointer ${
-            tab === "login"
-              ? "bg-card text-foreground shadow-xs font-bold"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Sign In
-        </button>
-        <button
-          onClick={() => { setTab("register"); setError(""); setSuccess(""); }}
-          className={`py-3 rounded-xl transition-all cursor-pointer ${
-            tab === "register"
-              ? "bg-card text-foreground shadow-xs font-bold"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Register Institution
-        </button>
+    <Card className="border-border shadow-2xl rounded-3xl bg-card overflow-hidden">
+      {/* Header Banner */}
+      <div className="p-6 sm:p-8 border-b border-border bg-muted/20 text-center space-y-2">
+        <h2 className="text-2xl font-black tracking-tight text-foreground">Sign In to Education OS</h2>
+        <p className="text-xs text-muted-foreground">Access your institutional portal, classroom player, and course catalog</p>
       </div>
 
-      <CardContent className="pt-6 px-6 md:px-8 space-y-5">
+      <CardContent className="p-6 sm:p-8 space-y-5">
         {error && (
-          <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold flex items-center gap-2.5">
-            <WarningCircle size={20} weight="bold" />
+          <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2.5">
+            <WarningCircle size={20} weight="bold" className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="p-3.5 rounded-xl bg-success/10 border border-success/30 text-success text-sm font-semibold flex items-center gap-2.5">
-            <CheckCircle size={20} weight="bold" />
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-semibold flex items-center gap-2.5">
+            <CheckCircle size={20} weight="bold" className="shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
-        {tab === "login" ? (
-          /* LOGIN FORM */
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <EnvelopeSimple size={16} /> Email Address
-              </label>
-              <Input
-                type="email"
-                required
-                placeholder="admin@institution.edu"
-                className="h-12 text-base rounded-xl"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-              />
-            </div>
+        {/* LOGIN FORM */}
+        <form onSubmit={handleLoginSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <EnvelopeSimple size={16} /> Official Email Address
+            </label>
+            <Input
+              type="email"
+              required
+              placeholder="admin@institution.edu"
+              className="h-12 text-sm rounded-xl font-medium"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+            />
+          </div>
 
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <LockSimple size={16} /> Password
               </label>
-              <Input
-                type="password"
-                required
-                placeholder="••••••••"
-                className="h-12 text-base rounded-xl"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-              />
+              <a href="#" className="text-xs text-primary hover:underline font-medium">Forgot?</a>
             </div>
+            <Input
+              type="password"
+              required
+              placeholder="••••••••"
+              className="h-12 text-sm rounded-xl font-medium"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+            />
+          </div>
 
-            <Button type="submit" size="lg" className="w-full h-12 text-base font-bold rounded-xl mt-3 gap-2" disabled={loading}>
-              {loading ? "Authenticating..." : "Sign In to Portal"} <ArrowRight size={18} weight="bold" />
+          <Button type="submit" size="lg" className="w-full h-12 text-sm font-bold rounded-xl mt-3 gap-2" disabled={loading}>
+            {loading ? "Authenticating..." : "Sign In to Portal"} <ArrowRight size={16} weight="bold" />
+          </Button>
+        </form>
+
+        {/* ONBOARDING CALLOUT BANNER */}
+        <div className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3 mt-6">
+          <div className="flex items-center gap-2 text-xs font-black text-primary uppercase tracking-wider">
+            <Sparkle size={16} weight="bold" />
+            <span>New Institution or Academy?</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Provision a dedicated multi-tenant subdomain on Neon Postgres Cloud with customized logo, color palette studio, and campus branch.
+          </p>
+          <Link href="/register" className="block">
+            <Button variant="outline" size="sm" className="w-full font-bold text-xs gap-2 border-primary/30 text-primary hover:bg-primary/10">
+              <RocketLaunch size={16} weight="bold" />
+              <span>Open Institution Onboarding Studio</span>
             </Button>
-          </form>
-        ) : (
-          /* REGISTER FORM */
-          <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <Buildings size={16} /> Institution / University Name
-              </label>
-              <Input
-                type="text"
-                required
-                placeholder="e.g. SkillYards Academy or Delhi Public School"
-                className="h-12 text-base rounded-xl"
-                value={regInstitutionName}
-                onChange={(e) => setRegInstitutionName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <User size={16} /> Full Administrator Name
-              </label>
-              <Input
-                type="text"
-                required
-                placeholder="Dr. Eleanor Vance"
-                className="h-12 text-base rounded-xl"
-                value={regName}
-                onChange={(e) => setRegName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <EnvelopeSimple size={16} /> Official Email
-              </label>
-              <Input
-                type="email"
-                required
-                placeholder="eleanor@university.edu"
-                className="h-12 text-base rounded-xl"
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <LockSimple size={16} /> Password (Min 8 chars)
-              </label>
-              <Input
-                type="password"
-                required
-                minLength={8}
-                placeholder="••••••••"
-                className="h-12 text-base rounded-xl"
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-              />
-            </div>
-
-            <Button type="submit" size="lg" className="w-full h-12 text-base font-bold rounded-xl mt-3 gap-2" disabled={loading}>
-              {loading ? "Creating Institution..." : "Register Institution & Proceed"} <ArrowRight size={18} weight="bold" />
-            </Button>
-          </form>
-        )}
+          </Link>
+        </div>
       </CardContent>
 
-      <CardFooter className="flex justify-center border-t border-border text-xs font-medium text-muted-foreground py-4">
-        Protected by EOS Clean Domain Security Policy
+      <CardFooter className="flex justify-center border-t border-border text-[11px] font-mono text-muted-foreground py-3 bg-muted/20">
+        Protected by EOS Multi-Tenant Domain Boundary Security
       </CardFooter>
     </Card>
   );
@@ -236,16 +138,16 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-lg space-y-6">
+      <div className="w-full max-w-md space-y-6">
         {/* Header Branding */}
-        <div className="text-center space-y-3">
+        <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-xs">
               <GraduationCap size={28} weight="bold" />
             </div>
-            <span className="text-3xl font-extrabold tracking-tight">Education OS</span>
+            <span className="text-2xl font-black tracking-tight text-foreground">Education OS</span>
           </Link>
-          <p className="text-base text-muted-foreground font-medium">Enterprise Institution Portal Access</p>
+          <p className="text-xs text-muted-foreground font-mono">ENTERPRISE ACADEMIC GATEWAY</p>
         </div>
 
         {/* Auth Card wrapped in Suspense */}

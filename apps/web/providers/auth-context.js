@@ -87,21 +87,27 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const register = async (name, email, password, institutionName) => {
-    const res = await ApiClient.registerUser({ name, email, password, institutionName });
+  const register = async (nameOrPayload, email, password, institutionName, options = {}) => {
+    let payload;
+    if (typeof nameOrPayload === 'object' && nameOrPayload !== null) {
+      payload = nameOrPayload;
+    } else {
+      payload = { name: nameOrPayload, email, password, institutionName, ...options };
+    }
+
+    const res = await ApiClient.registerUser(payload);
 
     if (res.success === false) {
       return { success: false, error: res.error || 'Registration failed' };
     }
 
-    // Auto login after registration — this also picks up the real tenant the
-    // backend just auto-provisioned for the new user (see apps/api's /auth/register).
-    const loginRes = await login(email, password);
+    // Auto login after registration — picks up the real tenant the backend provisioned
+    const loginRes = await login(payload.email, payload.password);
     if (!loginRes.success) {
       return { success: false, error: loginRes.error || 'Auto-login after registration failed' };
     }
 
-    return { success: true, data: res.data || { name, email } };
+    return { success: true, data: res.data || { name: payload.name, email: payload.email }, tenant: res.tenant };
   };
 
   const switchTenant = (tenant) => {

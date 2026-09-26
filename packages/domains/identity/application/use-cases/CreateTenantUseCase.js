@@ -14,7 +14,7 @@ class CreateTenantUseCase {
   }
 
   async execute(dto) {
-    const { name, slug, ownerUserId, orgName, orgCode } = dto;
+    const { name, slug, ownerUserId, orgName, orgCode, settingsJson } = dto;
 
     const slugVoResult = TenantSlug.create(slug);
     if (slugVoResult.isFailure) {
@@ -33,7 +33,7 @@ class CreateTenantUseCase {
     }
 
     // 1. Create Tenant Aggregate
-    const tenantResult = Tenant.create({ name, slug: slugVo });
+    const tenantResult = Tenant.create({ name, slug: slugVo, settingsJson: settingsJson || {} });
     if (tenantResult.isFailure) {
       return Result.fail(tenantResult.error);
     }
