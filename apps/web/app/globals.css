@@ -1,90 +1,211 @@
 @import "tailwindcss";
 
 :root {
-  /* 
-   * Single Source of Truth Brand Palette (SOLID MINIMALISM - NO GRADIENTS)
-   * 1. Obsidian Black: #0A0E14
-   * 2. Deep Slate Blue: #1F3A4B
-   * 3. Electric Orange: #FF7328
-   * 4. Crisp Off-White: #EEF2F6
-   */
+  /* ==========================================================================
+     USER DEFINED BRAND PALETTE
+     - Shadow Grey: #f4f1f2 -> #141012
+     - Electric Indigo: #efe7fd -> #0d0221
+     - Medium Slate Blue: #e8e5ff -> #030024
+     - Lavender Mist: #f6ebfa -> #17071c
+     - Ash Grey: #f1f4f1 -> #101410
+     ========================================================================== */
 
-  /* Light Mode Palette */
-  --background: 210 25% 96%;      /* Crisp Off-White #EEF2F6 */
-  --foreground: 220 30% 8%;       /* Solid Obsidian Text */
+  --color-shadow-grey-50: #f4f1f2;
+  --color-shadow-grey-100: #e9e2e5;
+  --color-shadow-grey-200: #d2c6cb;
+  --color-shadow-grey-300: #bca9b1;
+  --color-shadow-grey-400: #a58d97;
+  --color-shadow-grey-500: #8f707d;
+  --color-shadow-grey-600: #725a64;
+  --color-shadow-grey-700: #56434b;
+  --color-shadow-grey-800: #392d32;
+  --color-shadow-grey-900: #1d1619;
+  --color-shadow-grey-950: #141012;
+
+  --color-electric-indigo-50: #efe7fd;
+  --color-electric-indigo-100: #ded0fb;
+  --color-electric-indigo-200: #bda0f8;
+  --color-electric-indigo-300: #9d71f4;
+  --color-electric-indigo-400: #7c41f1;
+  --color-electric-indigo-500: #5b12ed;
+  --color-electric-indigo-600: #490ebe;
+  --color-electric-indigo-700: #370b8e;
+  --color-electric-indigo-800: #24075f;
+  --color-electric-indigo-900: #12042f;
+  --color-electric-indigo-950: #0d0221;
+
+  --color-medium-slate-blue-50: #e8e5ff;
+  --color-medium-slate-blue-100: #d0ccff;
+  --color-medium-slate-blue-200: #a299ff;
+  --color-medium-slate-blue-300: #7366ff;
+  --color-medium-slate-blue-400: #4433ff;
+  --color-medium-slate-blue-500: #1500ff;
+  --color-medium-slate-blue-600: #1100cc;
+  --color-medium-slate-blue-700: #0d0099;
+  --color-medium-slate-blue-800: #080066;
+  --color-medium-slate-blue-900: #040033;
+  --color-medium-slate-blue-950: #030024;
+
+  --color-lavender-mist-50: #f6ebfa;
+  --color-lavender-mist-100: #ecd7f4;
+  --color-lavender-mist-200: #daaeea;
+  --color-lavender-mist-300: #c786df;
+  --color-lavender-mist-400: #b55ed4;
+  --color-lavender-mist-500: #a236c9;
+  --color-lavender-mist-600: #822ba1;
+  --color-lavender-mist-700: #612079;
+  --color-lavender-mist-800: #411551;
+  --color-lavender-mist-900: #200b28;
+  --color-lavender-mist-950: #17071c;
+
+  --color-ash-grey-50: #f1f4f1;
+  --color-ash-grey-100: #e2e9e2;
+  --color-ash-grey-200: #c6d2c6;
+  --color-ash-grey-300: #a9bca9;
+  --color-ash-grey-400: #8da58d;
+  --color-ash-grey-500: #708f70;
+  --color-ash-grey-600: #5a725a;
+  --color-ash-grey-700: #435643;
+  --color-ash-grey-800: #2d392d;
+  --color-ash-grey-900: #161d16;
+  --color-ash-grey-950: #101410;
+
+  /* Light Mode Semantic Tokens */
+  --background: 340 12% 95%;      /* #f4f1f2 shadow-grey-50 */
+  --foreground: 330 11% 7%;       /* #141012 shadow-grey-950 */
   
-  --card: 0 0% 100%;             /* Solid Pure White surface */
-  --card-foreground: 220 30% 8%;
+  --card: 0 0% 100%;              /* #ffffff crisp surface */
+  --card-foreground: 330 11% 7%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 220 30% 8%;
+  --popover-foreground: 330 11% 7%;
   
-  --primary: 22 100% 55%;         /* Solid Electric Orange #FF7328 */
+  --primary: 260 86% 50%;         /* #5b12ed electric-indigo-500 */
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 204 41% 21%;       /* Solid Deep Slate Blue #1F3A4B */
-  --secondary-foreground: 210 25% 96%;
+  --secondary: 245 100% 95%;      /* #e8e5ff medium-slate-blue-50 */
+  --secondary-foreground: 245 100% 30%; /* #0d0099 medium-slate-blue-700 */
   
-  --muted: 210 20% 90%;
-  --muted-foreground: 204 20% 30%; /* High contrast legible text */
+  --muted: 334 13% 92%;           /* #e9e2e5 shadow-grey-100 */
+  --muted-foreground: 335 12% 40%; /* #725a64 shadow-grey-600 */
   
-  --accent: 210 20% 92%;          /* Solid subtle accent fill */
-  --accent-foreground: 220 30% 8%;
+  --accent: 284 58% 95%;          /* #f6ebfa lavender-mist-50 */
+  --accent-foreground: 284 58% 30%; /* #612079 lavender-mist-700 */
   
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 142 76% 36%;
+  --success: 120 22% 35%;         /* #435643 ash-grey-700 */
   --success-foreground: 0 0% 100%;
 
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
   
-  --border: 210 20% 82%;
-  --input: 210 20% 82%;
-  --ring: 22 100% 55%;
+  --border: 333 12% 80%;          /* #d2c6cb shadow-grey-200 */
+  --input: 333 12% 80%;
+  --ring: 260 86% 50%;            /* #5b12ed electric-indigo-500 */
   
   --radius: 0.75rem;
 }
 
 .dark {
-  /* Dark Mode Palette - SOLID MINIMALIST DARK */
-  --background: 220 28% 7%;       /* Solid Obsidian Black #0A0E14 */
-  --foreground: 210 25% 96%;      /* Crisp High-Legibility Off-White Text */
+  /* Dark Mode Semantic Tokens */
+  --background: 330 11% 7%;       /* #141012 shadow-grey-950 */
+  --foreground: 340 12% 95%;      /* #f4f1f2 shadow-grey-50 */
   
-  --card: 204 35% 12%;            /* Solid Deep Slate Card #142530 */
-  --card-foreground: 210 25% 96%;
+  --card: 334 14% 10%;            /* #1d1619 shadow-grey-900 */
+  --card-foreground: 340 12% 95%;
   
-  --popover: 204 35% 10%;
-  --popover-foreground: 210 25% 96%;
+  --popover: 330 11% 8%;          /* near shadow-grey-950 */
+  --popover-foreground: 340 12% 95%;
   
-  --primary: 22 100% 55%;         /* Solid Electric Orange #FF7328 */
+  --primary: 260 86% 60%;         /* #7c41f1 electric-indigo-400 */
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 204 35% 20%;       /* Solid Deep Slate #1E3747 */
-  --secondary-foreground: 210 25% 96%;
+  --secondary: 335 12% 16%;       /* shadow-grey-850 surface */
+  --secondary-foreground: 340 12% 95%;
   
-  --muted: 204 30% 16%;
-  --muted-foreground: 204 20% 80%; /* High contrast crisp text for dark surfaces */
+  --muted: 335 12% 18%;           /* #392d32 shadow-grey-800 */
+  --muted-foreground: 334 13% 70%; /* #bca9b1 shadow-grey-300 */
   
-  --accent: 204 35% 18%;          /* Solid hover fill */
-  --accent-foreground: 210 25% 96%;
+  --accent: 260 86% 16%;          /* #24075f electric-indigo-800 */
+  --accent-foreground: 260 86% 80%; /* #bda0f8 electric-indigo-200 */
   
   --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 142 70% 35%;
+  --success: 120 20% 45%;         /* #5a725a ash-grey-600 */
   --success-foreground: 0 0% 100%;
 
   --warning: 38 92% 45%;
   --warning-foreground: 0 0% 100%;
   
-  --border: 204 25% 22%;
-  --input: 204 25% 22%;
-  --ring: 22 100% 55%;
+  --border: 335 12% 22%;          /* #392d32 shadow-grey-800 / border */
+  --input: 335 12% 22%;
+  --ring: 260 86% 60%;            /* #7c41f1 electric-indigo-400 */
 }
 
 @theme inline {
+  --color-shadow-grey-50: var(--color-shadow-grey-50);
+  --color-shadow-grey-100: var(--color-shadow-grey-100);
+  --color-shadow-grey-200: var(--color-shadow-grey-200);
+  --color-shadow-grey-300: var(--color-shadow-grey-300);
+  --color-shadow-grey-400: var(--color-shadow-grey-400);
+  --color-shadow-grey-500: var(--color-shadow-grey-500);
+  --color-shadow-grey-600: var(--color-shadow-grey-600);
+  --color-shadow-grey-700: var(--color-shadow-grey-700);
+  --color-shadow-grey-800: var(--color-shadow-grey-800);
+  --color-shadow-grey-900: var(--color-shadow-grey-900);
+  --color-shadow-grey-950: var(--color-shadow-grey-950);
+
+  --color-electric-indigo-50: var(--color-electric-indigo-50);
+  --color-electric-indigo-100: var(--color-electric-indigo-100);
+  --color-electric-indigo-200: var(--color-electric-indigo-200);
+  --color-electric-indigo-300: var(--color-electric-indigo-300);
+  --color-electric-indigo-400: var(--color-electric-indigo-400);
+  --color-electric-indigo-500: var(--color-electric-indigo-500);
+  --color-electric-indigo-600: var(--color-electric-indigo-600);
+  --color-electric-indigo-700: var(--color-electric-indigo-700);
+  --color-electric-indigo-800: var(--color-electric-indigo-800);
+  --color-electric-indigo-900: var(--color-electric-indigo-900);
+  --color-electric-indigo-950: var(--color-electric-indigo-950);
+
+  --color-medium-slate-blue-50: var(--color-medium-slate-blue-50);
+  --color-medium-slate-blue-100: var(--color-medium-slate-blue-100);
+  --color-medium-slate-blue-200: var(--color-medium-slate-blue-200);
+  --color-medium-slate-blue-300: var(--color-medium-slate-blue-300);
+  --color-medium-slate-blue-400: var(--color-medium-slate-blue-400);
+  --color-medium-slate-blue-500: var(--color-medium-slate-blue-500);
+  --color-medium-slate-blue-600: var(--color-medium-slate-blue-600);
+  --color-medium-slate-blue-700: var(--color-medium-slate-blue-700);
+  --color-medium-slate-blue-800: var(--color-medium-slate-blue-800);
+  --color-medium-slate-blue-900: var(--color-medium-slate-blue-900);
+  --color-medium-slate-blue-950: var(--color-medium-slate-blue-950);
+
+  --color-lavender-mist-50: var(--color-lavender-mist-50);
+  --color-lavender-mist-100: var(--color-lavender-mist-100);
+  --color-lavender-mist-200: var(--color-lavender-mist-200);
+  --color-lavender-mist-300: var(--color-lavender-mist-300);
+  --color-lavender-mist-400: var(--color-lavender-mist-400);
+  --color-lavender-mist-500: var(--color-lavender-mist-500);
+  --color-lavender-mist-600: var(--color-lavender-mist-600);
+  --color-lavender-mist-700: var(--color-lavender-mist-700);
+  --color-lavender-mist-800: var(--color-lavender-mist-800);
+  --color-lavender-mist-900: var(--color-lavender-mist-900);
+  --color-lavender-mist-950: var(--color-lavender-mist-950);
+
+  --color-ash-grey-50: var(--color-ash-grey-50);
+  --color-ash-grey-100: var(--color-ash-grey-100);
+  --color-ash-grey-200: var(--color-ash-grey-200);
+  --color-ash-grey-300: var(--color-ash-grey-300);
+  --color-ash-grey-400: var(--color-ash-grey-400);
+  --color-ash-grey-500: var(--color-ash-grey-500);
+  --color-ash-grey-600: var(--color-ash-grey-600);
+  --color-ash-grey-700: var(--color-ash-grey-700);
+  --color-ash-grey-800: var(--color-ash-grey-800);
+  --color-ash-grey-900: var(--color-ash-grey-900);
+  --color-ash-grey-950: var(--color-ash-grey-950);
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -132,41 +253,40 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: 2rem; /* 32px */
+  font-size: 2rem;
   line-height: 1.25;
 }
 
 h2 {
-  font-size: 1.625rem; /* 26px */
+  font-size: 1.625rem;
   line-height: 1.3;
 }
 
 h3 {
-  font-size: 1.35rem; /* 21.6px */
+  font-size: 1.35rem;
   line-height: 1.35;
 }
 
 h4 {
-  font-size: 1.15rem; /* 18.4px */
+  font-size: 1.15rem;
   line-height: 1.4;
 }
 
-/* Modern Enterprise Tech Grid Backgrounds */
 .bg-grid-pattern {
-  background-image: radial-gradient(rgba(255, 115, 40, 0.12) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(124, 65, 241, 0.15) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
 .bg-grid-subtle {
-  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(210, 198, 203, 0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(210, 198, 203, 0.04) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
 .glow-primary {
-  box-shadow: 0 0 35px -5px rgba(255, 115, 40, 0.25);
+  box-shadow: 0 0 35px -5px rgba(124, 65, 241, 0.35);
 }
 
 .glow-card {
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px -10px rgba(20, 16, 18, 0.6), 0 0 1px 1px rgba(210, 198, 203, 0.08);
 }
