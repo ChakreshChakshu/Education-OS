@@ -508,8 +508,8 @@ export default function RegisterOnboardingPage() {
                       </span>
                     )}
                     {slugStatus === "available" && (
-                      <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-500 font-bold">
-                        <Check size={14} weight="bold" /> Available on Neon Cloud
+                      <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-600 font-bold">
+                        <Check size={14} weight="bold" /> Subdomain available
                       </span>
                     )}
                     {slugStatus === "taken" && (
@@ -853,8 +853,8 @@ export default function RegisterOnboardingPage() {
           {step === 5 && (
             <Card className="border-border shadow-sm rounded-2xl bg-card p-6 sm:p-8 space-y-6 animate-in fade-in">
               <div className="space-y-1">
-                <Badge variant="outline" className="font-mono text-[11px] font-bold text-emerald-500 border-emerald-500/30">
-                  READY FOR DEPLOYMENT • NEON CLOUD READY
+                <Badge variant="outline" className="font-mono text-[11px] font-bold text-primary border-primary/30">
+                  STEP 5 OF 5 • CONFIRMATION & INITIALIZATION
                 </Badge>
                 <h1 className="text-2xl font-extrabold tracking-tight">Review & launch your institution portal</h1>
                 <p className="text-sm text-muted-foreground">
@@ -1047,9 +1047,9 @@ export default function RegisterOnboardingPage() {
               </div>
 
               {/* Security & Multi-Tenant Scoping Badge */}
-              <div className="p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                <CheckCircle size={14} weight="bold" className="shrink-0" />
-                <span>Isolated Neon Postgres Tenant Schema with R2 Storage</span>
+              <div className="p-2.5 rounded-xl border border-border bg-muted/30 flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
+                <CheckCircle size={14} weight="bold" className="shrink-0 text-emerald-600" />
+                <span>Isolated Campus Tenant Schema &bull; FERPA Enforced</span>
               </div>
             </div>
           </div>
