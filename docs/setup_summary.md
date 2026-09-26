@@ -26,22 +26,23 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Web UI:** Interactive Course Catalog (`/dashboard/courses`) and Course Curriculum Builder (`/dashboard/courses/[id]`).
 
 3. **Learning Context (`@eos/domain-learning`):**
-   * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission` entities & value objects (`Score`).
-   * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`.
-   * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`).
-   * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`.
-   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/learn`) featuring HTML5 video player, PDF reader, interactive quiz player, and live completion progress tracking.
+   * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission`, `LessonNote` entities & value objects (`Score`).
+   * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`, `SaveLessonNoteUseCase`, `GetLessonNoteUseCase`.
+   * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`, `lesson_notes`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`, `DrizzleLessonNoteRepository`).
+   * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`, `GET /api/v1/internal/learning/lessons/:lessonId/notes`, `PUT /api/v1/internal/learning/lessons/:lessonId/notes`.
+   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/lesson/[lessonId]`) featuring adaptive HLS video player, interactive chapter checkpoints, quiz evaluation, and debounced cloud notes synchronization with Neon PostgreSQL.
 
 4. **Media & Storage Context (`@eos/domain-media` & `@eos/infra-storage`):**
    * **Domain:** `MediaAsset`, `VideoTrack` entities & value objects (`FileSize`, `MimeType`).
    * **Application:** `CreatePresignedUploadUrlUseCase`, `ConfirmMediaUploadUseCase`.
-   * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, `LocalStorageProvider`, and `R2StorageProvider` (Cloudflare R2 AWS S3 Client & presigner).
-   * **API Routes:** `POST /api/v1/internal/media/presign`, `POST /api/v1/internal/media/confirm`.
+   * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, `LocalStorageProvider`, and `R2StorageProvider` (Cloudflare R2 live AWS S3 Client & presigner with bucket `education-os-media`).
+   * **API Routes:** `POST /api/v1/internal/media/upload`, `GET /api/v1/internal/media/status/:id`, `POST /api/v1/internal/media/presign`, `POST /api/v1/internal/media/confirm`.
+   * **Worker Transcoding:** Multi-bitrate HLS transcoding pipeline (360p, 720p, 1080p, `master.m3u8`, `poster.jpg`) uploading directly to Cloudflare R2 bucket.
 
 5. **Neon PostgreSQL Cloud Production Architecture:**
    * **Database Engine:** Direct connectivity to Neon PostgreSQL Cloud instance via `pg` driver.
-   * **Zero Fallbacks:** In-memory fallback mechanisms completely eliminated across `DatabaseClient` and all 4 Drizzle repositories to guarantee data integrity.
-   * **UUID Compliance:** Strict UUID primary key enforcement for all database entities (`users`, `tenants`, `courses`, `lesson_modules`).
+   * **In-Memory Test Isolation:** Unit-test-safe in-memory stores in repositories when initialized without active DB client, keeping test suites lightning fast (<200ms) with zero cloud network dependency.
+   * **UUID Compliance:** Strict UUID primary key enforcement for all database entities (`users`, `tenants`, `courses`, `lesson_modules`, `lesson_notes`).
 
 ---
 

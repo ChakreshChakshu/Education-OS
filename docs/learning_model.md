@@ -247,7 +247,49 @@ CREATE INDEX idx_progress_status ON lesson_progress(status);
 CREATE INDEX idx_sessions_enrollment_start ON learning_sessions(enrollment_id, started_at);
 
 -- Notes & Bookmarks Indexes
-CREATE INDEX idx_notes_student_lesson ON lesson_notes(student_id, lesson_id);
+CREATE INDEX idx_notes_student_id ON lesson_notes(student_user_id);
+CREATE INDEX idx_notes_module_id ON lesson_notes(lesson_module_id);
+CREATE UNIQUE INDEX uq_lesson_notes_student_module ON lesson_notes(student_user_id, lesson_module_id);
+```
+
+---
+
+# 4. Student Notes Model (`LessonNote`)
+
+Represents rich markdown notes authored by a student during lesson video or document study. Notes are persisted in Neon PostgreSQL with native `ON CONFLICT` atomic upserts and debounced synchronization.
+
+### Table Schema: `lesson_notes`
+
+```sql
+CREATE TABLE lesson_notes (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_module_id  VARCHAR(255) NOT NULL,
+  content           TEXT NOT NULL DEFAULT '',
+  created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_lesson_notes_student_module UNIQUE (student_user_id, lesson_module_id)
+);
+```
+
+### Real-Time Autosave & Cloud Sync Architecture:
+```text
+Browser Keystroke (800ms Debounce)
+         │
+         ▼
+Write to localStorage Buffer (Instant Offline Continuity)
+         │
+         ▼
+PUT /api/v1/internal/learning/lessons/:id/notes
+         │
+         ▼
+SaveLessonNoteUseCase ──> DrizzleLessonNoteRepository
+         │
+         ▼
+PostgreSQL: INSERT INTO lesson_notes (...)
+            ON CONFLICT (student_user_id, lesson_module_id)
+            DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
 ```
 
 ---

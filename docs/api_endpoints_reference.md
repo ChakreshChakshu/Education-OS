@@ -338,7 +338,55 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 
 ---
 
-### 10. Upload Media File
+### 10. Fetch Student Lesson Notes
+* **Endpoint:** `GET /api/v1/internal/learning/lessons/:lessonId/notes`
+* **Scope:** Internal (Authenticated via JWT or `x-user-id`)
+* **Purpose:** Retrieves student's persisted cloud notes for a specific lesson module from Neon PostgreSQL.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "7f000001-9c42-7a1b-8c4d-123456789abc",
+      "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "lessonModuleId": "lesson_1",
+      "content": "## Clean Architecture Notes\nEntities encapsulate domain business rules.",
+      "version": 3,
+      "updatedAt": "2026-09-26T10:40:00.000Z"
+    }
+  }
+  ```
+
+---
+
+### 11. Save/Update Student Lesson Notes
+* **Endpoint:** `PUT /api/v1/internal/learning/lessons/:lessonId/notes`
+* **Scope:** Internal (Authenticated via JWT or `x-user-id`)
+* **Purpose:** Atomic upsert (`ON CONFLICT (student_user_id, lesson_module_id) DO UPDATE`) of student notes content with automatic optimistic version incrementing.
+* **Request Body:**
+  ```json
+  {
+    "content": "## Clean Architecture Notes\nEntities encapsulate domain business rules."
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "7f000001-9c42-7a1b-8c4d-123456789abc",
+      "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "lessonModuleId": "lesson_1",
+      "content": "## Clean Architecture Notes\nEntities encapsulate domain business rules.",
+      "version": 4,
+      "updatedAt": "2026-09-26T10:41:00.000Z"
+    }
+  }
+  ```
+
+---
+
+### 12. Upload Media File
 * **Endpoint:** `POST /api/v1/internal/media/upload`
 * **Scope:** Internal
 * **Purpose:** Accepts base64 encoded lecture videos (`.mp4`) or PDF documents, saves them directly to local `./uploads/` storage on disk, and returns public URLs. When a video is uploaded, it automatically provisions a `media_assets` row with status `ENCODING`, publishes a `MediaUploaded` Transactional Outbox event, and initiates asynchronous multi-bitrate HLS transcoding (360p, 720p, 1080p).
@@ -368,7 +416,7 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 
 ---
 
-### 11. Presign Upload URL
+### 13. Presign Upload URL
 * **Endpoint:** `POST /api/v1/internal/media/presign`
 * **Scope:** Internal
 * **Purpose:** Generates presigned upload credentials for Cloudflare R2 or AWS S3 direct cloud uploads.
@@ -394,7 +442,7 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 
 ---
 
-### 12. Confirm Media Upload
+### 14. Confirm Media Upload
 * **Endpoint:** `POST /api/v1/internal/media/confirm`
 * **Scope:** Internal
 * **Purpose:** Confirms direct cloud media upload execution and transitions MediaAsset entity state to `READY`.
@@ -417,7 +465,7 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 
 ---
 
-### 13. Provision Institution & Branch Tenant
+### 15. Provision Institution & Branch Tenant
 * **Endpoint:** `POST /api/v1/internal/tenants`
 * **Scope:** Internal (requires a valid JWT)
 * **Purpose:** Provisions a new multi-tenant institution workspace, subdomain slug, and default campus branch organization. The owner is always the authenticated caller (`request.user.userId`) — there is no `ownerUserId` request field, so a tenant can never be provisioned "owned by" another account. Also grants the caller a tenant-wide `ADMIN` role assignment (see [auth_and_authorization.md](auth_and_authorization.md)).
@@ -449,14 +497,14 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 
 ---
 
-### 14. Static Media Streaming Server
+### 16. Static Media Streaming Server
 * **Endpoint:** `GET /uploads/*`
 * **Scope:** Public / Media Stream
 * **Purpose:** Serves video files (`.mp4`), PDF documents (`.pdf`), HLS master manifests (`.m3u8`), stream variant playlists, and transport stream segments (`.ts`) saved on local disk to the Next.js LMS Classroom Player. Sets appropriate MIME types (`application/vnd.apple.mpegurl`, `video/mp2t`, `video/mp4`, `image/jpeg`).
 
 ---
 
-### 15. Check Media Transcoding Status
+### 17. Check Media Transcoding Status
 * **Endpoint:** `GET /api/v1/internal/media/status/:id`
 * **Scope:** Internal
 * **Purpose:** Retrieves the current transcoding status of an uploaded media asset (`ENCODING` $\rightarrow$ `READY`) along with the live `hlsUrl` for immediate playback streaming.

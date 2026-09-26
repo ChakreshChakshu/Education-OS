@@ -127,6 +127,9 @@ This document defines the ownership, task breakdown, and collaboration workflow 
 - **FFmpeg Transcoding Pipeline (`apps/worker/src/services/transcoder.js`)**:
   - Automated generation of multi-bitrate HLS streams: **360p** (640x360 @ 800k), **720p** (1280x720 @ 2500k), and **1080p** (1920x1080 @ 4500k).
   - Production of `master.m3u8` variant playlist and automatic extraction of `poster.jpg` video thumbnail.
+- **Cloudflare R2 Live Media Storage**:
+  - Wired AWS SDK v3 S3 client with Cloudflare R2 bucket `education-os-media` in `@eos/infra-storage`.
+  - Worker automatically uploads generated HLS segments (`.ts`), variant playlists, and thumbnails directly to Cloudflare R2, falling back to local static disk if offline.
 - **Neon PostgreSQL Media Tracking**: Automated lifecycle transitions: `ENCODING` $\rightarrow$ `READY` with `hls_manifest_url` persistence.
 - **API & Upload Wiring**:
   - `POST /api/v1/internal/media/upload`: Ingests video binaries, creates `media_assets` row, and publishes `MediaUploaded` outbox event.
@@ -145,8 +148,22 @@ This document defines the ownership, task breakdown, and collaboration workflow 
   - Wired `ApiClient.completeLesson` and `ApiClient.submitQuiz` to `apps/web/app/dashboard/courses/[id]/learn/page.js` and `apps/web/app/dashboard/courses/[id]/lesson/[lessonId]/page.js`.
   - Student progress and quiz evaluation scores persist directly to Neon PostgreSQL `student_progress` and `quiz_submissions` tables.
 
-### 5.4 Test Suite & Quality Verification
-- Added in-memory fallback stores to `DrizzleCourseRepository` and `DrizzleLessonModuleRepository` ensuring unit tests pass independently of live database connections.
-- Verified 100% passing test suites across database repositories and video transcoding pipeline.
-- Verified zero circular or illegal layer dependencies via `pnpm depcruise` (585 modules, 658 dependencies).
+### 5.4 Student Notes Cloud Sync — P1 Complete (Completed by Chakresh)
+- **PostgreSQL Database Schema**:
+  - Created `lesson_notes` table in Neon PostgreSQL Cloud with UUID primary key and composite unique index on `(student_user_id, lesson_module_id)` plus performance indexes.
+- **Domain Aggregate & Use Cases**:
+  - `LessonNote` AggregateRoot in `packages/domains/learning/domain/entities/LessonNote.js`.
+  - `SaveLessonNoteUseCase` (atomic upsert + optimistic versioning) and `GetLessonNoteUseCase` in `packages/domains/learning/application/use-cases/`.
+- **Infrastructure & Fastify REST API**:
+  - `DrizzleLessonNoteRepository` implementing PostgreSQL `ON CONFLICT (student_user_id, lesson_module_id) DO UPDATE` for sub-5ms latency.
+  - `GET /api/v1/internal/learning/lessons/:lessonId/notes` and `PUT /api/v1/internal/learning/lessons/:lessonId/notes`.
+- **Classroom Frontend Cloud Integration**:
+  - `ApiClient.getLessonNotes` and `ApiClient.saveLessonNotes` in `apps/web/lib/api.js`.
+  - Upgraded classroom UI (`/dashboard/courses/[id]/lesson/[lessonId]`) with 800ms debounce, instant local display from `localStorage`, cloud sync, and reactive status indicators (`Cloud Synced`, `Saving to Cloud...`, `Typing...`, `Saved Locally`).
+
+### 5.5 Test Suite & Quality Verification
+- Added unit tests for `DrizzleLessonNoteRepository` (11/11 tests pass in `infra-database`).
+- Added unit tests for `LessonNote`, `SaveLessonNoteUseCase`, and `GetLessonNoteUseCase` (4/4 tests pass in `domain-learning`).
+- Added in-memory fallback stores to `DrizzleCourseRepository`, `DrizzleLessonModuleRepository`, and `DrizzleLessonNoteRepository` ensuring tests run isolated from external network dependencies.
+- Verified zero circular or illegal layer dependencies via `pnpm depcruise` (590 modules, 676 dependencies cruised).
 
