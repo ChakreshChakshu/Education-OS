@@ -44,3 +44,8 @@ coverage/
 # Media Uploads & HLS Transcode outputs
 uploads/
 apps/api/uploads/
+
+# Agent Skills & Workspace Customizations
+.agents/
+.agent/
+
