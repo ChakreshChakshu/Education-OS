@@ -142,6 +142,104 @@ const DEFAULT_TIMEZONES = [
   { value: "Australia/Sydney", label: "Australia/Sydney (AEST)" }
 ];
 
+const STEP_INSIGHTS = {
+  1: {
+    badge: "Step 1 of 5",
+    title: "Administrator Account",
+    desc: "Your primary administrator account establishes root ownership for your institution.",
+    highlights: [
+      {
+        title: "Administrative control",
+        text: "Manage faculty roles, course builders, and institution-wide settings."
+      },
+      {
+        title: "Secure credentials",
+        text: "Single account with role-based permissions and encrypted storage."
+      },
+      {
+        title: "Multi-campus governance",
+        text: "Authority to configure and oversee all campus branches."
+      }
+    ]
+  },
+  2: {
+    badge: "Step 2 of 5",
+    title: "Dedicated Workspace",
+    desc: "Every institution operates in its own dedicated, isolated workspace environment.",
+    highlights: [
+      {
+        title: "Custom subdomain",
+        text: "Direct branded URL for student course access and staff portals."
+      },
+      {
+        title: "Data isolation",
+        text: "Dedicated tenant boundaries safeguard student and academic records."
+      },
+      {
+        title: "Tailored model",
+        text: "Optimized structures for universities, tech bootcamps, and academies."
+      }
+    ]
+  },
+  3: {
+    badge: "Step 3 of 5",
+    title: "Brand & Visual Identity",
+    desc: "Personalize your student classroom player and staff dashboards with your identity.",
+    highlights: [
+      {
+        title: "Institution crest",
+        text: "Display your official logo across student portals and course navigation."
+      },
+      {
+        title: "Curated palettes",
+        text: "Harmonious color combinations designed for academic elegance."
+      },
+      {
+        title: "Accessible contrast",
+        text: "Theme tokens automatically maintain high-contrast readability."
+      }
+    ]
+  },
+  4: {
+    badge: "Step 4 of 5",
+    title: "Campus & Operations",
+    desc: "Establish your starting operational defaults for classrooms and scheduling.",
+    highlights: [
+      {
+        title: "Campus branch setup",
+        text: "Organize by physical campus division or virtual academy branch."
+      },
+      {
+        title: "Initial student cohort",
+        text: "Prepares your curriculum builder with a starting enrollment group."
+      },
+      {
+        title: "Timezone synchronization",
+        text: "Accurately coordinate live lecture streams and assignment deadlines."
+      }
+    ]
+  },
+  5: {
+    badge: "Step 5 of 5",
+    title: "Review & Provisioning",
+    desc: "Verify your parameters before launching your institution workspace.",
+    highlights: [
+      {
+        title: "Instant initialization",
+        text: "Database schema, default roles, and settings configure automatically."
+      },
+      {
+        title: "Ready to enroll",
+        text: "Create courses, upload video lessons, and invite instructors right away."
+      },
+      {
+        title: "Enterprise scaling",
+        text: "Adaptive bitrate video pipelines and note sync ready out of the box."
+      }
+    ]
+  }
+};
+
 export default function RegisterOnboardingPage() {
   const router = useRouter();
   const { register } = useAuth();
@@ -517,9 +615,10 @@ export default function RegisterOnboardingPage() {
         </div>
       </header>
 
-      {/* Main Multi-Step Layout */}
-      <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="space-y-6">
+      {/* Main Multi-Step Layout (Left-Right Split) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: ACTIVE STEP FORM (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
           {error && (
             <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold flex items-center gap-3 animate-in fade-in">
               <WarningCircle size={22} weight="bold" className="shrink-0" />
@@ -1139,6 +1238,70 @@ export default function RegisterOnboardingPage() {
               </div>
             </Card>
           )}
+        </div>
+
+        {/* RIGHT COLUMN: STEP GUIDANCE & WORKSPACE OVERVIEW (5 cols) */}
+        <div className="lg:col-span-5 sticky top-24 space-y-5">
+          <Card className="border-border shadow-xs rounded-2xl bg-card p-6 space-y-5">
+            <div className="space-y-1.5">
+              <Badge variant="outline" className="font-mono text-[10px] font-bold text-primary border-primary/30">
+                {STEP_INSIGHTS[step]?.badge || "Step Guide"} • OVERVIEW
+              </Badge>
+              <h3 className="text-lg font-extrabold tracking-tight text-foreground">
+                {STEP_INSIGHTS[step]?.title}
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {STEP_INSIGHTS[step]?.desc}
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-1 border-t border-border">
+              {STEP_INSIGHTS[step]?.highlights.map((h, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                    <Check size={13} weight="bold" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-foreground">{h.title}</h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{h.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Quick Summary Card */}
+          <div className="p-4 rounded-2xl border border-border bg-muted/20 space-y-2.5 text-xs">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block">
+              Configured Parameters
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Institution</span>
+                <span className="font-semibold text-foreground truncate block">
+                  {institutionName || "Not set yet"}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Subdomain</span>
+                <span className="font-semibold text-foreground truncate block font-mono text-[10px]">
+                  {slug ? `${slug}.educationos.io` : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Admin</span>
+                <span className="font-semibold text-foreground truncate block">
+                  {adminName || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Campus</span>
+                <span className="font-semibold text-foreground truncate block">
+                  {branchName || "Main Campus"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
