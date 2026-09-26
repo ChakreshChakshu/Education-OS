@@ -2,8 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 
-const { Score, LessonModule, StudentProgress, QuizSubmission } = require('../domain');
-const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = require('../application');
+const { Score, LessonModule, StudentProgress, QuizSubmission, LessonNote } = require('../domain');
+const {
+  MarkLessonCompleteUseCase,
+  SubmitQuizUseCase,
+  SaveLessonNoteUseCase,
+  GetLessonNoteUseCase
+} = require('../application');
 
 // In-Memory Lesson Module Repository Mock
 class MockLessonModuleRepository {
@@ -18,6 +23,27 @@ class MockLessonModuleRepository {
   async save(module) {
     this.modules.set(module.id, module);
     return module;
+  }
+}
+
+// In-Memory Lesson Note Repository Mock
+class MockLessonNoteRepository {
+  constructor() {
+    this.notes = new Map();
+  }
+
+  async findByStudentAndLesson(studentUserId, lessonModuleId) {
+    for (const note of this.notes.values()) {
+      if (note.studentUserId === studentUserId && note.lessonModuleId === lessonModuleId) {
+        return note;
+      }
+    }
+    return null;
+  }
+
+  async save(note) {
+    this.notes.set(note.id, note);
+    return note;
   }
 }
 
@@ -127,4 +153,49 @@ test('SubmitQuizUseCase evaluates score and marks pass/fail correctly', async ()
 
   assert.equal(failResult.isSuccess, true);
   assert.equal(failResult.getValue().passed, false);
+});
+
+test('SaveLessonNoteUseCase and GetLessonNoteUseCase persist and retrieve student notes', async () => {
+  const lessonNoteRepository = new MockLessonNoteRepository();
+  const lessonModuleRepository = new MockLessonModuleRepository();
+
+  const studentUserId = crypto.randomUUID();
+  const lessonModuleId = 'mod_1_lesson_1';
+
+  const saveUseCase = new SaveLessonNoteUseCase({
+    lessonNoteRepository,
+    lessonModuleRepository
+  });
+  const getUseCase = new GetLessonNoteUseCase({
+    lessonNoteRepository
+  });
+
+  // 1. Initial get when empty
+  const initialGet = await getUseCase.execute({ studentUserId, lessonModuleId });
+  assert.equal(initialGet.isSuccess, true);
+  assert.equal(initialGet.getValue().content, '');
+
+  // 2. Save new notes
+  const saveResult = await saveUseCase.execute({
+    studentUserId,
+    lessonModuleId,
+    content: '# Key Points\n- DDD aggregates enforce consistency boundaries.'
+  });
+  assert.equal(saveResult.isSuccess, true);
+  assert.equal(saveResult.getValue().content, '# Key Points\n- DDD aggregates enforce consistency boundaries.');
+
+  // 3. Retrieve saved notes
+  const getAfterSave = await getUseCase.execute({ studentUserId, lessonModuleId });
+  assert.equal(getAfterSave.isSuccess, true);
+  assert.equal(getAfterSave.getValue().content, '# Key Points\n- DDD aggregates enforce consistency boundaries.');
+
+  // 4. Update note content (upsert)
+  const updateResult = await saveUseCase.execute({
+    studentUserId,
+    lessonModuleId,
+    content: '# Updated Key Points\n- Transactional outbox avoids distributed 2PC.'
+  });
+  assert.equal(updateResult.isSuccess, true);
+  assert.equal(updateResult.getValue().content, '# Updated Key Points\n- Transactional outbox avoids distributed 2PC.');
+  assert.equal(updateResult.getValue().version, 2);
 });

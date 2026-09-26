@@ -10,5 +10,6 @@ module.exports = {
   LessonModule: domainLearning.domain.LessonModule,
   StudentProgress: domainLearning.domain.StudentProgress,
   QuizSubmission: domainLearning.domain.QuizSubmission,
+  LessonNote: domainLearning.domain.LessonNote,
   Score: domainLearning.domain.Score
 };

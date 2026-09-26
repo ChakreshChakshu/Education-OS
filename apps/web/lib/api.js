@@ -276,6 +276,33 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getLessonNotes(lessonId) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/${lessonId}/notes`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch lesson notes');
+      return data;
+    } catch (err) {
+      console.error('API getLessonNotes Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async saveLessonNotes(lessonId, content) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/${lessonId}/notes`, {
+        method: 'PUT',
+        body: JSON.stringify({ content })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save lesson notes');
+      return data;
+    } catch (err) {
+      console.error('API saveLessonNotes Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

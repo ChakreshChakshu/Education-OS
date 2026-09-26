@@ -22,7 +22,10 @@ import {
   Clock,
   Check,
   ListBullets,
-  Sparkle
+  Sparkle,
+  CloudCheck,
+  CloudArrowUp,
+  ArrowsClockwise
 } from "@phosphor-icons/react";
 
 export default function ClassroomLessonPage({ params: paramsPromise }) {
@@ -31,13 +34,14 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
   const { id: courseId, lessonId } = params;
   const { user } = useAuth();
   const playerRef = useRef(null);
+  const notesSaveTimerRef = useRef(null);
 
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
   const [activeTab, setActiveTab] = useState("chapters"); // 'chapters' | 'notes' | 'quiz'
   const [completedLessons, setCompletedLessons] = useState(new Set());
   const [studentNotes, setStudentNotes] = useState("");
-  const [notesSaved, setNotesSaved] = useState(false);
+  const [notesSyncStatus, setNotesSyncStatus] = useState("synced"); // 'synced' | 'saving' | 'typing' | 'offline' | 'idle'
   const [loading, setLoading] = useState(true);
 
   // Quiz state
@@ -126,25 +130,64 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
       }
       setModules(defaultModules);
 
-      // Load saved notes from localStorage
-      const savedNotes = localStorage.getItem(`eos_notes_${currentLesson.id}`);
-      if (savedNotes) {
-        setStudentNotes(savedNotes);
-      } else {
-        setStudentNotes("");
+      // 1. Initial responsive populate from local buffer
+      const localNotes = typeof window !== "undefined" ? localStorage.getItem(`eos_notes_${currentLesson.id}`) || "" : "";
+      setStudentNotes(localNotes);
+
+      // 2. Fetch authoritative cloud notes from Neon DB
+      try {
+        const cloudRes = await ApiClient.getLessonNotes(currentLesson.id);
+        if (cloudRes.success && cloudRes.data && cloudRes.data.content !== undefined) {
+          const cloudContent = cloudRes.data.content;
+          if (cloudContent) {
+            setStudentNotes(cloudContent);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`eos_notes_${currentLesson.id}`, cloudContent);
+            }
+          } else if (localNotes) {
+            // Local notes exist but cloud is empty -> push local to cloud
+            ApiClient.saveLessonNotes(currentLesson.id, localNotes);
+          }
+          setNotesSyncStatus("synced");
+        } else {
+          setNotesSyncStatus(localNotes ? "offline" : "synced");
+        }
+      } catch (err) {
+        setNotesSyncStatus(localNotes ? "offline" : "synced");
       }
 
       setLoading(false);
     }
     loadCourse();
+
+    return () => {
+      if (notesSaveTimerRef.current) {
+        clearTimeout(notesSaveTimerRef.current);
+      }
+    };
   }, [courseId, lessonId, currentLesson.id]);
 
   const handleNotesChange = (e) => {
     const val = e.target.value;
     setStudentNotes(val);
-    localStorage.setItem(`eos_notes_${currentLesson.id}`, val);
-    setNotesSaved(true);
-    setTimeout(() => setNotesSaved(false), 2000);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`eos_notes_${currentLesson.id}`, val);
+    }
+    setNotesSyncStatus("typing");
+
+    if (notesSaveTimerRef.current) {
+      clearTimeout(notesSaveTimerRef.current);
+    }
+
+    notesSaveTimerRef.current = setTimeout(async () => {
+      setNotesSyncStatus("saving");
+      const res = await ApiClient.saveLessonNotes(currentLesson.id, val);
+      if (res.success) {
+        setNotesSyncStatus("synced");
+      } else {
+        setNotesSyncStatus("offline");
+      }
+    }, 800);
   };
 
   const handleChapterClick = (time) => {
@@ -369,17 +412,30 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               </div>
             )}
 
-            {/* Tab 2: Interactive Student Notes with LocalStorage Autosave */}
+            {/* Tab 2: Interactive Student Notes with Neon Postgres Cloud Sync */}
             {activeTab === "notes" && (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                  <span>Take notes while watching. Auto-saved locally.</span>
-                  {notesSaved ? (
-                    <span className="flex items-center gap-1 text-emerald-500 font-bold font-mono">
-                      <Check size={14} weight="bold" /> Saved
+                  <span>Take notes while watching. Synced across your devices.</span>
+                  {notesSyncStatus === "saving" && (
+                    <span className="flex items-center gap-1.5 text-amber-500 font-bold font-mono text-[11px] animate-pulse">
+                      <CloudArrowUp size={15} weight="bold" /> Saving to Cloud...
                     </span>
-                  ) : (
-                    <span className="font-mono text-[11px]">Autosave enabled</span>
+                  )}
+                  {notesSyncStatus === "typing" && (
+                    <span className="flex items-center gap-1.5 text-blue-400 font-bold font-mono text-[11px]">
+                      <ArrowsClockwise size={15} weight="bold" className="animate-spin" /> Typing...
+                    </span>
+                  )}
+                  {notesSyncStatus === "synced" && (
+                    <span className="flex items-center gap-1.5 text-emerald-500 font-bold font-mono text-[11px]">
+                      <CloudCheck size={15} weight="bold" /> Cloud Synced
+                    </span>
+                  )}
+                  {notesSyncStatus === "offline" && (
+                    <span className="flex items-center gap-1.5 text-yellow-500 font-bold font-mono text-[11px]">
+                      <Check size={15} weight="bold" /> Saved Locally
+                    </span>
                   )}
                 </div>
                 <textarea

@@ -18,7 +18,12 @@ const {
   LogoutUseCase
 } = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
-const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
+const {
+  MarkLessonCompleteUseCase,
+  SubmitQuizUseCase,
+  SaveLessonNoteUseCase,
+  GetLessonNoteUseCase
+} = learningDomain.application;
 const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
 
 const {
@@ -30,6 +35,7 @@ const {
   DrizzleLessonModuleRepository,
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
+  DrizzleLessonNoteRepository,
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
   DrizzleRoleAssignmentRepository,
@@ -123,6 +129,7 @@ function registerServices(container) {
   container.register('LessonModuleRepository', () => new DrizzleLessonModuleRepository(dbClient));
   container.register('StudentProgressRepository', () => new DrizzleStudentProgressRepository(dbClient));
   container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(dbClient));
+  container.register('LessonNoteRepository', () => new DrizzleLessonNoteRepository(dbClient));
 
   // Media Repositories
   container.register('MediaAssetRepository', () => new DrizzleMediaAssetRepository(dbClient));
@@ -215,6 +222,23 @@ function registerServices(container) {
       new SubmitQuizUseCase({
         quizSubmissionRepository: c.resolve('QuizSubmissionRepository'),
         lessonModuleRepository: c.resolve('LessonModuleRepository')
+      })
+  );
+
+  container.register(
+    'SaveLessonNoteUseCase',
+    (c) =>
+      new SaveLessonNoteUseCase({
+        lessonNoteRepository: c.resolve('LessonNoteRepository'),
+        lessonModuleRepository: c.resolve('LessonModuleRepository')
+      })
+  );
+
+  container.register(
+    'GetLessonNoteUseCase',
+    (c) =>
+      new GetLessonNoteUseCase({
+        lessonNoteRepository: c.resolve('LessonNoteRepository')
       })
   );
 

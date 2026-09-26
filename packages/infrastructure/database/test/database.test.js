@@ -12,11 +12,12 @@ const {
   DrizzleLessonModuleRepository,
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
+  DrizzleLessonNoteRepository,
   DrizzleMediaAssetRepository
 } = require('../src');
 const { User, Tenant, Organization, UserTenantMembership, OrganizationMembership } = require('../src/domain-identity-bridge');
 const { Course, Batch } = require('../src/domain-academics-bridge');
-const { LessonModule, StudentProgress, QuizSubmission } = require('../src/domain-learning-bridge');
+const { LessonModule, StudentProgress, QuizSubmission, LessonNote } = require('../src/domain-learning-bridge');
 const { MediaAsset } = require('../src/domain-media-bridge');
 
 test('Database schema exports identity, academics, learning, and media tables', () => {
@@ -268,4 +269,32 @@ test('DrizzleMediaAssetRepository converts MediaAsset Entity <-> Row correctly',
   assert.equal(found.filename, 'sample-video.mp4');
   assert.equal(found.mimeType.value, 'video/mp4');
   assert.equal(found.size.megaBytes, 25);
+});
+
+test('DrizzleLessonNoteRepository saves and retrieves student lesson notes correctly', async () => {
+  const studentUserId = crypto.randomUUID();
+  const lessonModuleId = 'mod_1_lesson_2';
+
+  const note = LessonNote.create({
+    studentUserId,
+    lessonModuleId,
+    content: '## Clean Architecture Notes\nEntities encapsulate domain business rules.'
+  }).getValue();
+
+  const repo = new DrizzleLessonNoteRepository();
+  await repo.save(note);
+
+  const found = await repo.findByStudentAndLesson(studentUserId, lessonModuleId);
+  assert.notEqual(found, null);
+  assert.equal(found.studentUserId, studentUserId);
+  assert.equal(found.lessonModuleId, lessonModuleId);
+  assert.equal(found.content, '## Clean Architecture Notes\nEntities encapsulate domain business rules.');
+
+  // Update note content
+  found.updateContent('Updated: DDD Entities have distinct identity.');
+  await repo.save(found);
+
+  const updated = await repo.findByStudentAndLesson(studentUserId, lessonModuleId);
+  assert.notEqual(updated, null);
+  assert.equal(updated.content, 'Updated: DDD Entities have distinct identity.');
 });

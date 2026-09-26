@@ -7,7 +7,8 @@ const {
   integer,
   boolean,
   doublePrecision,
-  index
+  index,
+  uniqueIndex
 } = require('../drizzle-bridge');
 const { usersTable } = require('./identity.schema');
 const { coursesTable, batchesTable } = require('./academics.schema');
@@ -77,8 +78,28 @@ const quizSubmissionsTable = pgTable(
   })
 );
 
+// 4. Lesson Notes Table
+const lessonNotesTable = pgTable(
+  'lesson_notes',
+  {
+    id: uuid('id').primaryKey(),
+    studentUserId: uuid('student_user_id').notNull().references(() => usersTable.id),
+    lessonModuleId: uuid('lesson_module_id').notNull().references(() => lessonModulesTable.id),
+    content: text('content').notNull().default(''),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    studentLessonUq: uniqueIndex('uq_lesson_notes_student_module').on(table.studentUserId, table.lessonModuleId),
+    studentIdx: index('idx_lesson_notes_student_id').on(table.studentUserId),
+    moduleIdx: index('idx_lesson_notes_module_id').on(table.lessonModuleId)
+  })
+);
+
 module.exports = {
   lessonModulesTable,
   studentProgressTable,
-  quizSubmissionsTable
+  quizSubmissionsTable,
+  lessonNotesTable
 };

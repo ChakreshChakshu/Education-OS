@@ -2,6 +2,7 @@ const { Score } = require('./value-objects/Score');
 const { LessonModule } = require('./entities/LessonModule');
 const { StudentProgress } = require('./entities/StudentProgress');
 const { QuizSubmission } = require('./entities/QuizSubmission');
+const { LessonNote } = require('./entities/LessonNote');
 const { ILessonModuleRepository } = require('./repositories/ILessonModuleRepository');
 const { IStudentProgressRepository } = require('./repositories/IStudentProgressRepository');
 
@@ -10,6 +11,7 @@ module.exports = {
   LessonModule,
   StudentProgress,
   QuizSubmission,
+  LessonNote,
   ILessonModuleRepository,
   IStudentProgressRepository
 };
