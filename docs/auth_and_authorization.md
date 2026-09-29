@@ -313,6 +313,45 @@ Introduce time-bound `permission_grants` that expire automatically.
 
 ---
 
+## ADR-028: Student Onboarding & Dual Credential Flow
+
+### Status
+**Accepted**
+
+### Context
+When administrators or instructors enroll students into courses or cohort batches, students do not yet possess credentials. Forcing an administrator to distribute plaintext passwords creates security liabilities and administrative overhead, while requiring SMTP email delivery can break local development workflows or offline campus distribution.
+
+### Decision
+Support **dual onboarding pathways** simultaneously upon enrollment:
+
+```text
+Admin Enrolls Student (/dashboard/students)
+             │
+             ├───► Pathway 1: Self-Service Activation Link (Recommended)
+             │      API signs a 7-day HMAC SHA-256 JWT token with payload:
+             │      { userId, tenantId, email, type: 'student_activation' }
+             │      Modal provides 1-click "Copy Activation Link" (`/activate?token=...`)
+             │      Student opens link → sets permanent password → auto-logged in with cookies.
+             │
+             └───► Pathway 2: Instant Temporary Password (Direct/Offline)
+                    API auto-generates a human-readable temporary password:
+                    e.g. `Learn@4921` (bcrypt-hashed with 10 salt rounds in database).
+                    Student logs in directly at `/login` using email + temporary password.
+```
+
+### Automatic Tenant & Role Binding
+1. When enrolled via `EnrollStudentUseCase`, the student record in `users` is created or updated.
+2. The user is automatically granted a tenant-scoped `STUDENT` role in `role_assignments`:
+   ```sql
+   INSERT INTO role_assignments (id, user_id, tenant_id, role_id)
+   VALUES ($1, $userId, $tenantId, $studentRoleId)
+   ON CONFLICT (user_id, tenant_id, organization_id, role_id) DO NOTHING;
+   ```
+3. Upon activation (`POST /auth/activate`) or standard login (`POST /auth/login`), `findTenantsWithRolesForUser` resolves all enrolled tenants.
+4. The client's `AuthProvider` auto-binds `activeTenant`, writes `eos_tenant_id` to local storage, and transparently attaches `x-tenant-id` to every subsequent API call.
+
+---
+
 # Guiding Principle
 
 > **Authentication identifies the user. Authorization evaluates what the user may do within a specific tenant and organization. Roles provide the baseline, while scoped role assignments and temporary permission grants provide the flexibility required for enterprise-scale Education Operating Systems.**

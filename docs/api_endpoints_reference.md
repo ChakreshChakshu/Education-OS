@@ -1,6 +1,6 @@
 # EOS REST API Endpoint Reference Guide
 
-This document provides a comprehensive specification of all **17 active REST API endpoints** implemented in `apps/api` for the Education Operating System (EOS).
+This document provides a comprehensive specification of all active REST API endpoints implemented in `apps/api` for the Education Operating System (EOS).
 
 ---
 
@@ -521,3 +521,170 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
     }
   }
   ```
+
+---
+
+### 18. Verify Student Activation Token
+* **Endpoint:** `GET /api/v1/public/auth/verify-activation-token?token=<token>`
+* **Scope:** Public
+* **Purpose:** Validates a 7-day signed student activation token generated during course enrollment. Returns associated user email, name, and institution campus details for displaying branded invitation greetings on `/activate`.
+* **Query Parameters:** `token` (JWT string)
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "userId": "01917f8a-...",
+    "email": "alex.morgan@student.edu",
+    "name": "Alex Morgan",
+    "tenantId": "01917f8a-9c42-7a1b-8c4d-123456789abc",
+    "tenantName": "Metropolitan University"
+  }
+  ```
+
+---
+
+### 19. Student Account Activation & Password Setup
+* **Endpoint:** `POST /api/v1/public/auth/activate`
+* **Scope:** Public
+* **Purpose:** Sets the student's permanent password, ensures tenant-scoped `STUDENT` role assignment in `role_assignments`, issues access/refresh tokens with HTTP-only cookies, and returns active tenant context so the student enters their campus classroom immediately.
+* **Request Body:**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsIn...",
+    "password": "NewPermanentPassword123!"
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Account activated successfully.",
+    "user": {
+      "id": "01917f8a-...",
+      "email": "alex.morgan@student.edu",
+      "name": "Alex Morgan"
+    },
+    "tenants": [
+      {
+        "tenantId": "01917f8a-9c42-7a1b-8c4d-123456789abc",
+        "name": "Metropolitan University",
+        "slug": "metropolitan",
+        "role": "STUDENT"
+      }
+    ],
+    "tenantId": "01917f8a-9c42-7a1b-8c4d-123456789abc"
+  }
+  ```
+
+---
+
+### 20. List Tenant Student Enrollments
+* **Endpoint:** `GET /api/v1/internal/academics/enrollments`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Query Parameters:** `courseId` (Optional filter), `batchId` (Optional filter), `status` (Optional: `ACTIVE`, `COMPLETED`, `DROPPED`)
+* **Purpose:** Retrieves real student roster records from Neon PostgreSQL with enriched user names, emails, course titles, batch codes, and real-time curriculum progress percentages.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "enr_01917...",
+        "tenantId": "01917...",
+        "studentUserId": "usr_01917...",
+        "studentName": "Alex Morgan",
+        "studentEmail": "alex@student.edu",
+        "courseId": "28a56762-...",
+        "courseTitle": "Full-Stack Web Engineering",
+        "batchId": "btc_01917...",
+        "batchName": "Spring 2026 Cohort",
+        "status": "ACTIVE",
+        "progressPercentage": 45,
+        "enrolledAt": "2026-09-29T18:00:00Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+### 21. Enroll Student with Credentials & Activation Token
+* **Endpoint:** `POST /api/v1/internal/academics/enrollments`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Purpose:** Registers a student into a course and optional cohort batch. If the student is new, provisions a user account with a temporary password (e.g. `Learn@4921`), auto-assigns `STUDENT` role for the tenant, and generates a 7-day signed activation token for one-click setup.
+* **Request Body:**
+  ```json
+  {
+    "courseId": "28a56762-f1a8-42e2-9d23-bfc677e54ca1",
+    "studentEmail": "alex.morgan@student.edu",
+    "studentName": "Alex Morgan",
+    "batchId": "btc_01917...",
+    "temporaryPassword": "Learn@4921"
+  }
+  ```
+* **Success Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "enr_01917...",
+      "tenantId": "01917...",
+      "studentUserId": "usr_01917...",
+      "courseId": "28a56762-...",
+      "batchId": "btc_01917...",
+      "status": "ACTIVE",
+      "progressPercentage": 0,
+      "temporaryPassword": "Learn@4921",
+      "activationToken": "eyJhbGciOiJIUzI1Ni...",
+      "activationUrl": "/activate?token=eyJhbGci..."
+    }
+  }
+  ```
+
+---
+
+### 22. Update Student Enrollment Status & Cohort
+* **Endpoint:** `PATCH /api/v1/internal/academics/enrollments/:id`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Purpose:** Updates enrollment status (`ACTIVE`, `COMPLETED`, `DROPPED`), re-assigns cohort batch, or updates progress percentage.
+* **Request Body:**
+  ```json
+  {
+    "status": "COMPLETED",
+    "batchId": "btc_01917...",
+    "progressPercentage": 100
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "enr_01917...",
+      "status": "COMPLETED",
+      "progressPercentage": 100
+    }
+  }
+  ```
+
+---
+
+### 23. Cohort Batches Management
+* **List Batches:** `GET /api/v1/internal/academics/batches?courseId=<courseId>`
+* **Create Batch:** `POST /api/v1/internal/academics/batches`
+* **Scope:** Internal
+* **Purpose:** Manages cohort groupings for courses, with capacity limits, start/end dates, and academic terms (e.g. `Spring 2026`).
+
+---
+
+### 24. Lesson Video Bookmarks & Timeline Drawer
+* **List Bookmarks:** `GET /api/v1/internal/learning/bookmarks?lessonModuleId=<id>`
+* **Create Bookmark:** `POST /api/v1/internal/learning/bookmarks`
+  * Body: `{ "lessonModuleId": "lesson_1", "timestampSeconds": 142, "title": "Memory Layout", "notes": "..." }`
+* **Delete Bookmark:** `DELETE /api/v1/internal/learning/bookmarks/:id`
+* **Scope:** Internal
+* **Purpose:** Powers the Classroom Video Timeline Drawer, letting students pin and jump to exact timestamps during lecture playback.
+

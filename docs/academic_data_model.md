@@ -273,6 +273,48 @@ CREATE TABLE course_prerequisites (
 
 ---
 
+# 9. Student Enrollments & Cohort Batches
+
+Connects students to courses and structured cohort batches with real-time curriculum progress tracking and lifecycle state management.
+
+### Table Schema: `batches`
+```sql
+CREATE TABLE batches (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid_v7(),
+  course_id   UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  name        VARCHAR(255) NOT NULL, -- e.g. "Spring 2026 Morning Track"
+  term        VARCHAR(100),          -- e.g. "Spring 2026"
+  capacity    INTEGER NOT NULL DEFAULT 50,
+  start_date  TIMESTAMPTZ,
+  end_date    TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### Table Schema: `enrollments`
+```sql
+CREATE TABLE enrollments (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid_v7(),
+  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  student_user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id           UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  batch_id            UUID REFERENCES batches(id) ON DELETE SET NULL,
+  status              VARCHAR(50) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, COMPLETED, DROPPED
+  progress_percentage INTEGER NOT NULL DEFAULT 0,
+  enrolled_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_enrollments_student_course UNIQUE (student_user_id, course_id)
+);
+
+CREATE INDEX idx_enrollments_tenant_id ON enrollments (tenant_id);
+CREATE INDEX idx_enrollments_student_id ON enrollments (student_user_id);
+CREATE INDEX idx_enrollments_batch_id ON enrollments (batch_id);
+```
+
+---
+
 # Course Lifecycle & Versioning Workflow
 
 ```text

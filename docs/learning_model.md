@@ -352,7 +352,41 @@ Students need continuous feedback on lesson progress, adaptive video streaming w
 
 ---
 
+## ADR-014: Classroom Timeline Drawer & Video Timestamp Bookmarks
+
+### Status
+**Accepted & Implemented**
+
+### Context
+In video-heavy asynchronous education, students need to highlight key concepts at exact video timestamps, jot quick reflections, and review an interactive milestone timeline without losing playback focus.
+
+### Schema: `lesson_bookmarks`
+```sql
+CREATE TABLE lesson_bookmarks (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid_v7(),
+  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  student_user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id         UUID REFERENCES courses(id) ON DELETE CASCADE,
+  lesson_module_id  VARCHAR(255) NOT NULL,
+  timestamp_seconds INTEGER NOT NULL,
+  title             VARCHAR(255) NOT NULL,
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_lesson_bookmarks_student_lesson ON lesson_bookmarks (student_user_id, lesson_module_id);
+CREATE INDEX idx_lesson_bookmarks_tenant ON lesson_bookmarks (tenant_id);
+```
+
+### Implementation Details
+1. **Quick Action Bookmark Bar**: Shows live video time (`Clock`) and `+ Bookmark Moment` trigger.
+2. **Workspace Bookmarks Tab**: Dedicated tab alongside Lesson Syllabus, Cloud Notes, and Discussion Q&A with jump-to-timestamp and deletion controls.
+3. **Dual-Mode Interactive Right Drawer**: Toggles between `Syllabus Navigation` and `Timeline Drawer`. The Timeline Drawer renders an interactive vertical timeline combining lesson milestones and student bookmarks, enabling instantaneous seeking to lecture highlights.
+
+---
+
 # Guiding Principle
 
 > **Learning is tied to an enrollment, progress is tracked atomically per lesson, and course completion is derived from learner activity rather than manually maintained.**
+
 
