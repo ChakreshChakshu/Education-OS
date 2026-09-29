@@ -5,6 +5,9 @@ const { GetLessonNoteUseCase } = require('./use-cases/GetLessonNoteUseCase');
 const { CreateLessonBookmarkUseCase } = require('./use-cases/CreateLessonBookmarkUseCase');
 const { GetLessonBookmarksUseCase } = require('./use-cases/GetLessonBookmarksUseCase');
 const { DeleteLessonBookmarkUseCase } = require('./use-cases/DeleteLessonBookmarkUseCase');
+const { EnrollStudentUseCase } = require('./use-cases/EnrollStudentUseCase');
+const { GetTenantEnrollmentsUseCase } = require('./use-cases/GetTenantEnrollmentsUseCase');
+const { UpdateEnrollmentStatusUseCase } = require('./use-cases/UpdateEnrollmentStatusUseCase');
 
 module.exports = {
   MarkLessonCompleteUseCase,
@@ -13,6 +16,9 @@ module.exports = {
   GetLessonNoteUseCase,
   CreateLessonBookmarkUseCase,
   GetLessonBookmarksUseCase,
-  DeleteLessonBookmarkUseCase
+  DeleteLessonBookmarkUseCase,
+  EnrollStudentUseCase,
+  GetTenantEnrollmentsUseCase,
+  UpdateEnrollmentStatusUseCase
 };
 

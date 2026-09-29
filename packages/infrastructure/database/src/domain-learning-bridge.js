@@ -12,6 +12,7 @@ module.exports = {
   QuizSubmission: domainLearning.domain.QuizSubmission,
   LessonNote: domainLearning.domain.LessonNote,
   LessonBookmark: domainLearning.domain.LessonBookmark,
+  Enrollment: domainLearning.domain.Enrollment,
   Score: domainLearning.domain.Score
 };
 

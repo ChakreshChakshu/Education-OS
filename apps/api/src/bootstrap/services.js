@@ -28,7 +28,10 @@ const {
   GetLessonNoteUseCase,
   CreateLessonBookmarkUseCase,
   GetLessonBookmarksUseCase,
-  DeleteLessonBookmarkUseCase
+  DeleteLessonBookmarkUseCase,
+  EnrollStudentUseCase,
+  GetTenantEnrollmentsUseCase,
+  UpdateEnrollmentStatusUseCase
 } = learningDomain.application;
 const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
 
@@ -43,6 +46,7 @@ const {
   DrizzleQuizSubmissionRepository,
   DrizzleLessonNoteRepository,
   DrizzleLessonBookmarkRepository,
+  DrizzleEnrollmentRepository,
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
   DrizzleRoleAssignmentRepository,
@@ -138,6 +142,7 @@ function registerServices(container) {
   container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(dbClient));
   container.register('LessonNoteRepository', () => new DrizzleLessonNoteRepository(dbClient));
   container.register('LessonBookmarkRepository', () => new DrizzleLessonBookmarkRepository(dbClient));
+  container.register('EnrollmentRepository', () => new DrizzleEnrollmentRepository(dbClient));
 
   // Media Repositories
   container.register('MediaAssetRepository', () => new DrizzleMediaAssetRepository(dbClient));
@@ -296,6 +301,31 @@ function registerServices(container) {
     (c) =>
       new DeleteLessonBookmarkUseCase({
         lessonBookmarkRepository: c.resolve('LessonBookmarkRepository')
+      })
+  );
+
+  container.register(
+    'EnrollStudentUseCase',
+    (c) =>
+      new EnrollStudentUseCase({
+        enrollmentRepository: c.resolve('EnrollmentRepository'),
+        userRepository: c.resolve('UserRepository')
+      })
+  );
+
+  container.register(
+    'GetTenantEnrollmentsUseCase',
+    (c) =>
+      new GetTenantEnrollmentsUseCase({
+        enrollmentRepository: c.resolve('EnrollmentRepository')
+      })
+  );
+
+  container.register(
+    'UpdateEnrollmentStatusUseCase',
+    (c) =>
+      new UpdateEnrollmentStatusUseCase({
+        enrollmentRepository: c.resolve('EnrollmentRepository')
       })
   );
 

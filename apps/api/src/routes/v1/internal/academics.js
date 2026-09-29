@@ -153,12 +153,166 @@ async function academicsRoutes(fastify, options) {
         id: b.id,
         courseId: b.courseId,
         name: b.name,
-        term: b.term ? b.term.value : null,
+        term: b.term ? (typeof b.term === 'object' ? b.term.value : b.term) : null,
         capacity: b.capacity,
         status: b.status
       }))
     });
   });
+
+  // Create Batch Route
+  fastify.post(
+    '/batches',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['courseId', 'name'],
+          properties: {
+            courseId: { type: 'string' },
+            name: { type: 'string', minLength: 1 },
+            term: { type: 'string' },
+            capacity: { type: 'integer', minimum: 1 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const useCase = container.resolve('CreateBatchUseCase');
+      const result = await useCase.execute(request.body);
+      if (result.isFailure) {
+        return reply.status(400).send({ success: false, error: result.error });
+      }
+      return reply.status(201).send({ success: true, data: result.getValue() });
+    }
+  );
+
+  // List Enrollments for Tenant / Filtered
+  fastify.get('/enrollments', async (request, reply) => {
+    const tenantId = request.headers['x-tenant-id'] || request.query.tenantId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+    const { courseId, batchId, status, search } = request.query;
+
+    const useCase = container.resolve('GetTenantEnrollmentsUseCase');
+    const result = await useCase.execute({
+      tenantId,
+      courseId,
+      batchId,
+      status,
+      search
+    });
+
+    if (result.isFailure) {
+      return reply.status(400).send({ success: false, error: result.error });
+    }
+
+    const enrollments = result.getValue();
+    return reply.send({
+      success: true,
+      data: enrollments.map((e) => ({
+        id: e.id,
+        tenantId: e.tenantId,
+        studentUserId: e.studentUserId,
+        studentName: e.studentName || 'Student',
+        studentEmail: e.studentEmail || '',
+        courseId: e.courseId,
+        courseTitle: e.courseTitle || 'Course',
+        courseCode: e.courseCode || '',
+        batchId: e.batchId,
+        batchName: e.batchName || 'General Cohort',
+        status: e.status,
+        progressPercentage: e.progressPercentage,
+        enrolledAt: e.enrolledAt,
+        updatedAt: e.updatedAt
+      }))
+    });
+  });
+
+  // Enroll Student in Course / Batch
+  fastify.post(
+    '/enrollments',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['courseId'],
+          properties: {
+            tenantId: { type: 'string' },
+            studentUserId: { type: 'string' },
+            studentEmail: { type: 'string' },
+            studentName: { type: 'string' },
+            courseId: { type: 'string' },
+            batchId: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const tenantId =
+        request.body.tenantId ||
+        request.headers['x-tenant-id'] ||
+        request.user?.tenantId ||
+        '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+
+      const useCase = container.resolve('EnrollStudentUseCase');
+      const result = await useCase.execute({
+        tenantId,
+        studentUserId: request.body.studentUserId,
+        studentEmail: request.body.studentEmail,
+        studentName: request.body.studentName,
+        courseId: request.body.courseId,
+        batchId: request.body.batchId
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({ success: false, error: result.error });
+      }
+
+      return reply.status(201).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
+
+  // Update Enrollment Status or Cohort Batch
+  fastify.patch(
+    '/enrollments/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string' } }
+        },
+        body: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['ACTIVE', 'COMPLETED', 'DROPPED', 'SUSPENDED'] },
+            batchId: { type: 'string' },
+            progressPercentage: { type: 'number', minimum: 0, maximum: 100 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const useCase = container.resolve('UpdateEnrollmentStatusUseCase');
+      const result = await useCase.execute({
+        enrollmentId: request.params.id,
+        status: request.body.status,
+        batchId: request.body.batchId,
+        progressPercentage: request.body.progressPercentage
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({ success: false, error: result.error });
+      }
+
+      return reply.send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
 }
 
 module.exports = academicsRoutes;

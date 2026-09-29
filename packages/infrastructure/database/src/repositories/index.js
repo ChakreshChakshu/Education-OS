@@ -13,6 +13,7 @@ const { DrizzleRoleAssignmentRepository } = require('./DrizzleRoleAssignmentRepo
 const { DrizzleOutboxRepository } = require('./DrizzleOutboxRepository');
 const { DrizzleLessonNoteRepository } = require('./DrizzleLessonNoteRepository');
 const { DrizzleLessonBookmarkRepository } = require('./DrizzleLessonBookmarkRepository');
+const { DrizzleEnrollmentRepository } = require('./DrizzleEnrollmentRepository');
 
 module.exports = {
   BaseRepository,
@@ -29,6 +30,7 @@ module.exports = {
   DrizzleRoleAssignmentRepository,
   DrizzleOutboxRepository,
   DrizzleLessonNoteRepository,
-  DrizzleLessonBookmarkRepository
+  DrizzleLessonBookmarkRepository,
+  DrizzleEnrollmentRepository
 };
 

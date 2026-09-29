@@ -80,8 +80,32 @@ const subjectsTable = pgTable(
   })
 );
 
+// 4. Enrollments Table
+const enrollmentsTable = pgTable(
+  'enrollments',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenantsTable.id),
+    studentUserId: uuid('student_user_id').notNull().references(() => usersTable.id),
+    courseId: uuid('course_id').notNull().references(() => coursesTable.id),
+    batchId: uuid('batch_id').references(() => batchesTable.id),
+    status: varchar('status', { length: 50 }).notNull().default('ACTIVE'),
+    progressPercentage: integer('progress_percentage').notNull().default(0),
+    enrolledAt: timestamp('enrolled_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    studentCourseUq: uniqueIndex('uq_enrollments_student_course').on(table.studentUserId, table.courseId),
+    tenantIdx: index('idx_enrollments_tenant_id').on(table.tenantId),
+    studentIdx: index('idx_enrollments_student_id').on(table.studentUserId),
+    courseIdx: index('idx_enrollments_course_id').on(table.courseId),
+    batchIdx: index('idx_enrollments_batch_id').on(table.batchId)
+  })
+);
+
 module.exports = {
   coursesTable,
   batchesTable,
-  subjectsTable
+  subjectsTable,
+  enrollmentsTable
 };

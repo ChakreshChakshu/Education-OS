@@ -424,6 +424,83 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getEnrollments(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.courseId) queryParams.append('courseId', filters.courseId);
+      if (filters.batchId) queryParams.append('batchId', filters.batchId);
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.search) queryParams.append('search', filters.search);
+      const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments${qs}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch enrollments');
+      return data;
+    } catch (err) {
+      console.error('API getEnrollments Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async enrollStudent(payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to enroll student');
+      return data;
+    } catch (err) {
+      console.error('API enrollStudent Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async updateEnrollment(id, payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update enrollment');
+      return data;
+    } catch (err) {
+      console.error('API updateEnrollment Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getBatches(courseId) {
+    try {
+      const qs = courseId ? `?courseId=${courseId}` : '';
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/batches${qs}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch batches');
+      return data;
+    } catch (err) {
+      console.error('API getBatches Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async createBatch(payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/batches`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create batch');
+      return data;
+    } catch (err) {
+      console.error('API createBatch Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

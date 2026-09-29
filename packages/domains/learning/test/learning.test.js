@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 
-const { Score, LessonModule, StudentProgress, QuizSubmission, LessonNote, LessonBookmark } = require('../domain');
+const { Score, LessonModule, StudentProgress, QuizSubmission, LessonNote, LessonBookmark, Enrollment } = require('../domain');
 const {
   MarkLessonCompleteUseCase,
   SubmitQuizUseCase,
@@ -10,7 +10,10 @@ const {
   GetLessonNoteUseCase,
   CreateLessonBookmarkUseCase,
   GetLessonBookmarksUseCase,
-  DeleteLessonBookmarkUseCase
+  DeleteLessonBookmarkUseCase,
+  EnrollStudentUseCase,
+  GetTenantEnrollmentsUseCase,
+  UpdateEnrollmentStatusUseCase
 } = require('../application');
 
 // In-Memory Lesson Module Repository Mock
@@ -324,4 +327,133 @@ test('CreateLessonBookmarkUseCase, GetLessonBookmarksUseCase, and DeleteLessonBo
   assert.equal(listAfterDelete.getValue().length, 1);
   assert.equal(listAfterDelete.getValue()[0].title, 'Introduction Slide');
 });
+
+// In-Memory Enrollment Repository Mock
+class MockEnrollmentRepository {
+  constructor() {
+    this.enrollments = new Map();
+  }
+
+  async findByStudentAndCourse(studentUserId, courseId) {
+    for (const e of this.enrollments.values()) {
+      if (e.studentUserId === studentUserId && e.courseId === courseId) {
+        return e;
+      }
+    }
+    return null;
+  }
+
+  async findByTenant({ tenantId, courseId, batchId, status }) {
+    const results = [];
+    for (const e of this.enrollments.values()) {
+      if (e.tenantId === tenantId) {
+        if (courseId && e.courseId !== courseId) continue;
+        if (batchId && e.batchId !== batchId) continue;
+        if (status && e.status !== status) continue;
+        results.push(e);
+      }
+    }
+    return results;
+  }
+
+  async findById(id) {
+    return this.enrollments.get(id) || null;
+  }
+
+  async save(enrollment) {
+    this.enrollments.set(enrollment.id, enrollment);
+    return enrollment;
+  }
+
+  async delete(id) {
+    this.enrollments.delete(id);
+    return true;
+  }
+}
+
+test('Enrollment Entity validates mandatory fields and state transitions', () => {
+  const invalidMissingTenant = Enrollment.create({
+    studentUserId: crypto.randomUUID(),
+    courseId: crypto.randomUUID()
+  });
+  assert.equal(invalidMissingTenant.isFailure, true);
+
+  const enrollment = Enrollment.create({
+    tenantId: crypto.randomUUID(),
+    studentUserId: crypto.randomUUID(),
+    courseId: crypto.randomUUID()
+  }).getValue();
+
+  assert.equal(enrollment.status, 'ACTIVE');
+  assert.equal(enrollment.progressPercentage, 0);
+
+  enrollment.updateProgress(45);
+  assert.equal(enrollment.progressPercentage, 45);
+
+  enrollment.updateProgress(100);
+  assert.equal(enrollment.progressPercentage, 100);
+  assert.equal(enrollment.status, 'COMPLETED');
+
+  enrollment.drop();
+  assert.equal(enrollment.status, 'DROPPED');
+
+  enrollment.reactivate();
+  assert.equal(enrollment.status, 'ACTIVE');
+});
+
+test('EnrollStudentUseCase, GetTenantEnrollmentsUseCase, and UpdateEnrollmentStatusUseCase manage student cohort lifecycle', async () => {
+  const enrollmentRepository = new MockEnrollmentRepository();
+  const tenantId = crypto.randomUUID();
+  const courseId = crypto.randomUUID();
+  const batchId = crypto.randomUUID();
+  const studentUserId = crypto.randomUUID();
+
+  const enrollUseCase = new EnrollStudentUseCase({ enrollmentRepository });
+  const getUseCase = new GetTenantEnrollmentsUseCase({ enrollmentRepository });
+  const updateUseCase = new UpdateEnrollmentStatusUseCase({ enrollmentRepository });
+
+  // 1. Enroll student
+  const enrollResult = await enrollUseCase.execute({
+    tenantId,
+    courseId,
+    batchId,
+    studentUserId
+  });
+  assert.equal(enrollResult.isSuccess, true);
+  const enrollment = enrollResult.getValue();
+  assert.equal(enrollment.status, 'ACTIVE');
+  assert.equal(enrollment.batchId, batchId);
+
+  // 2. Prevent duplicate active enrollment
+  const duplicateResult = await enrollUseCase.execute({
+    tenantId,
+    courseId,
+    studentUserId
+  });
+  assert.equal(duplicateResult.isFailure, true);
+  assert.match(duplicateResult.error, /already actively enrolled/);
+
+  // 3. Get tenant enrollments
+  const listResult = await getUseCase.execute({ tenantId });
+  assert.equal(listResult.isSuccess, true);
+  assert.equal(listResult.getValue().length, 1);
+
+  // 4. Update progress & batch
+  const updateResult = await updateUseCase.execute({
+    enrollmentId: enrollment.id,
+    progressPercentage: 60,
+    status: 'ACTIVE'
+  });
+  assert.equal(updateResult.isSuccess, true);
+  assert.equal(updateResult.getValue().progressPercentage, 60);
+
+  // 5. Complete enrollment
+  const completeResult = await updateUseCase.execute({
+    enrollmentId: enrollment.id,
+    status: 'COMPLETED'
+  });
+  assert.equal(completeResult.isSuccess, true);
+  assert.equal(completeResult.getValue().status, 'COMPLETED');
+});
+
 

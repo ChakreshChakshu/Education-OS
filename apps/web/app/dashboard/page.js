@@ -18,21 +18,28 @@ import {
 export default function DashboardOverviewPage() {
   const { activeTenant } = useAuth();
   const [courseCount, setCourseCount] = useState(0);
+  const [studentCount, setStudentCount] = useState(0);
 
   useEffect(() => {
     async function loadCount() {
-      const res = await ApiClient.getCourses();
-      if (res.success && Array.isArray(res.data)) {
-        setCourseCount(res.data.length);
+      const [courseRes, enrollRes] = await Promise.all([
+        ApiClient.getCourses(),
+        ApiClient.getEnrollments()
+      ]);
+      if (courseRes?.success && Array.isArray(courseRes.data)) {
+        setCourseCount(courseRes.data.length);
+      }
+      if (enrollRes?.success && Array.isArray(enrollRes.data)) {
+        setStudentCount(enrollRes.data.length);
       }
     }
     loadCount();
-  }, []);
+  }, [activeTenant]);
 
   const metrics = [
     { title: "Academic Courses", value: String(courseCount), change: "Active catalog", icon: BookOpen },
-    { title: "Enrolled Students", value: "0", change: "Roster ready", icon: Users },
-    { title: "Media Storage Provider", value: "Local Disk", change: "./uploads provider", icon: HardDrive },
+    { title: "Enrolled Students", value: String(studentCount), change: studentCount > 0 ? "Active roster" : "Roster ready", icon: Users },
+    { title: "Media Storage Provider", value: "Cloudflare R2", change: "HLS multi-bitrate", icon: HardDrive },
   ];
 
   return (

@@ -16,7 +16,8 @@ const {
   DrizzleRoleAssignmentRepository,
   DrizzleOutboxRepository,
   DrizzleLessonNoteRepository,
-  DrizzleLessonBookmarkRepository
+  DrizzleLessonBookmarkRepository,
+  DrizzleEnrollmentRepository
 } = require('./repositories');
 const { seedDatabase, seedRbacDefaults } = require('./seed');
 const { executeTransaction } = require('./transactions');
@@ -55,6 +56,7 @@ module.exports = {
   DrizzleOutboxRepository,
   DrizzleLessonNoteRepository,
   DrizzleLessonBookmarkRepository,
+  DrizzleEnrollmentRepository,
   seedDatabase,
   seedRbacDefaults,
   executeTransaction
