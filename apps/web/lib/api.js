@@ -314,6 +314,76 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getUserProfile() {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/users/profile`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch user profile');
+      return data;
+    } catch (err) {
+      console.error('API getUserProfile Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async updateUserProfile(payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/users/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+      return data;
+    } catch (err) {
+      console.error('API updateUserProfile Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async changePassword(payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/users/change-password`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to change password');
+      return data;
+    } catch (err) {
+      console.error('API changePassword Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getTenantSettings() {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/tenants/current`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch tenant settings');
+      return data;
+    } catch (err) {
+      console.error('API getTenantSettings Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async updateTenantSettings(payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/tenants/current/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update tenant settings');
+      return data;
+    } catch (err) {
+      console.error('API updateTenantSettings Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };
+

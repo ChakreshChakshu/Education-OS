@@ -41,6 +41,24 @@ class Tenant extends AggregateRoot {
     return this.props.updatedAt;
   }
 
+  updateSettings(settingsJson) {
+    this.props.settingsJson = {
+      ...(this.props.settingsJson || {}),
+      ...(settingsJson || {})
+    };
+    this.props.updatedAt = new Date();
+    return Result.ok();
+  }
+
+  rename(name) {
+    if (!name || name.trim().length === 0) {
+      return Result.fail('Tenant name cannot be empty.');
+    }
+    this.props.name = name.trim();
+    this.props.updatedAt = new Date();
+    return Result.ok();
+  }
+
   suspend() {
     this.props.status = 'SUSPENDED';
     this.props.updatedAt = new Date();

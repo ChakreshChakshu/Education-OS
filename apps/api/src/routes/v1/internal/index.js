@@ -1,6 +1,7 @@
 const academicsRoutes = require('./academics');
 const learningRoutes = require('./learning');
 const mediaRoutes = require('./media');
+const usersRoutes = require('./users');
 const { authenticateJWT } = require('../../../middleware/auth');
 
 async function internalRoutes(fastify, options) {
@@ -18,6 +19,7 @@ async function internalRoutes(fastify, options) {
   await fastify.register(academicsRoutes, { prefix: '/academics', container });
   await fastify.register(learningRoutes, { prefix: '/learning', container });
   await fastify.register(mediaRoutes, { prefix: '/media', container });
+  await fastify.register(usersRoutes, { prefix: '/users', container });
 
   fastify.get('/health', async (request, reply) => {
     const healthService = container.resolve('HealthService');
@@ -38,6 +40,95 @@ async function internalRoutes(fastify, options) {
       user: request.user,
       tenants
     };
+  });
+
+  // Get Current Active Tenant Details
+  fastify.get('/tenants/current', async (request, reply) => {
+    const tenantRepo = container.resolve('TenantRepository');
+    let tenantId = request.headers['x-tenant-id'];
+
+    if (!tenantId) {
+      const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+      const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
+        request.user.userId || request.user.sub
+      );
+      if (userTenants && userTenants.length > 0) {
+        tenantId = userTenants[0].id;
+      }
+    }
+
+    if (!tenantId) {
+      return reply.status(404).send({ success: false, error: 'No active tenant workspace found' });
+    }
+
+    const tenant = await tenantRepo.findById(tenantId);
+    if (!tenant) {
+      return reply.status(404).send({ success: false, error: 'Tenant not found' });
+    }
+
+    return {
+      success: true,
+      data: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug ? tenant.slug.value : '',
+        status: tenant.status,
+        settingsJson: tenant.settingsJson || {},
+        updatedAt: tenant.updatedAt
+      }
+    };
+  });
+
+  // Update Current Active Tenant Settings & Branding
+  fastify.route({
+    method: ['PATCH', 'PUT'],
+    url: '/tenants/current/settings',
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          tenantId: { type: 'string' },
+          name: { type: 'string', minLength: 1 },
+          settingsJson: { type: 'object' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      let tenantId = request.body.tenantId || request.headers['x-tenant-id'];
+
+      if (!tenantId) {
+        const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+        const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
+          request.user.userId || request.user.sub
+        );
+        if (userTenants && userTenants.length > 0) {
+          tenantId = userTenants[0].id;
+        }
+      }
+
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant ID is required' });
+      }
+
+      const useCase = container.resolve('UpdateTenantSettingsUseCase');
+      const result = await useCase.execute({
+        tenantId,
+        name: request.body.name,
+        settingsJson: request.body.settingsJson
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
   });
 
   // Tenant Provisioning Route
@@ -79,3 +170,4 @@ async function internalRoutes(fastify, options) {
 }
 
 module.exports = internalRoutes;
+

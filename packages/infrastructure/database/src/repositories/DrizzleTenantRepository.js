@@ -122,6 +122,7 @@ class DrizzleTenantRepository extends BaseRepository {
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           slug = EXCLUDED.slug,
+          settings_json = EXCLUDED.settings_json,
           updated_at = NOW();
       `, [raw.id, raw.name, raw.slug, raw.status, JSON.stringify(raw.settingsJson || {}), raw.createdAt, raw.updatedAt]);
     }

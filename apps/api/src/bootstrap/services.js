@@ -15,7 +15,10 @@ const {
   CreateTenantUseCase,
   LoginUserUseCase,
   RefreshTokenUseCase,
-  LogoutUseCase
+  LogoutUseCase,
+  UpdateUserProfileUseCase,
+  ChangePasswordUseCase,
+  UpdateTenantSettingsUseCase
 } = identityDomain.application;
 const { CreateCourseUseCase, CreateBatchUseCase } = academicsDomain.application;
 const {
@@ -185,6 +188,31 @@ function registerServices(container) {
         userRepository: c.resolve('UserRepository'),
         organizationRepository: c.resolve('OrganizationRepository'),
         roleAssignmentRepository: c.resolve('RoleAssignmentRepository')
+      })
+  );
+
+  container.register(
+    'UpdateUserProfileUseCase',
+    (c) =>
+      new UpdateUserProfileUseCase({
+        userRepository: c.resolve('UserRepository')
+      })
+  );
+
+  container.register(
+    'ChangePasswordUseCase',
+    (c) =>
+      new ChangePasswordUseCase({
+        userRepository: c.resolve('UserRepository'),
+        passwordHasher: c.resolve('PasswordHasher')
+      })
+  );
+
+  container.register(
+    'UpdateTenantSettingsUseCase',
+    (c) =>
+      new UpdateTenantSettingsUseCase({
+        tenantRepository: c.resolve('TenantRepository')
       })
   );
 

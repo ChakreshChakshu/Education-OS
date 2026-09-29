@@ -76,7 +76,8 @@ export default function DashboardLayout({ children }) {
     { name: "Overview", href: "/dashboard", icon: SquaresFour },
     { name: "Course Manager", href: "/dashboard/courses", icon: BookOpen },
     { name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings },
-    { name: "Students & Cohorts", href: "/dashboard/students", icon: Users }
+    { name: "Students & Cohorts", href: "/dashboard/students", icon: Users },
+    { name: "Settings & Config", href: "/dashboard/settings", icon: Gear }
   ];
 
   const handleLogout = () => {

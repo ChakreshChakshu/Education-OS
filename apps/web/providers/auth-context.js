@@ -110,6 +110,23 @@ export function AuthProvider({ children }) {
     return { success: true, data: res.data || { name: payload.name, email: payload.email }, tenant: res.tenant };
   };
 
+  const updateCurrentUser = (partialUser) => {
+    setUser((prev) => (prev ? { ...prev, ...partialUser } : partialUser));
+  };
+
+  const updateActiveTenant = (updatedTenant) => {
+    setActiveTenant((prev) => {
+      const next = prev ? { ...prev, ...updatedTenant } : updatedTenant;
+      if (next) {
+        localStorage.setItem('eos_tenant', JSON.stringify(next));
+      }
+      return next;
+    });
+    setTenants((prevTenants) =>
+      prevTenants.map((t) => (t.id === updatedTenant.id ? { ...t, ...updatedTenant } : t))
+    );
+  };
+
   const switchTenant = (tenant) => {
     setActiveTenant(tenant);
     localStorage.setItem('eos_tenant', JSON.stringify(tenant));
@@ -135,6 +152,8 @@ export function AuthProvider({ children }) {
         login,
         register,
         switchTenant,
+        updateCurrentUser,
+        updateActiveTenant,
         logout
       }}
     >

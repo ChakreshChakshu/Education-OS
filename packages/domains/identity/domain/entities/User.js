@@ -46,6 +46,46 @@ class User extends AggregateRoot {
     return this.props.updatedAt;
   }
 
+  get avatar() {
+    return this.props.avatar;
+  }
+
+  get phone() {
+    return this.props.phone;
+  }
+
+  get timezone() {
+    return this.props.timezone;
+  }
+
+  get language() {
+    return this.props.language;
+  }
+
+  updateProfile({ name, phone, timezone, language, avatar }) {
+    if (name !== undefined) {
+      if (!name || name.trim().length === 0) {
+        return Result.fail('User name cannot be empty.');
+      }
+      this.props.name = name.trim();
+    }
+    if (phone !== undefined) this.props.phone = phone;
+    if (timezone !== undefined) this.props.timezone = timezone;
+    if (language !== undefined) this.props.language = language;
+    if (avatar !== undefined) this.props.avatar = avatar;
+    this.props.updatedAt = new Date();
+    return Result.ok();
+  }
+
+  updatePassword(newPasswordHash) {
+    if (!newPasswordHash) {
+      return Result.fail('Password hash is required.');
+    }
+    this.props.passwordHash = newPasswordHash;
+    this.props.updatedAt = new Date();
+    return Result.ok();
+  }
+
   suspend() {
     if (this.props.status === 'SUSPENDED') {
       return Result.fail('User is already suspended.');

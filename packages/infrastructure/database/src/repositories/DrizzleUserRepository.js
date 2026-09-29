@@ -103,6 +103,10 @@ class DrizzleUserRepository extends BaseRepository {
           email = EXCLUDED.email,
           password_hash = EXCLUDED.password_hash,
           name = EXCLUDED.name,
+          avatar = EXCLUDED.avatar,
+          phone = EXCLUDED.phone,
+          timezone = EXCLUDED.timezone,
+          language = EXCLUDED.language,
           updated_at = NOW();
       `, [raw.id, raw.email, raw.passwordHash, raw.name, raw.avatar, raw.phone, raw.timezone, raw.language, raw.status, raw.createdAt, raw.updatedAt]);
     }

@@ -16,7 +16,10 @@ const {
   CreateTenantUseCase,
   LoginUserUseCase,
   RefreshTokenUseCase,
-  LogoutUseCase
+  LogoutUseCase,
+  UpdateUserProfileUseCase,
+  ChangePasswordUseCase,
+  UpdateTenantSettingsUseCase
 } = require('../application');
 const crypto = require('crypto');
 
@@ -384,3 +387,127 @@ test('LogoutUseCase revokes the session so its refresh token can no longer be us
   const refreshAfterLogout = await refreshUseCase.execute({ refreshToken: loginData.refreshToken });
   assert.equal(refreshAfterLogout.isFailure, true);
 });
+
+test('UpdateUserProfileUseCase updates profile attributes successfully', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const passwordHasher = { hash: async (p) => `hashed_${p}`, compare: async (p, hash) => hash === `hashed_${p}` };
+
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  const regResult = await regUseCase.execute({ email: 'profile-test@skillyards.com', password: 'password123', name: 'Original Name' });
+  const userId = regResult.getValue().id;
+
+  const updateProfileUseCase = new UpdateUserProfileUseCase({ userRepository: userRepo });
+  const updateResult = await updateProfileUseCase.execute({
+    userId,
+    name: 'Updated Name',
+    phone: '+1 555-0199',
+    timezone: 'Asia/Kolkata',
+    language: 'hi',
+    avatar: 'https://example.com/avatar.png'
+  });
+
+  assert.equal(updateResult.isSuccess, true);
+  const updatedUser = updateResult.getValue();
+  assert.equal(updatedUser.name, 'Updated Name');
+  assert.equal(updatedUser.phone, '+1 555-0199');
+  assert.equal(updatedUser.timezone, 'Asia/Kolkata');
+  assert.equal(updatedUser.language, 'hi');
+  assert.equal(updatedUser.avatar, 'https://example.com/avatar.png');
+
+  // Verify persistence
+  const persisted = await userRepo.findById(userId);
+  assert.equal(persisted.name, 'Updated Name');
+  assert.equal(persisted.phone, '+1 555-0199');
+});
+
+test('ChangePasswordUseCase validates current password and updates hash', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const passwordHasher = { hash: async (p) => `hashed_${p}`, compare: async (p, hash) => hash === `hashed_${p}` };
+
+  const regUseCase = new RegisterUserUseCase({ userRepository: userRepo, passwordHasher });
+  const regResult = await regUseCase.execute({ email: 'pass-test@skillyards.com', password: 'oldpassword123', name: 'Pass Test' });
+  const userId = regResult.getValue().id;
+
+  const changePassUseCase = new ChangePasswordUseCase({ userRepository: userRepo, passwordHasher });
+
+  // Wrong current password
+  const failResult = await changePassUseCase.execute({
+    userId,
+    currentPassword: 'wrongpassword',
+    newPassword: 'newpassword123'
+  });
+  assert.equal(failResult.isFailure, true);
+  assert.equal(failResult.error, 'Current password is incorrect.');
+
+  // Too short new password
+  const shortResult = await changePassUseCase.execute({
+    userId,
+    currentPassword: 'oldpassword123',
+    newPassword: 'short'
+  });
+  assert.equal(shortResult.isFailure, true);
+
+  // Successful change
+  const successResult = await changePassUseCase.execute({
+    userId,
+    currentPassword: 'oldpassword123',
+    newPassword: 'brandnewpassword123'
+  });
+  assert.equal(successResult.isSuccess, true);
+
+  const updatedUser = await userRepo.findById(userId);
+  assert.equal(updatedUser.passwordHash, 'hashed_brandnewpassword123');
+});
+
+test('UpdateTenantSettingsUseCase updates tenant branding and configuration', async () => {
+  const userRepo = new InMemoryUserRepository();
+  const tenantRepo = new InMemoryTenantRepository();
+  const orgRepo = new InMemoryOrganizationRepository();
+
+  const regUseCase = new RegisterUserUseCase({
+    userRepository: userRepo,
+    passwordHasher: { hash: async (p) => `hashed_${p}` }
+  });
+  const ownerId = (
+    await regUseCase.execute({ email: 'owner-apex@skillyards.com', password: 'password123', name: 'Apex Owner' })
+  ).getValue().id;
+
+  const createTenantUseCase = new CreateTenantUseCase({
+    tenantRepository: tenantRepo,
+    userRepository: userRepo,
+    organizationRepository: orgRepo
+  });
+
+  const createResult = await createTenantUseCase.execute({
+    name: 'Apex Academy',
+    slug: 'apex-academy',
+    ownerUserId: ownerId
+  });
+  assert.equal(createResult.isSuccess, true);
+  const tenantId = createResult.getValue().tenant.id;
+
+  const updateTenantSettingsUseCase = new UpdateTenantSettingsUseCase({ tenantRepository: tenantRepo });
+  const updateResult = await updateTenantSettingsUseCase.execute({
+    tenantId,
+    name: 'Apex Global Academy',
+    settingsJson: {
+      primaryColor: '#4f46e5',
+      tagline: 'Empowering future leaders',
+      logoUrl: 'https://example.com/logo.png',
+      supportEmail: 'support@apex.edu'
+    }
+  });
+
+  assert.equal(updateResult.isSuccess, true);
+  const updatedTenant = updateResult.getValue();
+  assert.equal(updatedTenant.name, 'Apex Global Academy');
+  assert.equal(updatedTenant.settingsJson.primaryColor, '#4f46e5');
+  assert.equal(updatedTenant.settingsJson.tagline, 'Empowering future leaders');
+  assert.equal(updatedTenant.settingsJson.supportEmail, 'support@apex.edu');
+
+  // Verify persistence
+  const persisted = await tenantRepo.findById(tenantId);
+  assert.equal(persisted.name, 'Apex Global Academy');
+  assert.equal(persisted.settingsJson.primaryColor, '#4f46e5');
+});
+
