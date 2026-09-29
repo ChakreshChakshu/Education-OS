@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import Hls from "hls.js";
 import {
   Play,
@@ -16,20 +16,38 @@ import {
   Lightning
 } from "@phosphor-icons/react";
 
-export default function HlsVideoPlayer({
-  src,
-  poster,
-  title = "Video Lesson",
-  chapters = [],
-  onTimeUpdate,
-  onEnded,
-  autoPlay = false,
-  className = ""
-}) {
+const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
+  {
+    src,
+    poster,
+    title = "Video Lesson",
+    chapters = [],
+    onTimeUpdate,
+    onEnded,
+    autoPlay = false,
+    className = ""
+  },
+  ref
+) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const hlsRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    seekTo(time) {
+      if (videoRef.current) {
+        videoRef.current.currentTime = time;
+        videoRef.current.play().catch(() => {});
+      }
+    },
+    getCurrentTime() {
+      return videoRef.current ? videoRef.current.currentTime : 0;
+    },
+    getDuration() {
+      return videoRef.current ? videoRef.current.duration : 0;
+    }
+  }));
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -588,4 +606,7 @@ export default function HlsVideoPlayer({
       </div>
     </div>
   );
-}
+});
+
+export default HlsVideoPlayer;
+

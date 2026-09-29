@@ -25,7 +25,10 @@ import {
   Sparkle,
   CloudCheck,
   CloudArrowUp,
-  ArrowsClockwise
+  ArrowsClockwise,
+  BookmarkSimple,
+  Plus,
+  Trash
 } from "@phosphor-icons/react";
 
 export default function ClassroomLessonPage({ params: paramsPromise }) {
@@ -38,11 +41,27 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
 
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
-  const [activeTab, setActiveTab] = useState("chapters"); // 'chapters' | 'notes' | 'quiz'
+  const [activeTab, setActiveTab] = useState("chapters"); // 'chapters' | 'bookmarks' | 'notes' | 'quiz'
+  const [rightDrawerTab, setRightDrawerTab] = useState("timeline"); // 'timeline' | 'curriculum'
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
   const [completedLessons, setCompletedLessons] = useState(new Set());
   const [studentNotes, setStudentNotes] = useState("");
   const [notesSyncStatus, setNotesSyncStatus] = useState("synced"); // 'synced' | 'saving' | 'typing' | 'offline' | 'idle'
+  const [bookmarks, setBookmarks] = useState([]);
+  const [showBookmarkForm, setShowBookmarkForm] = useState(false);
+  const [bookmarkTime, setBookmarkTime] = useState(0);
+  const [bookmarkTitle, setBookmarkTitle] = useState("");
+  const [bookmarkNote, setBookmarkNote] = useState("");
+  const [savingBookmark, setSavingBookmark] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const formatSeconds = (sec) => {
+    if (isNaN(sec) || sec === null) return "00:00";
+    const total = Math.floor(sec);
+    const m = Math.floor(total / 60);
+    const s = (total % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
 
   // Quiz state
   const [selectedOption, setSelectedOption] = useState(null);
@@ -153,7 +172,17 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
           setNotesSyncStatus(localNotes ? "offline" : "synced");
         }
       } catch (err) {
-        setNotesSyncStatus(localNotes ? "offline" : "synced");
+        // Non-fatal fallback
+      }
+
+      // 3. Fetch authoritative cloud bookmarks from Neon DB
+      try {
+        const bmRes = await ApiClient.getLessonBookmarks(currentLesson.id);
+        if (bmRes?.success && Array.isArray(bmRes.data)) {
+          setBookmarks(bmRes.data);
+        }
+      } catch (err) {
+        // Non-fatal fallback
       }
 
       setLoading(false);
@@ -191,10 +220,67 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
   };
 
   const handleChapterClick = (time) => {
-    // If player exposed seekTo, invoke it
-    const playerEl = document.querySelector(".group");
-    if (playerEl && typeof playerEl.seekTo === "function") {
-      playerEl.seekTo(time);
+    if (playerRef.current?.seekTo) {
+      playerRef.current.seekTo(time);
+    } else {
+      const playerEl = document.querySelector(".group");
+      if (playerEl && typeof playerEl.seekTo === "function") {
+        playerEl.seekTo(time);
+      }
+    }
+  };
+
+  const handleOpenBookmarkForm = (timeOverride) => {
+    let currentT = 0;
+    if (typeof timeOverride === "number") {
+      currentT = Math.floor(timeOverride);
+    } else if (playerRef.current?.getCurrentTime) {
+      currentT = Math.floor(playerRef.current.getCurrentTime());
+    } else {
+      currentT = Math.floor(currentPlaybackTime);
+    }
+    setBookmarkTime(currentT);
+    const mins = Math.floor(currentT / 60);
+    const secs = (currentT % 60).toString().padStart(2, "0");
+    setBookmarkTitle(`Bookmark @ ${mins}:${secs}`);
+    setBookmarkNote("");
+    setShowBookmarkForm(true);
+    setActiveTab("bookmarks");
+  };
+
+  const handleSaveBookmark = async (e) => {
+    e.preventDefault();
+    if (!bookmarkTitle.trim()) return;
+
+    setSavingBookmark(true);
+    try {
+      const res = await ApiClient.createLessonBookmark(currentLesson.id, {
+        timestampSeconds: bookmarkTime,
+        title: bookmarkTitle.trim(),
+        note: bookmarkNote.trim() || null
+      });
+
+      if (res?.success && res?.data) {
+        setBookmarks((prev) =>
+          [...prev, res.data].sort((a, b) => a.timestampSeconds - b.timestampSeconds)
+        );
+        setShowBookmarkForm(false);
+        setBookmarkTitle("");
+        setBookmarkNote("");
+      }
+    } catch (err) {
+      console.error("Save bookmark failed:", err);
+    } finally {
+      setSavingBookmark(false);
+    }
+  };
+
+  const handleDeleteBookmark = async (bookmarkId) => {
+    setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
+    try {
+      await ApiClient.deleteLessonBookmark(currentLesson.id, bookmarkId);
+    } catch (err) {
+      console.error("Delete bookmark failed:", err);
     }
   };
 
@@ -237,6 +323,25 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
   };
 
   const progressPercent = Math.round((completedLessons.size / allLessons.length) * 100);
+
+  // Chronologically interleaved chapters and student bookmarks
+  const timelineItems = [
+    ...(currentLesson.chapters || []).map((ch, idx) => ({
+      id: `ch_${idx}`,
+      type: "chapter",
+      time: ch.time,
+      title: ch.title,
+      index: idx + 1
+    })),
+    ...bookmarks.map((bm) => ({
+      id: bm.id,
+      type: "bookmark",
+      time: bm.timestampSeconds,
+      title: bm.title,
+      note: bm.note,
+      rawBookmark: bm
+    }))
+  ].sort((a, b) => a.time - b.time);
 
   if (loading) {
     return (
@@ -308,13 +413,51 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
         <div className="lg:col-span-8 space-y-6">
           {/* Custom HLS Video Player */}
           {currentLesson.contentType === "VIDEO" ? (
-            <HlsVideoPlayer
-              ref={playerRef}
-              src={currentLesson.hlsUrl}
-              title={currentLesson.title}
-              chapters={currentLesson.chapters || []}
-              onEnded={() => toggleLessonComplete(currentLesson.id)}
-            />
+            <div className="space-y-3">
+              <HlsVideoPlayer
+                ref={playerRef}
+                src={currentLesson.hlsUrl}
+                title={currentLesson.title}
+                chapters={currentLesson.chapters || []}
+                onTimeUpdate={(t) => setCurrentPlaybackTime(t)}
+                onEnded={() => toggleLessonComplete(currentLesson.id)}
+              />
+
+              {/* Player Quick Action Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-2.5 rounded-xl bg-card border border-border">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted text-[11px] font-mono font-bold text-foreground">
+                    <Clock size={13} weight="bold" className="text-primary" />
+                    <span>{formatSeconds(currentPlaybackTime)}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    Current Position
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => handleOpenBookmarkForm(currentPlaybackTime)}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs font-bold border-primary/30 hover:border-primary/60 hover:bg-primary/5 text-primary"
+                  >
+                    <BookmarkSimple size={14} weight="bold" />
+                    <span>Bookmark Moment ({formatSeconds(currentPlaybackTime)})</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => setRightDrawerTab("timeline")}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    <ListBullets size={14} weight="bold" />
+                    <span>Timeline Drawer</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Quiz / Text Lesson Stage */
             <Card className="p-8 bg-card border-border rounded-2xl text-center space-y-4">
@@ -330,17 +473,17 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
 
           {/* Interactive Workspace Navigation Tabs */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 border-b border-border pb-1">
+            <div className="flex items-center gap-2 border-b border-border pb-1 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("chapters")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === "chapters"
                     ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <ListBullets size={16} weight="bold" />
-                <span>Chapters & Milestones</span>
+                <span>Chapters</span>
                 {currentLesson.chapters && (
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
                     {currentLesson.chapters.length}
@@ -349,8 +492,23 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               </button>
 
               <button
+                onClick={() => setActiveTab("bookmarks")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  activeTab === "bookmarks"
+                    ? "bg-secondary text-secondary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <BookmarkSimple size={16} weight="bold" />
+                <span>Bookmarks</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
+                  {bookmarks.length}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab("notes")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === "notes"
                     ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -365,7 +523,7 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
 
               <button
                 onClick={() => setActiveTab("quiz")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === "quiz"
                     ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -412,7 +570,171 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               </div>
             )}
 
-            {/* Tab 2: Interactive Student Notes with Neon Postgres Cloud Sync */}
+            {/* Tab 2: Video Bookmarks & Key Timestamps */}
+            {activeTab === "bookmarks" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Video Bookmarks</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Pin timestamped moments to review concepts and jump directly to key segments.
+                    </p>
+                  </div>
+                  {!showBookmarkForm && (
+                    <Button
+                      onClick={() => handleOpenBookmarkForm()}
+                      size="sm"
+                      className="gap-1.5 font-bold h-8 text-xs"
+                    >
+                      <Plus size={14} weight="bold" />
+                      <span>New Bookmark</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Inline Add Bookmark Form */}
+                {showBookmarkForm && (
+                  <form
+                    onSubmit={handleSaveBookmark}
+                    className="p-4 rounded-xl border border-primary/40 bg-primary/[0.04] space-y-3 animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                        <BookmarkSimple size={15} weight="bold" />
+                        <span>Bookmark Timestamp</span>
+                      </span>
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-primary/20 text-primary">
+                        {formatSeconds(bookmarkTime)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={bookmarkTitle}
+                        onChange={(e) => setBookmarkTitle(e.target.value)}
+                        placeholder="Bookmark Title (e.g. Outbox Table Schema Explanation)"
+                        autoFocus
+                        required
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
+                      />
+                      <textarea
+                        value={bookmarkNote}
+                        onChange={(e) => setBookmarkNote(e.target.value)}
+                        placeholder="Optional study note or quote from instructor..."
+                        rows={2}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={savingBookmark}
+                        onClick={() => setShowBookmarkForm(false)}
+                        className="h-8 text-xs font-medium"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={savingBookmark || !bookmarkTitle.trim()}
+                        className="h-8 text-xs font-bold gap-1.5"
+                      >
+                        {savingBookmark ? (
+                          <>
+                            <ArrowsClockwise size={13} className="animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={13} weight="bold" />
+                            <span>Save Bookmark</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Bookmarks List */}
+                {bookmarks.length > 0 ? (
+                  <div className="space-y-2">
+                    {bookmarks.map((bm) => (
+                      <div
+                        key={bm.id}
+                        className="group flex items-start justify-between p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-accent/30 transition-all gap-3"
+                      >
+                        <div
+                          onClick={() => handleChapterClick(bm.timestampSeconds)}
+                          className="flex items-start gap-3 flex-1 cursor-pointer"
+                        >
+                          <div className="h-8 px-2.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-mono font-bold text-xs shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                            {formatSeconds(bm.timestampSeconds)}
+                          </div>
+                          <div className="space-y-0.5 min-w-0">
+                            <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                              {bm.title}
+                            </p>
+                            {bm.note && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {bm.note}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            onClick={() => handleChapterClick(bm.timestampSeconds)}
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2.5 text-[11px] font-mono font-bold group-hover:border-primary/40"
+                          >
+                            Jump ➔
+                          </Button>
+                          <button
+                            onClick={() => handleDeleteBookmark(bm.id)}
+                            title="Delete bookmark"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-card rounded-xl border border-border space-y-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
+                      <BookmarkSimple size={20} weight="bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-foreground">No Bookmarks Saved Yet</p>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                        Capture timestamped moments while watching to easily revisit critical lessons later.
+                      </p>
+                    </div>
+                    {!showBookmarkForm && (
+                      <Button
+                        onClick={() => handleOpenBookmarkForm()}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs font-bold gap-1.5"
+                      >
+                        <Plus size={13} weight="bold" />
+                        <span>Bookmark Current Playback</span>
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Interactive Student Notes with Neon Postgres Cloud Sync */}
             {activeTab === "notes" && (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
@@ -512,63 +834,211 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: CURRICULUM DRAWER (4 COLS) */}
+        {/* RIGHT COLUMN: TIMELINE DRAWER & CURRICULUM (4 COLS) */}
         <div className="lg:col-span-4 space-y-4">
           <Card className="border-border bg-card rounded-2xl overflow-hidden shadow-sm">
-            <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bookmarks size={18} weight="bold" className="text-primary" />
-                <CardTitle className="text-sm font-bold">Course Curriculum</CardTitle>
-              </div>
-              <span className="text-xs font-mono font-bold text-muted-foreground">
-                {allLessons.length} Lessons
-              </span>
-            </CardHeader>
+            {/* Drawer Mode Switcher Tabs */}
+            <div className="p-2 border-b border-border bg-muted/40 grid grid-cols-2 gap-1">
+              <button
+                onClick={() => setRightDrawerTab("timeline")}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  rightDrawerTab === "timeline"
+                    ? "bg-card text-foreground shadow-sm border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ListBullets size={15} weight="bold" />
+                <span>Timeline Drawer</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/10 text-primary">
+                  {timelineItems.length}
+                </span>
+              </button>
 
-            <CardContent className="p-3 space-y-4">
-              {modules.map((mod, modIdx) => (
-                <div key={mod.id} className="space-y-1.5">
-                  <div className="px-2 py-1 text-[11px] uppercase font-bold text-muted-foreground/80 tracking-wider">
-                    {mod.title}
+              <button
+                onClick={() => setRightDrawerTab("curriculum")}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  rightDrawerTab === "curriculum"
+                    ? "bg-card text-foreground shadow-sm border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Bookmarks size={15} weight="bold" />
+                <span>Syllabus</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground">
+                  {allLessons.length}
+                </span>
+              </button>
+            </div>
+
+            {/* TAB 1: TIMELINE DRAWER WITH CHAPTER JUMP & BOOKMARKS */}
+            {rightDrawerTab === "timeline" && (
+              <div className="p-3 space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <span>Jump to Milestone</span>
                   </div>
+                  <Button
+                    onClick={() => handleOpenBookmarkForm()}
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px] font-bold text-primary hover:text-primary hover:bg-primary/10 gap-1"
+                  >
+                    <Plus size={12} weight="bold" />
+                    <span>Bookmark Time</span>
+                  </Button>
+                </div>
 
-                  <div className="space-y-1">
-                    {mod.lessons.map((les) => {
-                      const isActive = les.id === currentLesson.id;
-                      const isComplete = completedLessons.has(les.id);
+                {timelineItems.length > 0 ? (
+                  <div className="relative pl-3 space-y-2 border-l-2 border-border/70 ml-2 py-1">
+                    {timelineItems.map((item, idx) => {
+                      const isCurrentlyActive =
+                        currentPlaybackTime >= item.time &&
+                        (idx === timelineItems.length - 1 || currentPlaybackTime < timelineItems[idx + 1].time);
 
                       return (
-                        <Link
-                          key={les.id}
-                          href={`/dashboard/courses/${courseId}/lesson/${les.id}`}
-                          className={`flex items-center justify-between p-2.5 rounded-xl text-xs transition-all ${
-                            isActive
-                              ? "bg-primary/10 border border-primary/40 text-primary font-bold shadow-sm"
-                              : "hover:bg-muted/60 text-foreground border border-transparent"
-                          }`}
+                        <div
+                          key={item.id}
+                          className="relative group"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                            {isComplete ? (
-                              <CheckCircle size={16} weight="fill" className="text-emerald-500 shrink-0" />
-                            ) : isActive ? (
-                              <PlayCircle size={16} weight="fill" className="text-primary shrink-0 animate-pulse" />
-                            ) : (
-                              <Circle size={16} className="text-muted-foreground shrink-0" />
-                            )}
-                            <span className="line-clamp-1">{les.title}</span>
+                          {/* Timeline node icon on the rail */}
+                          <div
+                            className={`absolute -left-[19px] top-3 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                              isCurrentlyActive
+                                ? "bg-primary border-primary ring-4 ring-primary/20 scale-110"
+                                : item.type === "bookmark"
+                                ? "bg-card border-amber-500 text-amber-500"
+                                : "bg-card border-muted-foreground/60 text-muted-foreground"
+                            }`}
+                          >
+                            <div
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isCurrentlyActive
+                                  ? "bg-primary-foreground"
+                                  : item.type === "bookmark"
+                                  ? "bg-amber-500"
+                                  : "bg-muted-foreground/60"
+                              }`}
+                            />
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground shrink-0">
-                            <Clock size={12} />
-                            <span>{les.duration}</span>
+                          {/* Item card */}
+                          <div
+                            onClick={() => handleChapterClick(item.time)}
+                            className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                              isCurrentlyActive
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-card border-border/60 hover:border-primary/40 hover:bg-accent/40"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                      item.type === "bookmark"
+                                        ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                        : "bg-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    {item.type === "bookmark" ? "Bookmark" : `Ch ${item.index}`}
+                                  </span>
+                                  <span className="font-mono text-[11px] font-bold text-foreground">
+                                    {formatSeconds(item.time)}
+                                  </span>
+                                </div>
+                                <p
+                                  className={`font-semibold line-clamp-2 ${
+                                    isCurrentlyActive ? "text-primary font-bold" : "text-foreground"
+                                  }`}
+                                >
+                                  {item.title}
+                                </p>
+                                {item.note && (
+                                  <p className="text-[11px] text-muted-foreground line-clamp-1 italic">
+                                    {item.note}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="font-mono text-[11px] text-primary font-bold group-hover:translate-x-0.5 transition-transform">
+                                  ➔
+                                </span>
+                                {item.type === "bookmark" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteBookmark(item.id);
+                                    }}
+                                    title="Delete bookmark"
+                                    className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                  >
+                                    <Trash size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>
-                </div>
-              ))}
-            </CardContent>
+                ) : (
+                  <div className="p-6 text-center text-xs text-muted-foreground bg-card rounded-xl border border-border space-y-2">
+                    <p className="font-semibold text-foreground">No Timeline Items</p>
+                    <p>No chapters or bookmarks defined for this lesson yet.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: COURSE CURRICULUM SYLLABUS */}
+            {rightDrawerTab === "curriculum" && (
+              <CardContent className="p-3 space-y-4 animate-in fade-in duration-150">
+                {modules.map((mod) => (
+                  <div key={mod.id} className="space-y-1.5">
+                    <div className="px-2 py-1 text-[11px] uppercase font-bold text-muted-foreground/80 tracking-wider">
+                      {mod.title}
+                    </div>
+
+                    <div className="space-y-1">
+                      {mod.lessons.map((les) => {
+                        const isActive = les.id === currentLesson.id;
+                        const isComplete = completedLessons.has(les.id);
+
+                        return (
+                          <Link
+                            key={les.id}
+                            href={`/dashboard/courses/${courseId}/lesson/${les.id}`}
+                            className={`flex items-center justify-between p-2.5 rounded-xl text-xs transition-all ${
+                              isActive
+                                ? "bg-primary/10 border border-primary/40 text-primary font-bold shadow-sm"
+                                : "hover:bg-muted/60 text-foreground border border-transparent"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              {isComplete ? (
+                                <CheckCircle size={16} weight="fill" className="text-emerald-500 shrink-0" />
+                              ) : isActive ? (
+                                <PlayCircle size={16} weight="fill" className="text-primary shrink-0 animate-pulse" />
+                              ) : (
+                                <Circle size={16} className="text-muted-foreground shrink-0" />
+                              )}
+                              <span className="line-clamp-1">{les.title}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground shrink-0">
+                              <Clock size={12} />
+                              <span>{les.duration}</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            )}
           </Card>
         </div>
       </div>

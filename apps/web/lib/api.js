@@ -383,7 +383,49 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async getLessonBookmarks(lessonId) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/${lessonId}/bookmarks`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch bookmarks');
+      return data;
+    } catch (err) {
+      console.error('API getLessonBookmarks Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async createLessonBookmark(lessonId, payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/${lessonId}/bookmarks`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create bookmark');
+      return data;
+    } catch (err) {
+      console.error('API createLessonBookmark Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async deleteLessonBookmark(lessonId, bookmarkId) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/${lessonId}/bookmarks/${bookmarkId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete bookmark');
+      return data;
+    } catch (err) {
+      console.error('API deleteLessonBookmark Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };
+
 

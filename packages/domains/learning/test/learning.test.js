@@ -2,12 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 
-const { Score, LessonModule, StudentProgress, QuizSubmission, LessonNote } = require('../domain');
+const { Score, LessonModule, StudentProgress, QuizSubmission, LessonNote, LessonBookmark } = require('../domain');
 const {
   MarkLessonCompleteUseCase,
   SubmitQuizUseCase,
   SaveLessonNoteUseCase,
-  GetLessonNoteUseCase
+  GetLessonNoteUseCase,
+  CreateLessonBookmarkUseCase,
+  GetLessonBookmarksUseCase,
+  DeleteLessonBookmarkUseCase
 } = require('../application');
 
 // In-Memory Lesson Module Repository Mock
@@ -199,3 +202,126 @@ test('SaveLessonNoteUseCase and GetLessonNoteUseCase persist and retrieve studen
   assert.equal(updateResult.getValue().content, '# Updated Key Points\n- Transactional outbox avoids distributed 2PC.');
   assert.equal(updateResult.getValue().version, 2);
 });
+
+// In-Memory Lesson Bookmark Repository Mock
+class MockLessonBookmarkRepository {
+  constructor() {
+    this.bookmarks = new Map();
+  }
+
+  async findByLessonAndStudent(lessonModuleId, studentUserId) {
+    const results = [];
+    for (const bm of this.bookmarks.values()) {
+      if (bm.lessonModuleId === lessonModuleId && bm.studentUserId === studentUserId) {
+        results.push(bm);
+      }
+    }
+    return results.sort((a, b) => a.timestampSeconds - b.timestampSeconds);
+  }
+
+  async findById(id) {
+    return this.bookmarks.get(id) || null;
+  }
+
+  async save(bookmark) {
+    this.bookmarks.set(bookmark.id, bookmark);
+    return bookmark;
+  }
+
+  async delete(id) {
+    this.bookmarks.delete(id);
+    return true;
+  }
+}
+
+test('LessonBookmark Entity validates timestamp and title', () => {
+  const invalidNegativeTime = LessonBookmark.create({
+    studentUserId: crypto.randomUUID(),
+    lessonModuleId: 'lesson_1',
+    timestampSeconds: -10,
+    title: 'Invalid'
+  });
+  assert.equal(invalidNegativeTime.isFailure, true);
+
+  const invalidEmptyTitle = LessonBookmark.create({
+    studentUserId: crypto.randomUUID(),
+    lessonModuleId: 'lesson_1',
+    timestampSeconds: 15,
+    title: '   '
+  });
+  assert.equal(invalidEmptyTitle.isFailure, true);
+
+  const valid = LessonBookmark.create({
+    studentUserId: crypto.randomUUID(),
+    lessonModuleId: 'lesson_1',
+    timestampSeconds: 125,
+    title: 'Key Architecture Insight',
+    note: 'Important note on event store'
+  });
+  assert.equal(valid.isSuccess, true);
+  assert.equal(valid.getValue().timestampSeconds, 125);
+  assert.equal(valid.getValue().title, 'Key Architecture Insight');
+});
+
+test('CreateLessonBookmarkUseCase, GetLessonBookmarksUseCase, and DeleteLessonBookmarkUseCase manage student bookmarks', async () => {
+  const lessonBookmarkRepository = new MockLessonBookmarkRepository();
+  const lessonModuleRepository = new MockLessonModuleRepository();
+
+  const studentUserId = crypto.randomUUID();
+  const lessonModuleId = 'lesson_hls_stream';
+
+  const createUseCase = new CreateLessonBookmarkUseCase({
+    lessonBookmarkRepository,
+    lessonModuleRepository
+  });
+  const getUseCase = new GetLessonBookmarksUseCase({
+    lessonBookmarkRepository
+  });
+  const deleteUseCase = new DeleteLessonBookmarkUseCase({
+    lessonBookmarkRepository
+  });
+
+  // 1. Initial list is empty
+  const initialList = await getUseCase.execute({ lessonModuleId, studentUserId });
+  assert.equal(initialList.isSuccess, true);
+  assert.equal(initialList.getValue().length, 0);
+
+  // 2. Create first bookmark at 120s
+  const bm1Result = await createUseCase.execute({
+    studentUserId,
+    lessonModuleId,
+    timestampSeconds: 120,
+    title: 'HLS Segmenting Explanation',
+    note: 'Chunks are 4 seconds each'
+  });
+  assert.equal(bm1Result.isSuccess, true);
+  const bm1 = bm1Result.getValue();
+  assert.equal(bm1.title, 'HLS Segmenting Explanation');
+
+  // 3. Create second bookmark at 45s (earlier)
+  const bm2Result = await createUseCase.execute({
+    studentUserId,
+    lessonModuleId,
+    timestampSeconds: 45,
+    title: 'Introduction Slide'
+  });
+  assert.equal(bm2Result.isSuccess, true);
+
+  // 4. Retrieve list - should contain both sorted by timestamp
+  const listAfterCreate = await getUseCase.execute({ lessonModuleId, studentUserId });
+  assert.equal(listAfterCreate.isSuccess, true);
+  assert.equal(listAfterCreate.getValue().length, 2);
+  assert.equal(listAfterCreate.getValue()[0].timestampSeconds, 45);
+  assert.equal(listAfterCreate.getValue()[1].timestampSeconds, 120);
+
+  // 5. Delete first bookmark
+  const deleteResult = await deleteUseCase.execute({ bookmarkId: bm1.id, studentUserId });
+  assert.equal(deleteResult.isSuccess, true);
+
+  // 6. Retrieve list - should only have 1 bookmark remaining
+  const listAfterDelete = await getUseCase.execute({ lessonModuleId, studentUserId });
+  assert.equal(listAfterDelete.isSuccess, true);
+  assert.equal(listAfterDelete.getValue().length, 1);
+  assert.equal(listAfterDelete.getValue()[0].title, 'Introduction Slide');
+});
+

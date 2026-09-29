@@ -11,5 +11,7 @@ module.exports = {
   StudentProgress: domainLearning.domain.StudentProgress,
   QuizSubmission: domainLearning.domain.QuizSubmission,
   LessonNote: domainLearning.domain.LessonNote,
+  LessonBookmark: domainLearning.domain.LessonBookmark,
   Score: domainLearning.domain.Score
 };
+

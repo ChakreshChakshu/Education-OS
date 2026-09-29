@@ -3,6 +3,7 @@ const { LessonModule } = require('./entities/LessonModule');
 const { StudentProgress } = require('./entities/StudentProgress');
 const { QuizSubmission } = require('./entities/QuizSubmission');
 const { LessonNote } = require('./entities/LessonNote');
+const { LessonBookmark } = require('./entities/LessonBookmark');
 const { ILessonModuleRepository } = require('./repositories/ILessonModuleRepository');
 const { IStudentProgressRepository } = require('./repositories/IStudentProgressRepository');
 
@@ -12,6 +13,8 @@ module.exports = {
   StudentProgress,
   QuizSubmission,
   LessonNote,
+  LessonBookmark,
   ILessonModuleRepository,
   IStudentProgressRepository
 };
+

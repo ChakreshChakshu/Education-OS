@@ -25,7 +25,10 @@ const {
   MarkLessonCompleteUseCase,
   SubmitQuizUseCase,
   SaveLessonNoteUseCase,
-  GetLessonNoteUseCase
+  GetLessonNoteUseCase,
+  CreateLessonBookmarkUseCase,
+  GetLessonBookmarksUseCase,
+  DeleteLessonBookmarkUseCase
 } = learningDomain.application;
 const { CreatePresignedUploadUrlUseCase, ConfirmMediaUploadUseCase } = mediaDomain.application;
 
@@ -39,6 +42,7 @@ const {
   DrizzleStudentProgressRepository,
   DrizzleQuizSubmissionRepository,
   DrizzleLessonNoteRepository,
+  DrizzleLessonBookmarkRepository,
   DrizzleMediaAssetRepository,
   DrizzleUserSessionRepository,
   DrizzleRoleAssignmentRepository,
@@ -133,6 +137,7 @@ function registerServices(container) {
   container.register('StudentProgressRepository', () => new DrizzleStudentProgressRepository(dbClient));
   container.register('QuizSubmissionRepository', () => new DrizzleQuizSubmissionRepository(dbClient));
   container.register('LessonNoteRepository', () => new DrizzleLessonNoteRepository(dbClient));
+  container.register('LessonBookmarkRepository', () => new DrizzleLessonBookmarkRepository(dbClient));
 
   // Media Repositories
   container.register('MediaAssetRepository', () => new DrizzleMediaAssetRepository(dbClient));
@@ -267,6 +272,30 @@ function registerServices(container) {
     (c) =>
       new GetLessonNoteUseCase({
         lessonNoteRepository: c.resolve('LessonNoteRepository')
+      })
+  );
+
+  container.register(
+    'CreateLessonBookmarkUseCase',
+    (c) =>
+      new CreateLessonBookmarkUseCase({
+        lessonBookmarkRepository: c.resolve('LessonBookmarkRepository')
+      })
+  );
+
+  container.register(
+    'GetLessonBookmarksUseCase',
+    (c) =>
+      new GetLessonBookmarksUseCase({
+        lessonBookmarkRepository: c.resolve('LessonBookmarkRepository')
+      })
+  );
+
+  container.register(
+    'DeleteLessonBookmarkUseCase',
+    (c) =>
+      new DeleteLessonBookmarkUseCase({
+        lessonBookmarkRepository: c.resolve('LessonBookmarkRepository')
       })
   );
 

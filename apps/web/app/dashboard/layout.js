@@ -85,6 +85,53 @@ export default function DashboardLayout({ children }) {
     router.push("/login");
   };
 
+  const getBreadcrumbs = (path) => {
+    if (!path || path === "/dashboard") {
+      return [{ label: "Overview", href: "/dashboard" }];
+    }
+
+    const clean = path.replace(/^\/dashboard\/?/, "");
+    const parts = clean.split("/").filter(Boolean);
+
+    // If inside classroom: courses/[id]/lesson/[lessonId]
+    if (parts[0] === "courses" && parts.includes("lesson")) {
+      const courseId = parts[1];
+      return [
+        { label: "Courses", href: "/dashboard/courses" },
+        { label: "Classroom", href: `/dashboard/courses/${courseId}` }
+      ];
+    }
+
+    // If inside course details: courses/[id]
+    if (parts[0] === "courses" && parts.length === 2) {
+      return [
+        { label: "Courses", href: "/dashboard/courses" },
+        { label: "Course Details", href: path }
+      ];
+    }
+
+    const labels = {
+      courses: "Courses",
+      tenants: "Institutions & Branches",
+      students: "Students & Cohorts",
+      settings: "Settings & Config",
+      overview: "Overview"
+    };
+
+    const crumbs = [];
+    let currentPath = "/dashboard";
+    for (const part of parts) {
+      currentPath += `/${part}`;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(part);
+      const label = labels[part] || (isUuid ? `${part.slice(0, 8)}...` : part.replace(/[-_]/g, " "));
+      crumbs.push({ label, href: currentPath });
+    }
+
+    return crumbs;
+  };
+
+  const breadcrumbs = getBreadcrumbs(pathname);
+
   return (
     <div className="flex h-screen bg-background overflow-hidden font-sans text-foreground">
       {/* Sidebar */}
@@ -242,12 +289,33 @@ export default function DashboardLayout({ children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navbar */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-muted-foreground font-mono font-bold tracking-wider">EOS</span>
-            <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-sm font-extrabold capitalize text-foreground">
-              {pathname.replace("/dashboard", "").replace("/", "") || "Overview"}
-            </span>
+          <div className="flex items-center gap-2 text-xs">
+            <Link
+              href="/dashboard"
+              className="text-xs text-muted-foreground font-mono font-bold tracking-wider hover:text-foreground transition-colors"
+            >
+              EOS
+            </Link>
+            {breadcrumbs.map((crumb, idx) => {
+              const isLast = idx === breadcrumbs.length - 1;
+              return (
+                <React.Fragment key={crumb.href + idx}>
+                  <span className="text-muted-foreground/40 font-mono">/</span>
+                  {isLast ? (
+                    <span className="text-sm font-extrabold capitalize text-foreground tracking-tight">
+                      {crumb.label}
+                    </span>
+                  ) : (
+                    <Link
+                      href={crumb.href}
+                      className="font-medium text-muted-foreground hover:text-foreground capitalize transition-colors"
+                    >
+                      {crumb.label}
+                    </Link>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-3">

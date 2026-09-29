@@ -84,7 +84,7 @@ const lessonNotesTable = pgTable(
   {
     id: uuid('id').primaryKey(),
     studentUserId: uuid('student_user_id').notNull().references(() => usersTable.id),
-    lessonModuleId: uuid('lesson_module_id').notNull().references(() => lessonModulesTable.id),
+    lessonModuleId: varchar('lesson_module_id', { length: 255 }).notNull(),
     content: text('content').notNull().default(''),
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -97,9 +97,30 @@ const lessonNotesTable = pgTable(
   })
 );
 
+// 5. Lesson Bookmarks Table
+const lessonBookmarksTable = pgTable(
+  'lesson_bookmarks',
+  {
+    id: uuid('id').primaryKey(),
+    studentUserId: uuid('student_user_id').notNull().references(() => usersTable.id),
+    lessonModuleId: varchar('lesson_module_id', { length: 255 }).notNull(),
+    timestampSeconds: integer('timestamp_seconds').notNull().default(0),
+    title: varchar('title', { length: 255 }).notNull(),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    studentIdx: index('idx_lesson_bm_student_id').on(table.studentUserId),
+    moduleIdx: index('idx_lesson_bm_module_id').on(table.lessonModuleId)
+  })
+);
+
 module.exports = {
   lessonModulesTable,
   studentProgressTable,
   quizSubmissionsTable,
-  lessonNotesTable
+  lessonNotesTable,
+  lessonBookmarksTable
 };
+

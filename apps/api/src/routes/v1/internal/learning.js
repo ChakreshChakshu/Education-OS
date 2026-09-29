@@ -168,6 +168,153 @@ async function learningRoutes(fastify, options) {
       });
     }
   );
+
+  // Get Lesson Bookmarks Route
+  fastify.get(
+    '/lessons/:lessonId/bookmarks',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['lessonId'],
+          properties: {
+            lessonId: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const candidateId =
+        request.user?.userId ||
+        request.user?.id ||
+        request.user?.sub ||
+        request.headers['x-user-id'] ||
+        request.query?.studentUserId;
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
+      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+
+      const useCase = container.resolve('GetLessonBookmarksUseCase');
+      const result = await useCase.execute({
+        studentUserId,
+        lessonModuleId: request.params.lessonId
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
+
+  // Create Lesson Bookmark Route
+  fastify.post(
+    '/lessons/:lessonId/bookmarks',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['lessonId'],
+          properties: {
+            lessonId: { type: 'string' }
+          }
+        },
+        body: {
+          type: 'object',
+          required: ['timestampSeconds'],
+          properties: {
+            timestampSeconds: { type: 'number', minimum: 0 },
+            title: { type: 'string' },
+            note: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const candidateId =
+        request.user?.userId ||
+        request.user?.id ||
+        request.user?.sub ||
+        request.headers['x-user-id'] ||
+        request.body?.studentUserId;
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
+      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+
+      const useCase = container.resolve('CreateLessonBookmarkUseCase');
+      const result = await useCase.execute({
+        studentUserId,
+        lessonModuleId: request.params.lessonId,
+        timestampSeconds: request.body.timestampSeconds,
+        title: request.body.title,
+        note: request.body.note
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      return reply.status(201).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
+
+  // Delete Lesson Bookmark Route
+  fastify.delete(
+    '/lessons/:lessonId/bookmarks/:bookmarkId',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['lessonId', 'bookmarkId'],
+          properties: {
+            lessonId: { type: 'string' },
+            bookmarkId: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const candidateId =
+        request.user?.userId ||
+        request.user?.id ||
+        request.user?.sub ||
+        request.headers['x-user-id'];
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
+      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+
+      const useCase = container.resolve('DeleteLessonBookmarkUseCase');
+      const result = await useCase.execute({
+        bookmarkId: request.params.bookmarkId,
+        studentUserId
+      });
+
+      if (result.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.getValue()
+      });
+    }
+  );
 }
 
 module.exports = learningRoutes;
