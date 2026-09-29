@@ -252,6 +252,154 @@ async function publicRoutes(fastify, options) {
       });
     }
   );
+
+  // Verify Student Activation Token
+  fastify.get(
+    '/auth/verify-activation-token',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          required: ['token'],
+          properties: {
+            token: { type: 'string', minLength: 1 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const tokenService = container.resolve('TokenService');
+      const decoded = tokenService.verifyToken(request.query.token);
+      if (!decoded || decoded.type !== 'student_activation') {
+        return reply.status(400).send({
+          success: false,
+          error: 'Activation token is invalid or has expired.'
+        });
+      }
+
+      let tenantName = 'EducationOS Campus';
+      try {
+        const tenantRepo = container.resolve('TenantRepository');
+        const tenant = await tenantRepo.findById(decoded.tenantId);
+        if (tenant) tenantName = tenant.name;
+      } catch (e) {}
+
+      let userName = '';
+      try {
+        const userRepo = container.resolve('UserRepository');
+        const user = await userRepo.findById(decoded.userId);
+        if (user) userName = user.name;
+      } catch (e) {}
+
+      return reply.send({
+        success: true,
+        userId: decoded.userId,
+        email: decoded.email,
+        name: userName,
+        tenantId: decoded.tenantId,
+        tenantName
+      });
+    }
+  );
+
+  // Student Account Activation / Set Password
+  fastify.post(
+    '/auth/activate',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['token', 'password'],
+          properties: {
+            token: { type: 'string', minLength: 1 },
+            password: { type: 'string', minLength: 6 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const tokenService = container.resolve('TokenService');
+      const decoded = tokenService.verifyToken(request.body.token);
+      if (!decoded || decoded.type !== 'student_activation') {
+        return reply.status(400).send({
+          success: false,
+          error: 'Activation token is invalid or has expired.'
+        });
+      }
+
+      const passwordHasher = container.resolve('PasswordHasher');
+      const userRepo = container.resolve('UserRepository');
+      const newHash = await passwordHasher.hash(request.body.password);
+
+      if (typeof userRepo.updatePassword === 'function') {
+        await userRepo.updatePassword(decoded.userId, newHash);
+      } else {
+        const user = await userRepo.findById(decoded.userId);
+        if (user) {
+          user.updatePassword(newHash);
+          await userRepo.save(user);
+        }
+      }
+
+      // Ensure STUDENT role assignment
+      const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+      if (roleAssignmentRepository && typeof roleAssignmentRepository.assignRole === 'function') {
+        try {
+          await roleAssignmentRepository.assignRole({
+            userId: decoded.userId,
+            tenantId: decoded.tenantId,
+            roleName: 'STUDENT'
+          });
+        } catch (e) {}
+      }
+
+      const user = await userRepo.findById(decoded.userId);
+      const tenants = await roleAssignmentRepository.findTenantsWithRolesForUser(decoded.userId);
+
+      const accessToken = tokenService.generateToken(
+        {
+          userId: decoded.userId,
+          email: decoded.email,
+          name: user ? user.name : decoded.email.split('@')[0]
+        },
+        { expiresIn: '15m' }
+      );
+
+      const crypto = require('crypto');
+      const refreshToken = crypto.randomBytes(40).toString('hex');
+      const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      const userSessionRepository = container.resolve('UserSessionRepository');
+      if (userSessionRepository) {
+        await userSessionRepository.create({
+          id: crypto.randomUUID(),
+          userId: decoded.userId,
+          refreshTokenHash,
+          userAgent: request.headers['user-agent'],
+          ipAddress: request.ip,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        });
+      }
+
+      const csrfToken = generateCsrfToken();
+      setAuthCookies(reply, { accessToken, refreshToken, csrfToken });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Account activated successfully.',
+        accessToken,
+        refreshToken,
+        csrfToken,
+        token: accessToken,
+        user: {
+          id: decoded.userId,
+          email: decoded.email,
+          name: user ? user.name : decoded.email.split('@')[0]
+        },
+        tenants,
+        tenantId: decoded.tenantId
+      });
+    }
+  );
 }
 
 module.exports = publicRoutes;

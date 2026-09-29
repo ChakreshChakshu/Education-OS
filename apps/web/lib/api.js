@@ -501,6 +501,33 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async verifyActivationToken(token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/verify-activation-token?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid or expired activation link');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async activateAccount({ token, password }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/activate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: this.getHeaders({}, { mutating: true }),
+        body: JSON.stringify({ token, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Account activation failed');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

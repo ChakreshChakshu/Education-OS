@@ -113,21 +113,36 @@ class DrizzleUserRepository extends BaseRepository {
     return user;
   }
 
-  async createStudentUser({ email, name }) {
+  async createStudentUser({ email, name, passwordHash }) {
     const crypto = require('crypto');
     const id = crypto.randomUUID();
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name || cleanEmail.split('@')[0];
     const db = await this.db.connect();
+    const hash = passwordHash || '$2a$10$placeholderDummyPasswordHashForInvitedStudent';
 
-    await db.query(`
+    const res = await db.query(`
       INSERT INTO users (id, email, password_hash, name, status, created_at, updated_at)
       VALUES ($1, $2, $3, $4, 'ACTIVE', NOW(), NOW())
-      ON CONFLICT (id) DO NOTHING
-    `, [id, cleanEmail, '$2a$10$placeholderDummyPasswordHashForInvitedStudent', cleanName]);
+      ON CONFLICT (email) DO UPDATE SET
+        name = COALESCE(NULLIF(users.name, ''), EXCLUDED.name),
+        password_hash = CASE WHEN users.password_hash LIKE '$2a$10$placeholder%' THEN EXCLUDED.password_hash ELSE users.password_hash END,
+        updated_at = NOW()
+      RETURNING id, email, name
+    `, [id, cleanEmail, hash, cleanName]);
 
-    return { id, email: cleanEmail, name: cleanName };
+    return res.rows[0] || { id, email: cleanEmail, name: cleanName };
+  }
+
+  async updatePassword(userId, passwordHash) {
+    const db = await this.db.connect();
+    await db.query(`
+      UPDATE users 
+      SET password_hash = $1, updated_at = NOW() 
+      WHERE id = $2 AND deleted_at IS NULL
+    `, [passwordHash, userId]);
   }
 }
 
 module.exports = { DrizzleUserRepository };
+

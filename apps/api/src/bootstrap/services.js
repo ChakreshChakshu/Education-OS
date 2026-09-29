@@ -309,7 +309,10 @@ function registerServices(container) {
     (c) =>
       new EnrollStudentUseCase({
         enrollmentRepository: c.resolve('EnrollmentRepository'),
-        userRepository: c.resolve('UserRepository')
+        userRepository: c.resolve('UserRepository'),
+        roleAssignmentRepository: c.resolve('RoleAssignmentRepository'),
+        passwordHasher: c.resolve('PasswordHasher'),
+        tokenService: c.resolve('TokenService')
       })
   );
 

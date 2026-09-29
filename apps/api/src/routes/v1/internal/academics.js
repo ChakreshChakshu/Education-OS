@@ -241,7 +241,8 @@ async function academicsRoutes(fastify, options) {
             studentEmail: { type: 'string' },
             studentName: { type: 'string' },
             courseId: { type: 'string' },
-            batchId: { type: 'string' }
+            batchId: { type: 'string' },
+            temporaryPassword: { type: 'string' }
           }
         }
       }
@@ -260,7 +261,8 @@ async function academicsRoutes(fastify, options) {
         studentEmail: request.body.studentEmail,
         studentName: request.body.studentName,
         courseId: request.body.courseId,
-        batchId: request.body.batchId
+        batchId: request.body.batchId,
+        temporaryPassword: request.body.temporaryPassword
       });
 
       if (result.isFailure) {

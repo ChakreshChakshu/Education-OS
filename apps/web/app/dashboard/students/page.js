@@ -24,7 +24,10 @@ import {
   Clock,
   Sparkle,
   FolderPlus,
-  ArrowSquareOut
+  ArrowSquareOut,
+  Copy,
+  Key,
+  LinkSimple
 } from "@phosphor-icons/react";
 
 export default function StudentsPage() {
@@ -49,6 +52,9 @@ export default function StudentsPage() {
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [submittingEnroll, setSubmittingEnroll] = useState(false);
   const [enrollError, setEnrollError] = useState("");
+  const [enrollSuccessResult, setEnrollSuccessResult] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   // Create Batch Modal State
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -134,9 +140,14 @@ export default function StudentsPage() {
       });
 
       if (res?.success) {
-        setIsEnrollModalOpen(false);
-        setStudentName("");
-        setStudentEmail("");
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        setEnrollSuccessResult({
+          studentName: studentName.trim(),
+          studentEmail: studentEmail.trim().toLowerCase(),
+          temporaryPassword: res.data?.temporaryPassword,
+          activationToken: res.data?.activationToken,
+          activationUrl: res.data?.activationToken ? `${origin}/activate?token=${res.data.activationToken}` : null
+        });
         await fetchData(true);
       } else {
         setEnrollError(res?.error || "Failed to enroll student.");
@@ -571,26 +582,140 @@ export default function StudentsPage() {
           <Card className="w-full max-w-lg bg-popover border-border shadow-2xl rounded-2xl animate-in fade-in zoom-in-95 duration-150">
             <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
               <div className="space-y-0.5">
-                <CardTitle className="text-lg font-bold">Enroll Student in Course</CardTitle>
+                <CardTitle className="text-lg font-bold">
+                  {enrollSuccessResult ? "Student Credentials & Access" : "Enroll Student in Course"}
+                </CardTitle>
                 <CardDescription className="text-xs">
-                  Register student into {activeTenant?.name || "Institution"} and assign to a cohort batch.
+                  {enrollSuccessResult 
+                    ? "Share either the activation link or temporary password with the student."
+                    : `Register student into ${activeTenant?.name || "Institution"} and assign to a cohort batch.`}
                 </CardDescription>
               </div>
               <button
-                onClick={() => setIsEnrollModalOpen(false)}
+                onClick={() => {
+                  setIsEnrollModalOpen(false);
+                  setEnrollSuccessResult(null);
+                  setStudentName("");
+                  setStudentEmail("");
+                }}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-lg"
               >
                 <X size={20} />
               </button>
             </CardHeader>
 
-            <form onSubmit={handleEnrollStudent}>
-              <CardContent className="space-y-4 pt-5">
-                {enrollError && (
-                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold">
-                    {enrollError}
+            {enrollSuccessResult ? (
+              <div className="p-6 space-y-5">
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle size={26} weight="fill" className="shrink-0" />
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-foreground">
+                      {enrollSuccessResult.studentName} Successfully Enrolled!
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Linked to {activeTenant?.name || "Campus Portal"} with email <span className="font-semibold text-foreground">{enrollSuccessResult.studentEmail}</span>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* OPTION 1: ACTIVATION LINK */}
+                {enrollSuccessResult.activationUrl && (
+                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                        <LinkSimple size={16} weight="bold" />
+                        <span>Option 1: Student Activation Link (Recommended)</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20 text-primary font-semibold">
+                        Self-Service
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Student opens this link to set their own permanent password and jump straight into their courses:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={enrollSuccessResult.activationUrl}
+                        className="flex-1 h-9 px-3 text-[11px] font-mono rounded-lg border border-border bg-background text-foreground select-all focus:outline-none"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(enrollSuccessResult.activationUrl);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="h-9 font-semibold text-xs gap-1.5 shrink-0"
+                      >
+                        {copiedLink ? <Check size={14} weight="bold" className="text-emerald-400" /> : <Copy size={14} />}
+                        {copiedLink ? "Copied!" : "Copy Link"}
+                      </Button>
+                    </div>
                   </div>
                 )}
+
+                {/* OPTION 2: TEMPORARY PASSWORD */}
+                {enrollSuccessResult.temporaryPassword && (
+                  <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                        <Key size={16} weight="duotone" className="text-amber-500" />
+                        <span>Option 2: Direct Login with Temporary Password</span>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] font-semibold">
+                        Instant Access
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Student can log in at <span className="font-semibold text-foreground">/login</span> using their email and this temporary password:
+                    </p>
+                    <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background">
+                      <span className="font-mono text-xs font-bold text-foreground tracking-wider px-2">
+                        {enrollSuccessResult.temporaryPassword}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(enrollSuccessResult.temporaryPassword);
+                          setCopiedPassword(true);
+                          setTimeout(() => setCopiedPassword(false), 2000);
+                        }}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        {copiedPassword ? <Check size={13} weight="bold" className="text-emerald-500" /> : <Copy size={13} />}
+                        {copiedPassword ? "Copied!" : "Copy Password"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setEnrollSuccessResult(null);
+                      setIsEnrollModalOpen(false);
+                      setStudentName("");
+                      setStudentEmail("");
+                    }}
+                    className="font-bold text-xs px-5 h-9"
+                  >
+                    Done & Close
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleEnrollStudent}>
+                <CardContent className="space-y-4 pt-5">
+                  {enrollError && (
+                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold">
+                      {enrollError}
+                    </div>
+                  )}
 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -704,6 +829,7 @@ export default function StudentsPage() {
                 </Button>
               </div>
             </form>
+            )}
           </Card>
         </div>
       )}
