@@ -44,6 +44,23 @@ async function start() {
     const filePath = path.join(process.cwd(), 'uploads', subpath);
 
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      try {
+        const storageProvider = container.resolve('StorageProvider');
+        if (storageProvider && typeof storageProvider.download === 'function') {
+          const buffer = await storageProvider.download(subpath);
+          if (buffer && buffer.length > 0) {
+            if (subpath.endsWith('.m3u8')) reply.header('Content-Type', 'application/vnd.apple.mpegurl');
+            else if (subpath.endsWith('.ts')) reply.header('Content-Type', 'video/mp2t');
+            else if (subpath.endsWith('.jpg') || subpath.endsWith('.jpeg')) reply.header('Content-Type', 'image/jpeg');
+            else if (subpath.endsWith('.png')) reply.header('Content-Type', 'image/png');
+            else if (subpath.endsWith('.mp4')) reply.header('Content-Type', 'video/mp4');
+            else if (subpath.endsWith('.pdf')) reply.header('Content-Type', 'application/pdf');
+            return reply.send(buffer);
+          }
+        }
+      } catch (e) {
+        // fallback to 404
+      }
       return reply.status(404).send({ error: 'File not found' });
     }
 
@@ -59,6 +76,8 @@ async function start() {
       reply.header('Content-Type', 'image/png');
     } else if (filePath.endsWith('.mp4')) {
       reply.header('Content-Type', 'video/mp4');
+    } else if (filePath.endsWith('.pdf')) {
+      reply.header('Content-Type', 'application/pdf');
     }
 
     const stream = fs.createReadStream(filePath);

@@ -147,17 +147,41 @@ export default function CourseDetailPage({ params: paramsPromise }) {
           <ArrowLeft size={18} weight="bold" /> Back to Catalog
         </Link>
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-1">{course?.code || "CS-101"}</Badge>
-              <Badge variant="success" className="text-xs font-bold px-3 py-1">{course?.status || "ACTIVE"}</Badge>
-              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                <Hourglass size={16} /> {course?.duration || "4 Weeks"}
-              </span>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start gap-5">
+            {course?.thumbnailUrl ? (
+              <img 
+                src={course.thumbnailUrl} 
+                alt={course.title}
+                className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl object-cover border border-border shrink-0 shadow-xs" 
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center justify-center text-primary shrink-0">
+                <BookBookmark size={36} weight="duotone" />
+                <span className="text-[10px] font-mono font-bold mt-1 text-muted-foreground">{course?.code || "COURSE"}</span>
+              </div>
+            )}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-0.5">{course?.code || "CS-101"}</Badge>
+                {course?.level && (
+                  <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-0.5">
+                    {course.level}
+                  </Badge>
+                )}
+                <Badge variant="success" className="text-xs font-bold px-3 py-0.5">{course?.status || "ACTIVE"}</Badge>
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hourglass size={15} /> {course?.duration || "4 Weeks"}
+                </span>
+                {course?.credits && (
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    • {course.credits} Credits
+                  </span>
+                )}
+              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{course?.title}</h1>
+              <p className="text-sm text-muted-foreground max-w-3xl font-medium">{course?.description}</p>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{course?.title}</h1>
-            <p className="text-sm text-muted-foreground max-w-3xl font-medium">{course?.description}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">

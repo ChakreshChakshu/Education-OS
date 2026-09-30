@@ -14,23 +14,32 @@ async function mediaRoutes(fastify, options) {
       return reply.status(400).send({ success: false, error: 'Missing filename or fileData payload' });
     }
 
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
     const safeFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const filePath = path.join(uploadDir, safeFilename);
 
     // Extract base64 buffer
     const base64Data = fileData.replace(/^data:.*;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    fs.writeFileSync(filePath, buffer);
 
-    const fileUrl = `http://localhost:3001/uploads/${safeFilename}`;
     const isVideo = (mimeType && mimeType.startsWith('video/')) || /\.(mp4|mov|avi|mkv|webm)$/i.test(filename);
     const mediaAssetId = crypto.randomUUID();
-    const hlsUrl = `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8`;
+    const effectiveMimeType = mimeType || (isVideo ? 'video/mp4' : 'application/octet-stream');
+
+    // Direct Cloudflare R2 Upload
+    const storageProvider = container.resolve('StorageProvider');
+    const uploadResult = await storageProvider.upload(safeFilename, buffer, effectiveMimeType);
+    const fileUrl = uploadResult.url;
+    request.log.info(`[MediaUpload] Uploaded directly to Cloudflare R2: ${fileUrl}`);
+
+    let filePath = null;
+    if (isVideo) {
+      const os = require('os');
+      const tempDir = path.join(os.tmpdir(), 'eos_uploads');
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+      filePath = path.join(tempDir, safeFilename);
+      fs.writeFileSync(filePath, buffer);
+    }
+
+    const hlsUrl = isVideo ? `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8` : null;
 
     let tenantId = request.headers['x-tenant-id'];
     if (!tenantId || tenantId === 'undefined') {
@@ -43,23 +52,24 @@ async function mediaRoutes(fastify, options) {
       }
     }
 
-    if (isVideo) {
-      try {
-        const dbClient = container.resolve('DatabaseClient');
-        await dbClient.query(`
-          INSERT INTO media_assets (id, tenant_id, filename, mime_type, size_bytes, storage_key, storage_url, status, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, 'ENCODING', NOW(), NOW())
-          ON CONFLICT (id) DO UPDATE SET status = 'ENCODING'
-        `, [
-          mediaAssetId,
-          tenantId,
-          safeFilename,
-          mimeType || 'video/mp4',
-          buffer.length,
-          safeFilename,
-          fileUrl
-        ]);
+    try {
+      const dbClient = container.resolve('DatabaseClient');
+      await dbClient.query(`
+        INSERT INTO media_assets (id, tenant_id, filename, mime_type, size_bytes, storage_key, storage_url, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, storage_url = EXCLUDED.storage_url, updated_at = NOW()
+      `, [
+        mediaAssetId,
+        tenantId,
+        safeFilename,
+        effectiveMimeType,
+        buffer.length,
+        safeFilename,
+        fileUrl,
+        isVideo ? 'ENCODING' : 'READY'
+      ]);
 
+      if (isVideo) {
         const outboxRepo = container.resolve('OutboxRepository');
         await outboxRepo.create({
           eventName: 'MediaUploaded',
@@ -74,9 +84,9 @@ async function mediaRoutes(fastify, options) {
           }
         });
         request.log.info(`[MediaUpload] Created mediaAsset ${mediaAssetId} and published MediaUploaded outbox event`);
-      } catch (err) {
-        request.log.warn(`[MediaUpload] Outbox / DB creation warning: ${err.message}`);
       }
+    } catch (err) {
+      request.log.warn(`[MediaUpload] Outbox / DB creation warning: ${err.message}`);
     }
 
     return reply.status(201).send({

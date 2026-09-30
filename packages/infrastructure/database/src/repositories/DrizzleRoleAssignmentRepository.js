@@ -31,7 +31,7 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
     const db = await this.db.connect();
     const res = await db.query(
       `SELECT ra.tenant_id, ra.organization_id, r.name AS role_name,
-              t.name AS tenant_name, t.slug AS tenant_slug
+              t.name AS tenant_name, t.slug AS tenant_slug, t.settings_json
        FROM role_assignments ra
        JOIN roles r ON r.id = ra.role_id
        JOIN tenants t ON t.id = ra.tenant_id
@@ -44,7 +44,8 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
       organizationId: row.organization_id,
       role: row.role_name,
       name: row.tenant_name,
-      slug: row.tenant_slug
+      slug: row.tenant_slug,
+      settings: row.settings_json || {}
     }));
   }
 

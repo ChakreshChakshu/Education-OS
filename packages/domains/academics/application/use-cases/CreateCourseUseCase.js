@@ -8,7 +8,20 @@ class CreateCourseUseCase {
   }
 
   async execute(dto) {
-    const { tenantId, organizationId, title, code, description, credits } = dto;
+    const {
+      tenantId,
+      organizationId,
+      title,
+      code,
+      slug,
+      shortDescription,
+      description,
+      thumbnailFileId,
+      level,
+      language,
+      visibility,
+      credits
+    } = dto;
 
     const codeVoResult = CourseCode.create(code);
     if (codeVoResult.isFailure) {
@@ -26,7 +39,13 @@ class CreateCourseUseCase {
       organizationId,
       title,
       code: codeVo,
+      slug,
+      shortDescription,
       description,
+      thumbnailFileId: thumbnailFileId || null,
+      level: level || 'ALL_LEVELS',
+      language: language || 'en',
+      visibility: visibility || 'PUBLIC',
       credits
     });
 
@@ -43,6 +62,14 @@ class CreateCourseUseCase {
       organizationId: course.organizationId,
       title: course.title,
       code: course.code.value,
+      slug: course.slug,
+      shortDescription: course.shortDescription,
+      description: course.description,
+      thumbnailFileId: course.thumbnailFileId,
+      thumbnailUrl: course.thumbnailUrl,
+      level: course.level,
+      language: course.language,
+      visibility: course.visibility,
       credits: course.credits,
       status: course.status
     });

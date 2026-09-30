@@ -91,6 +91,26 @@ test('CreateCourseUseCase provisions new course successfully', async () => {
   assert.equal(data.code, 'CS-201');
   assert.equal(data.credits, 4);
   assert.equal(data.status, 'DRAFT');
+  assert.equal(data.slug, 'data-structures-algorithms');
+  assert.equal(data.level, 'ALL_LEVELS');
+
+  // Verify course with thumbnailFileId and custom metadata
+  const thumbnailId = crypto.randomUUID();
+  const withThumbnail = await useCase.execute({
+    tenantId,
+    title: 'Cloud Native Microservices',
+    code: 'CS-401',
+    description: 'Kubernetes and distributed services',
+    thumbnailFileId: thumbnailId,
+    level: 'ADVANCED',
+    visibility: 'PUBLIC',
+    credits: 3
+  });
+  assert.equal(withThumbnail.isSuccess, true);
+  const thumbData = withThumbnail.getValue();
+  assert.equal(thumbData.thumbnailFileId, thumbnailId);
+  assert.equal(thumbData.level, 'ADVANCED');
+  assert.equal(thumbData.slug, 'cloud-native-microservices');
 
   // Verify duplicate code check
   const duplicateResult = await useCase.execute({

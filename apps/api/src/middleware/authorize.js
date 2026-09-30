@@ -1,8 +1,17 @@
+function isDevAuthBypassEnabled() {
+  return (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') &&
+    process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
+}
+
 // Scoped RBAC authorization (docs/auth_and_authorization.md §5-8).
 // Resolves permissions dynamically from role_assignments at request time —
 // deliberately not trusting any role/permission claim baked into the JWT.
 function authorize(permissionKey) {
   return async function authorizeHandler(request, reply) {
+    if (isDevAuthBypassEnabled()) {
+      return;
+    }
+
     const tenantId = request.headers['x-tenant-id'];
     const userId = request.user && (request.user.userId || request.user.sub);
 

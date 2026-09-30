@@ -29,12 +29,12 @@ function registerProviders(container) {
     process.env.R2_SECRET_ACCESS_KEY
   );
 
-  if (hasR2 && R2StorageProvider) {
-    container.register('StorageProvider', () => new R2StorageProvider());
-    console.log('[StorageProvider] Initialized Cloudflare R2StorageProvider');
-  } else {
-    container.register('StorageProvider', () => new LocalStorageProvider());
+  if (!hasR2 || !R2StorageProvider) {
+    throw new Error('[StorageProvider FATAL] Cloudflare R2 credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY) are missing! Local storage fallback is disabled.');
   }
+
+  container.register('StorageProvider', () => new R2StorageProvider());
+  console.log('[StorageProvider] Initialized Cloudflare R2StorageProvider (Direct Cloud Storage Only)');
 
   container.register('QueueProvider', () => new PostgresQueueProvider());
   container.register('CacheProvider', () => new InMemoryCacheProvider());

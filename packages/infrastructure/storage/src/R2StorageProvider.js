@@ -45,6 +45,13 @@ class R2StorageProvider extends StorageProvider {
     return `https://${this.config.bucketName}.r2.cloudflarestorage.com/${key}`;
   }
 
+  async getDownloadUrl(key, expiresInSeconds = 604800) {
+    if (this.config.publicDomain && !this.config.publicDomain.includes('.r2.cloudflarestorage.com')) {
+      return this.getPublicUrl(key);
+    }
+    return await this.getSignedGetUrl(key, expiresInSeconds);
+  }
+
   async upload(key, fileBuffer, mimeType) {
     if (this.client && PutObjectCommand) {
       const command = new PutObjectCommand({
@@ -54,11 +61,11 @@ class R2StorageProvider extends StorageProvider {
         ContentType: mimeType
       });
       await this.client.send(command);
-      return { key, url: this.getPublicUrl(key) };
+      const url = await this.getDownloadUrl(key);
+      return { key, url };
     }
 
-    console.log(`[R2StorageProvider] Mock uploading ${key} (${mimeType}) to bucket ${this.config.bucketName}`);
-    return { key, url: this.getPublicUrl(key) };
+    throw new Error('[R2StorageProvider FATAL] AWS S3 client not initialized. Cannot upload to Cloudflare R2.');
   }
 
   async download(key) {
@@ -104,6 +111,17 @@ class R2StorageProvider extends StorageProvider {
 
     const publicUrl = this.getPublicUrl(key);
     return `${publicUrl}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=${expiresInSeconds}`;
+  }
+
+  async getSignedGetUrl(key, expiresInSeconds = 86400) {
+    if (this.client && GetObjectCommand && getSignedUrl) {
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucketName,
+        Key: key
+      });
+      return await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+    }
+    return this.getPublicUrl(key);
   }
 }
 

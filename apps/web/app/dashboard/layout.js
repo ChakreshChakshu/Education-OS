@@ -174,8 +174,19 @@ export default function DashboardLayout({ children }) {
                   className="w-full flex items-center justify-between p-2.5 rounded-xl border border-border bg-background hover:border-primary/40 hover:bg-accent/40 transition-all text-left cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
-                      {activeTenant?.name ? activeTenant.name.charAt(0) : "E"}
+                    <div 
+                      className="h-8 w-8 rounded-lg text-primary-foreground flex items-center justify-center text-xs font-black shrink-0 shadow-xs overflow-hidden border border-border/40"
+                      style={activeTenant?.settings?.branding?.primaryColor ? { backgroundColor: activeTenant.settings.branding.primaryColor } : { backgroundColor: "var(--primary)" }}
+                    >
+                      {activeTenant?.settings?.branding?.logoUrl ? (
+                        <img 
+                          src={activeTenant.settings.branding.logoUrl} 
+                          alt={activeTenant.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <span>{activeTenant?.name ? activeTenant.name.charAt(0) : "E"}</span>
+                      )}
                     </div>
                     <div className="min-w-0 pr-1">
                       <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">

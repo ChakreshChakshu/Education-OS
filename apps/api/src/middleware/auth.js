@@ -1,6 +1,8 @@
 
-const DEV_AUTH_BYPASS_ENABLED =
-  process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
+function isDevAuthBypassEnabled() {
+  return (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') &&
+    process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
+}
 
 const DEV_BYPASS_USER = {
   userId: '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8',
@@ -12,7 +14,6 @@ const DEV_BYPASS_USER = {
 async function authenticateJWT(request, reply) {
   const authHeader = request.headers.authorization;
 
-
   const pathname = request.url.split('?')[0];
   if (pathname.endsWith('/health')) {
     return;
@@ -20,10 +21,10 @@ async function authenticateJWT(request, reply) {
 
   const bearerToken =
     authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
-  const token = request.cookies.access_token || bearerToken;
+  const token = request.cookies?.access_token || bearerToken;
 
   if (!token) {
-    if (DEV_AUTH_BYPASS_ENABLED) {
+    if (isDevAuthBypassEnabled()) {
       request.user = DEV_BYPASS_USER;
       return;
     }
@@ -35,7 +36,7 @@ async function authenticateJWT(request, reply) {
   }
 
   // If token is dev/mock token, allow only with explicit opt-in
-  if (DEV_AUTH_BYPASS_ENABLED && (token === 'dev-token' || token.startsWith('mock_token_') || token.startsWith('mock-jwt-token'))) {
+  if (isDevAuthBypassEnabled() && (token === 'dev-token' || token.startsWith('mock_token_') || token.startsWith('mock-jwt-token'))) {
     request.user = DEV_BYPASS_USER;
     return;
   }

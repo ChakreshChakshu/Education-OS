@@ -109,13 +109,14 @@ export default function SettingsPage() {
     ApiClient.getTenantSettings().then((res) => {
       if (res?.success && res?.data) {
         const settings = res.data.settingsJson || {};
+        const branding = settings.branding || {};
         setBrandingForm({
           name: res.data.name || activeTenant?.name || "Institution Workspace",
           slug: res.data.slug || activeTenant?.slug || "academy",
-          primaryColor: settings.primaryColor || "#4f46e5",
-          tagline: settings.tagline || "Empowering institutional academic excellence",
+          primaryColor: branding.primaryColor || settings.primaryColor || "#4f46e5",
+          tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
           supportEmail: settings.supportEmail || "support@institution.edu",
-          logoUrl: settings.logoUrl || ""
+          logoUrl: branding.logoUrl || settings.logoUrl || ""
         });
       } else if (activeTenant) {
         setBrandingForm((prev) => ({

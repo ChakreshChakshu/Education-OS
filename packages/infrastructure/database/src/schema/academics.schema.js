@@ -9,6 +9,7 @@ const {
   index
 } = require('../drizzle-bridge');
 const { tenantsTable, organizationsTable, usersTable } = require('./identity.schema');
+const { mediaAssetsTable } = require('./media.schema');
 
 // Standard audit column helper
 const auditColumns = {
@@ -30,7 +31,13 @@ const coursesTable = pgTable(
     organizationId: uuid('organization_id').references(() => organizationsTable.id),
     title: varchar('title', { length: 255 }).notNull(),
     code: varchar('code', { length: 50 }).notNull(),
+    slug: varchar('slug', { length: 255 }),
+    shortDescription: text('short_description'),
     description: text('description'),
+    thumbnailFileId: uuid('thumbnail_file_id').references(() => mediaAssetsTable.id),
+    level: varchar('level', { length: 50 }).notNull().default('ALL_LEVELS'),
+    language: varchar('language', { length: 10 }).notNull().default('en'),
+    visibility: varchar('visibility', { length: 50 }).notNull().default('PUBLIC'),
     credits: integer('credits').notNull().default(3),
     status: varchar('status', { length: 50 }).notNull().default('DRAFT'),
     ...auditColumns
@@ -38,6 +45,8 @@ const coursesTable = pgTable(
   (table) => ({
     tenantCodeUq: uniqueIndex('uq_courses_tenant_code').on(table.tenantId, table.code),
     tenantIdx: index('idx_courses_tenant_id').on(table.tenantId),
+    slugIdx: index('idx_courses_slug').on(table.tenantId, table.slug),
+    thumbnailIdx: index('idx_courses_thumbnail_file_id').on(table.thumbnailFileId),
     statusIdx: index('idx_courses_status').on(table.status)
   })
 );

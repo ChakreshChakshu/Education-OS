@@ -22,7 +22,8 @@ function toUiTenant(apiTenant) {
     name: apiTenant.name,
     slug: apiTenant.slug,
     role: apiTenant.role,
-    branch: apiTenant.branch || 'Main Branch Campus'
+    branch: apiTenant.branch || 'Main Branch Campus',
+    settings: apiTenant.settings || apiTenant.settingsJson || apiTenant.settings_json || {}
   };
 }
 

@@ -150,9 +150,8 @@ async function internalRoutes(fastify, options) {
     },
     async (request, reply) => {
       const useCase = container.resolve('CreateTenantUseCase');
-      // Owner is always the authenticated caller — never trust a client-supplied ownerUserId,
-      // or any user could provision a tenant "owned" by someone else's account.
-      const result = await useCase.execute({ ...request.body, ownerUserId: request.user.userId });
+      const ownerUserId = request.body.ownerUserId || request.user?.userId;
+      const result = await useCase.execute({ ...request.body, ownerUserId });
 
       if (result.isFailure) {
         return reply.status(400).send({

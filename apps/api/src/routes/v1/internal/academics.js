@@ -17,7 +17,14 @@ async function academicsRoutes(fastify, options) {
         organizationId: c.organizationId,
         title: c.title,
         code: c.code.value,
+        slug: c.slug,
+        shortDescription: c.shortDescription,
         description: c.description,
+        thumbnailFileId: c.thumbnailFileId,
+        thumbnailUrl: c.thumbnailUrl,
+        level: c.level,
+        language: c.language,
+        visibility: c.visibility,
         credits: c.credits,
         status: c.status,
         createdAt: c.createdAt
@@ -25,8 +32,13 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
+  const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   // Get Single Course Detail Route
   fastify.get('/courses/:id', async (request, reply) => {
+    if (!isUuid(request.params.id)) {
+      return reply.status(404).send({ success: false, error: 'Course not found' });
+    }
     const courseRepo = container.resolve('CourseRepository');
     const course = await courseRepo.findById(request.params.id);
     if (!course) {
@@ -40,7 +52,14 @@ async function academicsRoutes(fastify, options) {
         organizationId: course.organizationId,
         title: course.title,
         code: course.code.value,
+        slug: course.slug,
+        shortDescription: course.shortDescription,
         description: course.description,
+        thumbnailFileId: course.thumbnailFileId,
+        thumbnailUrl: course.thumbnailUrl,
+        level: course.level,
+        language: course.language,
+        visibility: course.visibility,
         credits: course.credits,
         status: course.status,
         createdAt: course.createdAt
@@ -56,21 +75,58 @@ async function academicsRoutes(fastify, options) {
       schema: {
         body: {
           type: 'object',
-          required: ['tenantId', 'title', 'code'],
+          required: ['title', 'code'],
           properties: {
-            tenantId: { type: 'string' },
-            organizationId: { type: 'string' },
+            tenantId: { type: ['string', 'null'] },
+            organizationId: { type: ['string', 'null'] },
             title: { type: 'string', minLength: 1 },
             code: { type: 'string', minLength: 1 },
-            description: { type: 'string' },
+            slug: { type: ['string', 'null'] },
+            shortDescription: { type: ['string', 'null'] },
+            description: { type: ['string', 'null'] },
+            thumbnailFileId: { type: ['string', 'null'] },
+            level: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL_LEVELS'] },
+            language: { type: 'string' },
+            visibility: { type: 'string', enum: ['PUBLIC', 'PRIVATE', 'UNLISTED'] },
             credits: { type: 'integer', minimum: 1 }
           }
         }
       }
     },
     async (request, reply) => {
+      let tenantId = request.body.tenantId;
+      if (!isUuid(tenantId)) {
+        tenantId = request.headers['x-tenant-id'];
+      }
+      if (!isUuid(tenantId)) {
+        const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+        const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
+          request.user?.userId || request.user?.sub
+        );
+        if (userTenants && userTenants.length > 0) {
+          tenantId = userTenants[0].tenantId;
+        }
+      }
+
+      if (!isUuid(tenantId)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Valid tenantId is required to create a course.'
+        });
+      }
+
+      const payload = {
+        ...request.body,
+        tenantId,
+        organizationId: isUuid(request.body.organizationId) ? request.body.organizationId : null,
+        thumbnailFileId: isUuid(request.body.thumbnailFileId) ? request.body.thumbnailFileId : null,
+        slug: request.body.slug || null,
+        shortDescription: request.body.shortDescription || null,
+        description: request.body.description || null
+      };
+
       const useCase = container.resolve('CreateCourseUseCase');
-      const result = await useCase.execute(request.body);
+      const result = await useCase.execute(payload);
 
       if (result.isFailure) {
         return reply.status(400).send({
@@ -88,6 +144,9 @@ async function academicsRoutes(fastify, options) {
 
   // List Modules for Course Route
   fastify.get('/courses/:id/modules', async (request, reply) => {
+    if (!isUuid(request.params.id)) {
+      return reply.send({ success: true, data: [] });
+    }
     const moduleRepo = container.resolve('LessonModuleRepository');
     const modules = await moduleRepo.findByCourseId(request.params.id);
     return reply.send({
