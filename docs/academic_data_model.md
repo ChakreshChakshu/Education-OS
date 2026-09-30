@@ -112,6 +112,9 @@ CREATE TABLE courses (
 > - Centralized file lifecycle & metadata management.
 > - Storage provider independence (Cloudflare R2 today, S3/Azure later).
 > - Consistent file authorization & asset versioning.
+>
+> **Implementation Status (Verified Active):**
+> `thumbnail_file_id`, `slug`, `level`, `visibility`, `short_description`, `credits`, and `organization_id` are fully integrated across database migrations, Drizzle ORM schema (`academics.schema.js`), `Course` domain entity, `DrizzleCourseRepository` (with left join on `media_assets` for `thumbnail_url` hydration), and the dashboard course builder UI (`/dashboard/courses`).
 
 ---
 

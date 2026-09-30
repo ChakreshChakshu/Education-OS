@@ -19,25 +19,27 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Web UI:** Web-based Tenant & Campus Branch provisioning interface (`/dashboard/tenants`) and instant registration auto-login issuing real signed JWTs plus a real tenant membership.
 
 2. **Academics Context (`@eos/domain-academics`):**
-   * **Domain:** `Course`, `Batch`, `Subject` entities & value objects (`CourseCode`, `AcademicTerm`).
+   * **Domain:** `Course`, `Batch`, `Subject` entities & value objects (`CourseCode`, `AcademicTerm`). `Course` entity supports `thumbnailFileId`, `thumbnailUrl`, `slug`, `shortDescription`, `level`, `language`, `visibility`, `credits`, and auto-slug generation.
    * **Application:** `CreateCourseUseCase`, `CreateBatchUseCase`.
-   * **Infrastructure:** Drizzle ORM tables (`courses`, `batches`, `subjects`) and concrete repositories (`DrizzleCourseRepository`, `DrizzleBatchRepository`).
-   * **API Routes:** `POST /api/v1/internal/academics/courses`, `POST /api/v1/internal/academics/batches`.
-   * **Web UI:** Interactive Course Catalog (`/dashboard/courses`) and Course Curriculum Builder (`/dashboard/courses/[id]`).
+   * **Infrastructure:** Drizzle ORM tables (`courses`, `batches`, `subjects`) and concrete repositories (`DrizzleCourseRepository`, `DrizzleBatchRepository`). `DrizzleCourseRepository` automatically joins `media_assets` to hydrate `thumbnailUrl`.
+   * **API Routes:** `POST /api/v1/internal/academics/courses`, `GET /api/v1/internal/academics/courses`, `GET /api/v1/internal/academics/courses/:id`, `POST /api/v1/internal/academics/batches`, `GET /api/v1/internal/academics/batches`.
+   * **Web UI:** Interactive Course Catalog (`/dashboard/courses`) with live 16:9 thumbnail banners, auto-slug generator, drag-and-drop Cloudflare R2 media uploader, and Course Curriculum Builder (`/dashboard/courses/[id]`).
 
 3. **Learning Context (`@eos/domain-learning`):**
    * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission`, `LessonNote` entities & value objects (`Score`).
    * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`, `SaveLessonNoteUseCase`, `GetLessonNoteUseCase`.
    * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`, `lesson_notes`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`, `DrizzleLessonNoteRepository`).
    * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`, `GET /api/v1/internal/learning/lessons/:lessonId/notes`, `PUT /api/v1/internal/learning/lessons/:lessonId/notes`.
-   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/lesson/[lessonId]`) featuring adaptive HLS video player, interactive chapter checkpoints, quiz evaluation, and debounced cloud notes synchronization with Neon PostgreSQL.
+   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/lesson/[lessonId]`) featuring adaptive HLS video player, interactive chapter checkpoints, quiz evaluation, video bookmarking, and debounced cloud notes synchronization with Neon PostgreSQL.
 
 4. **Media & Storage Context (`@eos/domain-media` & `@eos/infra-storage`):**
    * **Domain:** `MediaAsset`, `VideoTrack` entities & value objects (`FileSize`, `MimeType`).
    * **Application:** `CreatePresignedUploadUrlUseCase`, `ConfirmMediaUploadUseCase`.
-   * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, `LocalStorageProvider`, and `R2StorageProvider` (Cloudflare R2 live AWS S3 Client & presigner with bucket `education-os-media`).
+   * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, and `R2StorageProvider` (Cloudflare R2 live AWS S3 Client & presigner with bucket `education-os-media`).
+   * **Zero Local Fallback:** Pure Cloudflare R2 object storage. Local disk storage fallback is completely removed; missing R2 configuration fails fast at startup.
+   * **Direct Cloud Uploads:** `POST /api/v1/internal/media/upload` streams file buffers directly to Cloudflare R2 with accessible download URLs (`getDownloadUrl`). Presigned uploads and downloads supported via S3 presigner.
    * **API Routes:** `POST /api/v1/internal/media/upload`, `GET /api/v1/internal/media/status/:id`, `POST /api/v1/internal/media/presign`, `POST /api/v1/internal/media/confirm`.
-   * **Worker Transcoding:** Multi-bitrate HLS transcoding pipeline (360p, 720p, 1080p, `master.m3u8`, `poster.jpg`) uploading directly to Cloudflare R2 bucket.
+   * **Worker Transcoding:** Multi-bitrate HLS transcoding pipeline (360p, 720p, 1080p, `master.m3u8`, `poster.jpg`) syncing HLS stream directories directly to Cloudflare R2 bucket.
 
 5. **Neon PostgreSQL Cloud Production Architecture:**
    * **Database Engine:** Direct connectivity to Neon PostgreSQL Cloud instance via `pg` driver.

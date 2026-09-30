@@ -56,6 +56,14 @@ class StorageProvider {
 }
 ```
 
+> [!IMPORTANT]
+> ### Cloudflare R2 Driver Implementation & Zero Local Fallback
+> EOS uses a strict **Direct Cloud Object Storage** strategy via `R2StorageProvider`:
+> - **Driver:** Powered by `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` against Cloudflare R2 endpoint.
+> - **Zero Local Disk Fallback:** Local filesystem storage fallback (`LocalStorageProvider`) has been eliminated from the production container. Missing or invalid R2 credentials fail fast at startup.
+> - **Direct Uploads & Presigned URLs:** `POST /api/v1/internal/media/upload` streams binaries directly to R2 and generates accessible download URLs (`getDownloadUrl()`). Direct client uploads are provisioned via `POST /api/v1/internal/media/presign`.
+> - **Streaming Video Transcoding:** Video uploads trigger background FFmpeg multi-bitrate HLS workers which upload adaptive stream segments (`.m3u8`, `.ts`) directly to Cloudflare R2.
+
 ---
 
 # Single Bucket Strategy & Prefix Layout
