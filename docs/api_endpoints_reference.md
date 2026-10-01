@@ -445,11 +445,15 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 ### 14. Confirm Media Upload
 * **Endpoint:** `POST /api/v1/internal/media/confirm`
 * **Scope:** Internal
-* **Purpose:** Confirms direct cloud media upload execution and transitions MediaAsset entity state to `READY`.
+* **Purpose:** Confirms direct cloud media upload execution to Cloudflare R2, transitions `MediaAsset` entity state to `READY` (or `ENCODING`), and emits a `MediaUploaded` event to `outbox_events` in Neon DB. Background workers automatically consume this event to transcode multi-bitrate HLS (360p, 720p, 1080p) and update the corresponding `lesson_modules.content_url`.
 * **Request Body:**
   ```json
   {
-    "mediaAssetId": "ast_01917f8c-1234"
+    "mediaAssetId": "ast_01917f8c-1234",
+    "filename": "lecture1_core.mp4",
+    "storageKey": "videos/ast_01917f8c-1234/original.mp4",
+    "moduleId": "mod_01917f8c-5678",
+    "courseId": "28a56762-f1a8-42e2-9d23-bfc677e54ca1"
   }
   ```
 * **Success Response (200 OK):**
@@ -458,7 +462,8 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
     "success": true,
     "data": {
       "id": "ast_01917f8c-1234",
-      "status": "READY"
+      "status": "ENCODING",
+      "hlsUrl": null
     }
   }
   ```
@@ -687,4 +692,87 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
 * **Delete Bookmark:** `DELETE /api/v1/internal/learning/bookmarks/:id`
 * **Scope:** Internal
 * **Purpose:** Powers the Classroom Video Timeline Drawer, letting students pin and jump to exact timestamps during lecture playback.
+
+---
+
+### 25. Record Lesson Completion (Neon PostgreSQL Sync)
+* **Endpoint:** `POST /api/v1/internal/learning/lessons/complete`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Purpose:** Records student progress when a lesson is marked complete (e.g. upon reaching 90% video playback, video end, document reading finished, or manual mark). Upserts a row into the `student_progress` table in Neon PostgreSQL with `status = 'COMPLETED'`.
+* **Request Body:**
+  ```json
+  {
+    "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+    "lessonModuleId": "mod_01917f8c-5678",
+    "batchId": "btc_01917f8c-9012"
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "prg_01917f8c-3456",
+      "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "lessonModuleId": "mod_01917f8c-5678",
+      "status": "COMPLETED",
+      "completedAt": "2026-10-01T22:30:00.000Z"
+    }
+  }
+  ```
+
+---
+
+### 26. Get Course Student Progress
+* **Endpoint:** `GET /api/v1/internal/learning/courses/:courseId/progress?studentUserId=<id>`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Purpose:** Computes a student's real completion statistics across all modules of a course from Neon PostgreSQL. Returns the list of completed module IDs, total modules count, completed modules count, and calculated completion percentage (`0-100%`).
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "courseId": "28a56762-f1a8-42e2-9d23-bfc677e54ca1",
+      "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "totalModules": 10,
+      "completedModules": 6,
+      "percentage": 60,
+      "completedLessonModuleIds": [
+        "mod_01917f8c-1111",
+        "mod_01917f8c-2222",
+        "mod_01917f8c-3333"
+      ]
+    }
+  }
+  ```
+
+---
+
+### 27. Submit Quiz Assessment
+* **Endpoint:** `POST /api/v1/internal/learning/quizzes/submit`
+* **Scope:** Internal
+* **Headers:** `x-tenant-id` (Tenant UUID)
+* **Purpose:** Evaluates student quiz answers, grades score against passing threshold, stores submission in `quiz_submissions`, and automatically records lesson completion in `student_progress` when passing.
+* **Request Body:**
+  ```json
+  {
+    "studentUserId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+    "lessonModuleId": "mod_01917f8c-5678",
+    "answers": { "q1": "A", "q2": "C" }
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "submissionId": "qsub_01917...",
+      "score": 100,
+      "passed": true,
+      "completed": true
+    }
+  }
+  ```
 

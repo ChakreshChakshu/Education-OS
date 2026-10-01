@@ -29,8 +29,8 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Domain:** `LessonModule`, `StudentProgress`, `QuizSubmission`, `LessonNote` entities & value objects (`Score`).
    * **Application:** `MarkLessonCompleteUseCase`, `SubmitQuizUseCase`, `SaveLessonNoteUseCase`, `GetLessonNoteUseCase`.
    * **Infrastructure:** Drizzle ORM tables (`lesson_modules`, `student_progress`, `quiz_submissions`, `lesson_notes`) and concrete repositories (`DrizzleLessonModuleRepository`, `DrizzleStudentProgressRepository`, `DrizzleQuizSubmissionRepository`, `DrizzleLessonNoteRepository`).
-   * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `POST /api/v1/internal/learning/quizzes/submit`, `GET /api/v1/internal/learning/lessons/:lessonId/notes`, `PUT /api/v1/internal/learning/lessons/:lessonId/notes`.
-   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/lesson/[lessonId]`) featuring adaptive HLS video player, interactive chapter checkpoints, quiz evaluation, video bookmarking, and debounced cloud notes synchronization with Neon PostgreSQL.
+   * **API Routes:** `POST /api/v1/internal/learning/lessons/complete`, `GET /api/v1/internal/learning/courses/:courseId/progress`, `POST /api/v1/internal/learning/quizzes/submit`, `GET /api/v1/internal/learning/lessons/:lessonId/notes`, `PUT /api/v1/internal/learning/lessons/:lessonId/notes`.
+   * **Web UI:** Student Interactive Classroom (`/dashboard/courses/[id]/lesson/[lessonId]`) featuring adaptive HLS video player, interactive chapter checkpoints, quiz evaluation, video bookmarking, real-time 90% watch-time progress synchronization with Neon PostgreSQL, and debounced cloud notes.
 
 4. **Media & Storage Context (`@eos/domain-media` & `@eos/infra-storage`):**
    * **Domain:** `MediaAsset`, `VideoTrack` entities & value objects (`FileSize`, `MimeType`).
@@ -38,13 +38,18 @@ EOS is structured as an enterprise-grade, multi-tenant Modular Monolith monorepo
    * **Infrastructure:** Drizzle ORM table (`media_assets`), `DrizzleMediaAssetRepository`, and `R2StorageProvider` (Cloudflare R2 live AWS S3 Client & presigner with bucket `education-os-media`).
    * **Zero Local Fallback:** Pure Cloudflare R2 object storage. Local disk storage fallback is completely removed; missing R2 configuration fails fast at startup.
    * **Direct Cloud Uploads:** `POST /api/v1/internal/media/upload` streams file buffers directly to Cloudflare R2 with accessible download URLs (`getDownloadUrl`). Presigned uploads and downloads supported via S3 presigner.
+   * **Transactional Outbox Trigger:** `POST /api/v1/internal/media/confirm` and direct upload insert a `MediaUploaded` outbox event atomically. The background worker polls outbox events, enqueues `video.transcode` jobs, transcodes multi-bitrate HLS (360p, 720p, 1080p), generates master playlist and poster thumbnail, uploads to Cloudflare R2, and updates both `media_assets` and `lesson_modules.content_url`.
    * **API Routes:** `POST /api/v1/internal/media/upload`, `GET /api/v1/internal/media/status/:id`, `POST /api/v1/internal/media/presign`, `POST /api/v1/internal/media/confirm`.
-   * **Worker Transcoding:** Multi-bitrate HLS transcoding pipeline (360p, 720p, 1080p, `master.m3u8`, `poster.jpg`) syncing HLS stream directories directly to Cloudflare R2 bucket.
 
-5. **Neon PostgreSQL Cloud Production Architecture:**
-   * **Database Engine:** Direct connectivity to Neon PostgreSQL Cloud instance via `pg` driver.
+5. **Worker & Transcoding Architecture (`apps/worker`):**
+   * **Outbox Polling:** `OutboxPublisher` polls `outbox_events` table in Neon PostgreSQL every 2000ms using `FOR UPDATE SKIP LOCKED`.
+   * **Job Queue:** `PostgresQueueProvider` stores and executes background jobs with concurrency control and automatic retries.
+   * **Video Transcoding:** `VideoTranscoder` orchestrates FFmpeg execution to probe video streams and generate HLS variants (360p, 720p, 1080p), `master.m3u8`, and thumbnail poster image before uploading output manifests and segments directly to Cloudflare R2.
+
+6. **Neon PostgreSQL Cloud Production Architecture:**
+   * **Database Engine:** Direct connectivity to Neon PostgreSQL Cloud instance via `pg` driver with SSL `verify-full`.
    * **In-Memory Test Isolation:** Unit-test-safe in-memory stores in repositories when initialized without active DB client, keeping test suites lightning fast (<200ms) with zero cloud network dependency.
-   * **UUID Compliance:** Strict UUID primary key enforcement for all database entities (`users`, `tenants`, `courses`, `lesson_modules`, `lesson_notes`).
+   * **UUID Compliance:** Strict UUID primary key enforcement for all database entities (`users`, `tenants`, `courses`, `lesson_modules`, `lesson_notes`, `outbox_events`).
 
 ---
 
@@ -55,7 +60,7 @@ EducationOS/
 ├── apps/
 │   ├── web/                     # Next.js App Router UI (LMS Dashboard, Tenant Provisioner, Student Classroom)
 │   ├── api/                     # Fastify REST API (Composition Root DI, JWT Security Middleware)
-│   └── worker/                  # Background worker process
+│   └── worker/                  # Background worker process (Outbox polling, FFmpeg HLS transcoding, R2 upload)
 ├── packages/
 │   ├── core/                    # AggregateRoot, Entity, ValueObject, Result primitives
 │   ├── domains/                 # Bounded contexts
@@ -65,7 +70,7 @@ EducationOS/
 │   │   └── media/               # Media assets, presigned upload URLs & video tracks
 │   ├── infrastructure/
 │   │   ├── database/            # Drizzle ORM schemas, mappers, Neon repositories & seeder
-│   │   ├── storage/             # Local & Cloudflare R2 S3 storage adapters
+│   │   ├── storage/             # Direct Cloudflare R2 S3 storage adapter
 │   │   └── auth/                # Authentication providers
 │   ├── contracts/               # Standard DTOs & Domain Events
 │   ├── config/                  # Shared configurations
@@ -79,20 +84,21 @@ EducationOS/
 
 ## 3. Verification & Build Integrity
 
-Automated unit & integration testing status across the monorepo:
+Automated unit & integration testing status across the monorepo via Turborepo:
 
-| Context / Package | Tests Executed | Result |
+| Package / Context | Tests Executed | Result |
 | :--- | :--- | :--- |
-| **`@eos/domain-identity`** | 9 Unit Tests (incl. refresh token rotation, logout, RBAC role assignment) | ✅ Passed |
+| **`@eos/domain-identity`** | 9 Unit Tests (token rotation, logout, RBAC) | ✅ Passed |
 | **`@eos/domain-academics`** | 4 Unit Tests | ✅ Passed |
 | **`@eos/domain-learning`** | 3 Unit Tests | ✅ Passed |
 | **`@eos/domain-media`** | 4 Unit Tests | ✅ Passed |
 | **`@eos/infra-storage`** | 2 Unit Tests | ✅ Passed |
 | **`@eos/infra-database`** | 11 Schema, Repository & Seeder Tests | ✅ Passed |
-| **`@eos/api`** | 9 Fastify REST Route Integration Tests | ✅ Passed |
-| **Full Workspace Test Suite** | **42 / 42 Tests** | **✅ 100% Passed** |
+| **`@eos/api`** | 11 Fastify REST Route Integration Tests (CRUD, Progress, Media) | ✅ Passed |
+| **`@eos/worker`** | 4 Video Transcoder & Outbox Processor Tests | ✅ Passed |
+| **Monorepo Tasks (`pnpm test`)** | **22 / 22 Tasks Successful** | **✅ 100% Passed** |
 
 Run full workspace tests via:
 ```bash
-node --test packages/infrastructure/storage/test/storage.test.js packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js packages/infrastructure/database/test/seed.test.js apps/api/test/api.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js packages/domains/media/test/media.test.js
+pnpm test
 ```

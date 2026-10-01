@@ -141,12 +141,29 @@ Background workers run as dedicated, independent Node.js OS processes:
 
 ```text
 apps/worker
-├── Polling Outbox Events & Dispatching
-├── Video FFmpeg HLS Transcoding & Poster Generation
+├── Polling Outbox Events & Dispatching (outbox_events -> QueueProvider)
+├── Video FFmpeg HLS Transcoding & Poster Generation (video.transcode -> Cloudflare R2)
+├── Student Progress & Batch Rollups
 ├── PDF Certificate & Transcript Generation
 ├── Email & WhatsApp Notification Sending
-├── Nightly Analytics Rollups & Soft-Delete File Purging
+└── Nightly Analytics Rollups & Soft-Delete File Purging
 ```
+
+---
+
+# Active Outbox Event-to-Job Mappings
+
+The `OutboxPublisher` polls `outbox_events` (`status = 'PENDING'`) every 2 seconds and translates domain events to queue jobs via `PostgresQueueProvider`:
+
+| Domain Event | Aggregate Type | Trigger Condition | Translated Job | Target Queue | Handler Responsibilities |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`MediaUploaded`** | `Media` | `POST /media/confirm` or direct upload | `video.transcode` | `video` | Probes video, generates 360p/720p/1080p HLS, creates `master.m3u8` & poster thumbnail, uploads directly to Cloudflare R2, updates `media_assets` (`status = 'READY'`) and updates associated `lesson_modules.content_url`. |
+| **`UserRegistered`** | `User` | `POST /auth/register` | `email.welcome` | `notifications` | Sends welcome email with institution onboarding instructions. |
+| **`EnrollmentCreated`** | `Enrollment` | `POST /academics/enrollments` | `email.invitation` | `notifications` | Sends activation link and temporary credentials to enrolled student. |
+
+> [!IMPORTANT]
+> ### PostgreSQL UUID Type Safety in Outbox
+> The `outbox_events.aggregate_id` column is typed as `UUID`. To prevent Postgres `22P02 (invalid input syntax for type uuid)` syntax exceptions when non-UUID string identifiers are passed, `DrizzleOutboxRepository` validates the `aggregateId` format against a standard UUID regex (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`) and automatically falls back to `crypto.randomUUID()` when an invalid string format is supplied.
 
 ---
 

@@ -22,21 +22,28 @@ It establishes how raw video uploads are ingested directly into object storage v
 # High-Level Architecture
 
 ```text
-Browser Client                    Fastify API              Cloudflare R2 Object Storage      Background Worker (FFmpeg)
-      │                                │                                │                                │
-      ├── 1. Request Upload URL ──────►│                                │                                │
-      │    (POST /videos/upload-url)   ├── 2. Generate Presigned URL    │                                │
-      │◄── 3. Return Presigned PUT URL ┼────────────────────────────────┘                                │
-      │                                │                                                                 │
-      ├── 4. Direct Upload (Raw MP4) ──────────────────────────────────►│                                │
-      │                                │                                │                                │
-      ├── 5. Confirm Upload Complete ─►│                                │                                │
-      │    (POST /videos/{id}/complete)├── 6. Queue TranscodeVideoJob ──────────────────────────────────►│
-      │                                │                                │                                ├── 7. Download Original MP4
-      │                                │                                │                                ├── 8. Transcode HLS Variants
-      │                                │                                │                                ├── 9. Generate Thumbnails
-      │                                │                                │◄── 10. Upload HLS & Thumbnails ┼── 11. Extract Metadata
-      │                                │◄── 12. Mark Video Status READY ┼────────────────────────────────┘
+Browser Client                    Fastify API              Neon DB (Outbox)          Cloudflare R2 Storage         Worker (FFmpeg)
+      │                                │                          │                            │                         │
+      ├── 1. Request Presigned URL ───►│                          │                            │                         │
+      │    (POST /media/presign)       ├── 2. Generate R2 PUT URL │                            │                         │
+      │◄── 3. Presigned Upload URL ────┼──────────────────────────┼────────────────────────────┘                         │
+      │                                │                          │                                                      │
+      ├── 4. Direct Upload (Raw MP4) ─────────────────────────────────────────────────────────►│                         │
+      │                                │                          │                            │                         │
+      ├── 5. Confirm Upload Complete ─►│                          │                            │                         │
+      │    (POST /media/confirm)       ├── 6. Emit Outbox Event ─►│                            │                         │
+      │                                │      (MediaUploaded)     │                            │                         │
+      │◄── 7. Confirmation (ENCODING) ─┘                          │                            │                         │
+      │                                                           ├── 8. Poll Outbox (2s) ──────────────────────────────►│
+      │                                                           │                                                      ├── 9. Download MP4
+      │                                                           │                            │◄── 10. Fetch Raw MP4 ───┤
+      │                                                           │                            │                         ├── 11. Transcode Variants
+      │                                                           │                            │                         │   (360p, 720p, 1080p)
+      │                                                           │                            │                         ├── 12. Write master.m3u8
+      │                                                           │                            │                         ├── 13. Extract Poster
+      │                                                           │                            │◄── 14. Sync HLS Stream ─┤
+      │                                                           │◄── 15. Update Status READY ┼─────────────────────────┤
+      │                                                           │    (media_assets & lesson_modules content_url)       │
 ```
 
 ---
@@ -46,17 +53,17 @@ Browser Client                    Fastify API              Cloudflare R2 Object 
 Every uploaded video transitions through an audited state machine:
 
 ```text
-UPLOADING ──(Upload Completed)──> UPLOADED ──> QUEUED ──> PROCESSING ──> READY
-                                                              │             │
-                                                              ▼             ▼
-                                                           FAILED        ARCHIVED
+UPLOADING ──(Upload Completed)──> UPLOADED ──> ENCODING ──> PROCESSING ──> READY
+                                                                │             │
+                                                                ▼             ▼
+                                                             FAILED        ARCHIVED
 ```
 
-- **`UPLOADING`:** Presigned URL issued; waiting for browser binary upload.
-- **`UPLOADED`:** Client confirmed upload completion; binary verified in object storage.
-- **`QUEUED`:** `TranscodeVideoJob` placed in job queue (`jobs` table).
-- **`PROCESSING`:** Worker process (`apps/worker`) currently executing FFmpeg transcoding.
-- **`READY`:** HLS manifests, `.ts` segments, and poster thumbnails generated; ready for streaming.
+- **`UPLOADING`:** Presigned URL issued; waiting for browser binary upload to Cloudflare R2.
+- **`UPLOADED`:** Client confirmed upload completion (`POST /api/v1/internal/media/confirm`).
+- **`ENCODING` / `QUEUED`:** `MediaUploaded` event written to transactional `outbox_events` and queued for transcoding.
+- **`PROCESSING`:** Worker process (`apps/worker`) currently executing FFmpeg multi-bitrate HLS encoding.
+- **`READY`:** HLS manifests (`master.m3u8`), `.ts` segments (360p, 720p, 1080p), and poster thumbnails uploaded to Cloudflare R2; `lesson_modules.content_url` and `media_assets.status = 'READY'` updated.
 - **`FAILED`:** FFmpeg transcoding failed; eligible for manual or automated retry.
 
 ---

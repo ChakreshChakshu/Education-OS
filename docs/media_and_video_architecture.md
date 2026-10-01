@@ -226,21 +226,29 @@ CREATE TABLE subtitles (
 # Asynchronous Transcoding Pipeline
 
 ```text
-Client Uploads Original MP4  ──>  File Record Created  ──>  Queue Job Dispatched (TranscodeVideoJob)
-                                                                       │
-                                                                       ▼
-Media Marked READY  <──  Upload Variants & Master  <──  FFmpeg Processing (Worker App)
-                                                        ├── Extract Metadata (width, height, duration)
-                                                        ├── Generate 240p, 360p, 480p, 720p, 1080p HLS
-                                                        ├── Package TS segments & master.m3u8
-                                                        └── Extract video poster thumbnails
+Client Uploads Video (Direct R2) ──> POST /media/confirm ──> Outbox Event Emitted (MediaUploaded)
+                                                                     │
+                                                                     ▼
+                                                         Outbox Poller (apps/worker)
+                                                                     │
+                                                                     ▼
+                                                         Queue Job (video.transcode)
+                                                                     │
+                                                                     ▼
+Media & Modules Marked READY <── Sync HLS to R2 <── FFmpeg Multi-Bitrate Engine
+(manifest & content_url updated)                    ├── Probe metadata (duration, width, height)
+                                                    ├── Transcode 360p, 720p, 1080p variants
+                                                    ├── Generate master.m3u8 playlist
+                                                    └── Extract high-res poster thumbnail
 ```
 
 ### Worker Responsibilities (`apps/worker`)
 - Extract video parameters (resolution, codec, duration) via `ffprobe`.
-- Transcode MP4 into HLS multi-bitrate variant playlists (`index.m3u8`) and `.ts` transport stream segments.
-- Generate poster thumbnails (`.jpg`) at 25%, 50%, and 75% video completion markers.
-- Register generated HLS playlists as `File` records and link them to `VideoVariant`.
+- Transcode MP4 into HLS multi-bitrate variant playlists (`360p/index.m3u8`, `720p/index.m3u8`, `1080p/index.m3u8`) and `.ts` transport stream segments.
+- Assemble root `master.m3u8` multi-variant playlist.
+- Generate poster thumbnail (`poster.jpg`) using FFmpeg video frame extraction.
+- Upload entire HLS directory and poster directly to Cloudflare R2 bucket.
+- Update `media_assets.status = 'READY'`, `media_assets.hls_manifest_url`, and auto-update any associated `lesson_modules.content_url` in Neon PostgreSQL.
 
 ---
 

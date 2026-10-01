@@ -292,6 +292,54 @@ PostgreSQL: INSERT INTO lesson_notes (...)
             DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
 ```
 
+# 5. Student Progress Synchronization & Completion Engine
+
+Tracks individual student completion status across all curriculum module formats (videos, documents, assessments) persisted in Neon PostgreSQL.
+
+### Table Schema: `student_progress`
+
+```sql
+CREATE TABLE student_progress (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_module_id  VARCHAR(255) NOT NULL,
+  batch_id          UUID REFERENCES batches(id) ON DELETE SET NULL,
+  status            VARCHAR(50) NOT NULL DEFAULT 'COMPLETED', -- IN_PROGRESS, COMPLETED
+  completed_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_student_lesson_progress UNIQUE (student_user_id, lesson_module_id)
+);
+```
+
+### Automatic Completion Triggers
+
+The Classroom Player (`apps/web/app/dashboard/courses/[id]/lesson/[lessonId]/page.js`) triggers `ApiClient.completeLesson(lessonId, batchId)` via `POST /api/v1/internal/learning/lessons/complete` on:
+1. **Video 90% Threshold:** Video watch time passes 90% of duration during playback (`timeupdate`).
+2. **Video End:** Player fires native `ended` event.
+3. **Document / PDF Completion:** Student clicks "Mark as Read & Continue" action button.
+4. **Quiz Mastery:** Student answers assessment questions and passes passing grade (`POST /api/v1/internal/learning/quizzes/submit`).
+
+### Live Course Progress Calculation Flow:
+```text
+Classroom Lesson Action (90% video, document read, quiz pass)
+              │
+              ▼
+POST /api/v1/internal/learning/lessons/complete
+              │
+              ▼
+Neon DB: UPSERT student_progress (status = 'COMPLETED')
+              │
+              ▼
+GET /api/v1/internal/learning/courses/:courseId/progress
+              │
+              ├── Computes completedModules / totalModules * 100
+              └── Returns list of completedLessonModuleIds
+              │
+              ▼
+Classroom Sidebar & Course Builder Progress Rings Update in Real-Time
+```
+
 ---
 
 # Architectural Decision Records (ADRs)
