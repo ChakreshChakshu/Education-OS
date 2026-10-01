@@ -201,6 +201,59 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
+  // Update Module for Course Route
+  fastify.put('/courses/:id/modules/:moduleId', async (request, reply) => {
+    const moduleRepo = container.resolve('LessonModuleRepository');
+    const { moduleId, id: courseId } = request.params;
+    const { title, contentType, contentUrl, hlsUrl, order, quiz, status } = request.body || {};
+
+    const existing = await moduleRepo.findById(moduleId);
+    if (!existing) {
+      return reply.status(404).send({ success: false, error: 'Lesson module not found' });
+    }
+
+    const updatedModule = {
+      id: moduleId,
+      courseId,
+      title: title !== undefined ? title : existing.title,
+      contentType: contentType !== undefined ? contentType : existing.contentType,
+      contentUrl: contentUrl !== undefined ? contentUrl : existing.contentUrl,
+      order: order !== undefined ? order : existing.order,
+      status: status !== undefined ? status : existing.status,
+      quiz: quiz !== undefined ? quiz : existing.quiz,
+      props: {
+        ...(existing.props || {}),
+        updatedAt: new Date(),
+        hlsUrl: hlsUrl !== undefined ? hlsUrl : (existing.props?.hlsUrl || null)
+      }
+    };
+
+    await moduleRepo.save(updatedModule);
+
+    return reply.send({
+      success: true,
+      data: updatedModule
+    });
+  });
+
+  // Delete Module for Course Route
+  fastify.delete('/courses/:id/modules/:moduleId', async (request, reply) => {
+    const moduleRepo = container.resolve('LessonModuleRepository');
+    const { moduleId } = request.params;
+
+    const existing = await moduleRepo.findById(moduleId);
+    if (!existing) {
+      return reply.status(404).send({ success: false, error: 'Lesson module not found' });
+    }
+
+    await moduleRepo.delete(moduleId);
+
+    return reply.send({
+      success: true,
+      data: { id: moduleId, message: 'Lesson module deleted successfully' }
+    });
+  });
+
   // List Batches Route
   fastify.get('/batches', async (request, reply) => {
     const batchRepo = container.resolve('BatchRepository');

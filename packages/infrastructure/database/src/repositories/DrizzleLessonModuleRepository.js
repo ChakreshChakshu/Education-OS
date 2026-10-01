@@ -51,11 +51,17 @@ class DrizzleLessonModuleRepository extends BaseRepository {
   }
 
   async findById(id) {
+    if (!id || typeof id !== 'string') return null;
     if (!this.db) {
       const raw = this._moduleStore.get(id);
       return raw ? DrizzleLessonModuleRepository.toDomain(raw) : null;
     }
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : (db?.query ? db.query.bind(db) : null);
+    if (queryFn) {
+      const res = await queryFn('SELECT * FROM lesson_modules WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+      return res.rows[0] ? DrizzleLessonModuleRepository.toDomain(res.rows[0]) : null;
+    }
     if (db.select) {
       const rows = await db
         .select()
@@ -64,8 +70,7 @@ class DrizzleLessonModuleRepository extends BaseRepository {
         .limit(1);
       return rows[0] ? DrizzleLessonModuleRepository.toDomain(rows[0]) : null;
     }
-    const res = await db.query('SELECT * FROM lesson_modules WHERE id = $1 LIMIT 1', [id]);
-    return res.rows[0] ? DrizzleLessonModuleRepository.toDomain(res.rows[0]) : null;
+    return null;
   }
 
   async findByCourseId(courseId) {
@@ -80,6 +85,11 @@ class DrizzleLessonModuleRepository extends BaseRepository {
       return results;
     }
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : (db?.query ? db.query.bind(db) : null);
+    if (queryFn) {
+      const res = await queryFn('SELECT * FROM lesson_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY order_index ASC', [courseId]);
+      return res.rows.map((r) => DrizzleLessonModuleRepository.toDomain(r)).filter(Boolean);
+    }
     if (db.select) {
       const rows = await db
         .select()
@@ -87,8 +97,26 @@ class DrizzleLessonModuleRepository extends BaseRepository {
         .where(and(eq(this.table.courseId, courseId), isNull(this.table.deletedAt)));
       return rows.map((r) => DrizzleLessonModuleRepository.toDomain(r)).filter(Boolean);
     }
-    const res = await db.query('SELECT * FROM lesson_modules WHERE course_id = $1 ORDER BY order_index ASC', [courseId]);
-    return res.rows.map((r) => DrizzleLessonModuleRepository.toDomain(r)).filter(Boolean);
+    return [];
+  }
+
+  async delete(id) {
+    if (this._moduleStore.has(id)) {
+      const existing = this._moduleStore.get(id);
+      existing.deletedAt = new Date();
+    }
+    if (!this.db) return true;
+    const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : (db?.query ? db.query.bind(db) : null);
+    if (queryFn) {
+      await queryFn('UPDATE lesson_modules SET deleted_at = NOW() WHERE id = $1', [id]);
+      return true;
+    }
+    if (db.update) {
+      await db.update(this.table).set({ deletedAt: new Date() }).where(eq(this.table.id, id));
+      return true;
+    }
+    return true;
   }
 
   async save(module) {
@@ -98,14 +126,10 @@ class DrizzleLessonModuleRepository extends BaseRepository {
       return module;
     }
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
-    if (db.insert) {
-      await db.insert(this.table).values(raw).onConflictDoUpdate({
-        target: this.table.id,
-        set: raw
-      });
-    } else {
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : (db?.query ? db.query.bind(db) : null);
+    if (queryFn) {
       const quizJson = raw.quiz ? JSON.stringify(raw.quiz) : null;
-      await db.query(`
+      await queryFn(`
         INSERT INTO lesson_modules (id, course_id, title, content_type, content_url, quiz_json, order_index, status, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO UPDATE SET
@@ -113,8 +137,37 @@ class DrizzleLessonModuleRepository extends BaseRepository {
           content_type = EXCLUDED.content_type,
           content_url = EXCLUDED.content_url,
           quiz_json = EXCLUDED.quiz_json,
+          order_index = EXCLUDED.order_index,
+          status = EXCLUDED.status,
           updated_at = NOW();
       `, [raw.id, raw.courseId, raw.title, raw.contentType, raw.contentUrl, quizJson, raw.order || 1, raw.status, raw.createdAt, raw.updatedAt]);
+      return module;
+    }
+    if (db.insert) {
+      await db.insert(this.table).values({
+        id: raw.id,
+        courseId: raw.courseId,
+        title: raw.title,
+        contentType: raw.contentType,
+        contentUrl: raw.contentUrl,
+        quizJson: raw.quiz ? JSON.stringify(raw.quiz) : null,
+        orderIndex: raw.order || 1,
+        status: raw.status,
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+        deletedAt: raw.deletedAt
+      }).onConflictDoUpdate({
+        target: this.table.id,
+        set: {
+          title: raw.title,
+          contentType: raw.contentType,
+          contentUrl: raw.contentUrl,
+          quizJson: raw.quiz ? JSON.stringify(raw.quiz) : null,
+          orderIndex: raw.order || 1,
+          status: raw.status,
+          updatedAt: new Date()
+        }
+      });
     }
     return module;
   }

@@ -33,9 +33,12 @@ const lessonModulesTable = pgTable(
     title: varchar('title', { length: 255 }).notNull(),
     contentType: varchar('content_type', { length: 50 }).notNull().default('VIDEO'),
     contentUrl: text('content_url'),
-    order: integer('order').notNull().default(1),
+    quizJson: text('quiz_json'),
+    orderIndex: integer('order_index').notNull().default(1),
     status: varchar('status', { length: 50 }).notNull().default('PUBLISHED'),
-    ...auditColumns
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true })
   },
   (table) => ({
     courseIdx: index('idx_lesson_modules_course_id').on(table.courseId)

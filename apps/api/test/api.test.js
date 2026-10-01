@@ -337,3 +337,76 @@ test('POST /api/v1/internal/media/confirm confirms file upload completion', asyn
   assert.equal(body.success, true);
   assert.equal(body.data.status, 'ENCODING');
 });
+
+test('Lesson modules support CRUD: create, update, list, and delete', async () => {
+  const app = await buildApp();
+  const tenantId = await getOrCreateTestTenant(app);
+
+  // 1. Create course
+  const courseRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/academics/courses',
+    headers: { 'x-tenant-id': tenantId },
+    payload: {
+      tenantId,
+      title: 'Distributed Systems',
+      code: 'CS-601'
+    }
+  });
+  const courseId = JSON.parse(courseRes.payload).data.id;
+
+  // 2. Create module
+  const createModRes = await app.inject({
+    method: 'POST',
+    url: `/api/v1/internal/academics/courses/${courseId}/modules`,
+    payload: {
+      title: 'Consensus Protocols',
+      contentType: 'VIDEO',
+      contentUrl: 'https://r2.cdn/consensus.mp4',
+      order: 1
+    }
+  });
+  assert.equal(createModRes.statusCode, 201);
+  const createdMod = JSON.parse(createModRes.payload).data;
+  assert.equal(createdMod.title, 'Consensus Protocols');
+
+  // 3. Update module
+  const updateModRes = await app.inject({
+    method: 'PUT',
+    url: `/api/v1/internal/academics/courses/${courseId}/modules/${createdMod.id}`,
+    payload: {
+      title: 'Raft & Paxos Consensus Protocols',
+      contentType: 'VIDEO'
+    }
+  });
+  assert.equal(updateModRes.statusCode, 200);
+  const updatedMod = JSON.parse(updateModRes.payload).data;
+  assert.equal(updatedMod.title, 'Raft & Paxos Consensus Protocols');
+
+  // 4. Verify listed
+  const listRes = await app.inject({
+    method: 'GET',
+    url: `/api/v1/internal/academics/courses/${courseId}/modules`
+  });
+  assert.equal(listRes.statusCode, 200);
+  const listData = JSON.parse(listRes.payload).data;
+  assert.equal(listData.length, 1);
+  assert.equal(listData[0].id, createdMod.id);
+
+  // 5. Delete module
+  const deleteRes = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/internal/academics/courses/${courseId}/modules/${createdMod.id}`
+  });
+  assert.equal(deleteRes.statusCode, 200);
+
+  // 6. Verify no longer listed
+  const listAfterDel = await app.inject({
+    method: 'GET',
+    url: `/api/v1/internal/academics/courses/${courseId}/modules`
+  });
+  assert.equal(listAfterDel.statusCode, 200);
+  const listAfterDelData = JSON.parse(listAfterDel.payload).data;
+  assert.equal(listAfterDelData.some(m => m.id === createdMod.id), false);
+});
+

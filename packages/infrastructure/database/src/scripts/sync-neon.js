@@ -125,7 +125,8 @@ async function syncNeonDatabase() {
         order_index INTEGER NOT NULL DEFAULT 1,
         status VARCHAR(50) NOT NULL DEFAULT 'PUBLISHED',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_at TIMESTAMPTZ
       );`,
 
       // 6. Enrollments Table

@@ -231,6 +231,35 @@ class ApiClient {
     }
   }
 
+  static async updateCourseModule(courseId, moduleId, payload) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules/${moduleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Module update failed');
+      return data;
+    } catch (err) {
+      console.error('API updateCourseModule Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async deleteCourseModule(courseId, moduleId) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules/${moduleId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Module deletion failed');
+      return data;
+    } catch (err) {
+      console.error('API deleteCourseModule Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
   static async uploadMediaFile({ filename, fileData, mimeType }) {
     try {
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/media/upload`, {

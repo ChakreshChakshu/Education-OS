@@ -37,6 +37,8 @@ export default function CourseDetailPage({ params: paramsPromise }) {
 
   // Modal State
   const [modalType, setModalType] = useState(null); // null | "VIDEO" | "DOCUMENT" | "QUIZ"
+  const [editingModuleId, setEditingModuleId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(null);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [duration, setDuration] = useState(15);
@@ -83,7 +85,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
     loadCourseData();
   }, [courseId]);
 
-  const handleAddModule = async (e) => {
+  const handleSaveModule = async (e) => {
     e.preventDefault();
     if (!title) return;
 
@@ -92,7 +94,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       contentType: modalType,
       contentUrl: url || "#",
       hlsUrl: hlsUrl || (url.includes('.m3u8') ? url : null),
-      order: modules.length + 1
+      order: editingModuleId ? (modules.find(m => m.id === editingModuleId)?.order || 1) : (modules.length + 1)
     };
 
     if (modalType === "QUIZ") {
@@ -103,26 +105,77 @@ export default function CourseDetailPage({ params: paramsPromise }) {
           { key: "B", text: optB },
           { key: "C", text: optC },
           { key: "D", text: optD }
-        ],
+        ].filter(o => o.text),
         correct: correctOpt
       };
     }
 
-    const res = await ApiClient.createCourseModule(courseId, payload);
+    if (editingModuleId) {
+      const res = await ApiClient.updateCourseModule(courseId, editingModuleId, payload);
+      if (res.success && res.data) {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...res.data } : m));
+      } else {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...payload } : m));
+      }
+    } else {
+      const res = await ApiClient.createCourseModule(courseId, payload);
+      const createdModule = (res.success && res.data) ? res.data : {
+        id: "module_" + Date.now(),
+        courseId,
+        ...payload,
+        status: "PUBLISHED"
+      };
+      setModules([...modules, createdModule]);
+    }
 
-    const createdModule = (res.success && res.data) ? res.data : {
-      id: "module_" + Date.now(),
-      courseId,
-      ...payload,
-      status: "PUBLISHED"
-    };
-
-    setModules([...modules, createdModule]);
     closeModal();
+  };
+
+  const handleOpenEditModule = (mod) => {
+    setEditingModuleId(mod.id);
+    setModalType(mod.contentType || "VIDEO");
+    setTitle(mod.title || "");
+    setUrl(mod.contentUrl || "");
+    setHlsUrl(mod.hlsUrl || "");
+    if (mod.quiz) {
+      setQuizQuestion(mod.quiz.question || "");
+      const opts = mod.quiz.options || [];
+      setOptA(opts.find(o => o.key === "A")?.text || opts[0]?.text || "");
+      setOptB(opts.find(o => o.key === "B")?.text || opts[1]?.text || "");
+      setOptC(opts.find(o => o.key === "C")?.text || opts[2]?.text || "");
+      setOptD(opts.find(o => o.key === "D")?.text || opts[3]?.text || "");
+      setCorrectOpt(mod.quiz.correct || "A");
+    } else {
+      setQuizQuestion("");
+      setOptA("");
+      setOptB("");
+      setOptC("");
+      setOptD("");
+      setCorrectOpt("A");
+    }
+  };
+
+  const handleDeleteModule = async (moduleId) => {
+    if (!confirm("Are you sure you want to delete this module?")) return;
+    setIsDeleting(moduleId);
+    try {
+      const res = await ApiClient.deleteCourseModule(courseId, moduleId);
+      if (res.success) {
+        setModules(modules.filter(m => m.id !== moduleId));
+      } else {
+        alert(res.error || "Failed to delete module");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      setModules(modules.filter(m => m.id !== moduleId));
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const closeModal = () => {
     setModalType(null);
+    setEditingModuleId(null);
     setTitle("");
     setUrl("");
     setHlsUrl("");
@@ -295,14 +348,22 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                           <span>Enter Lesson</span>
                         </Button>
                       </Link>
-                      <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-9 w-9 p-0 hover:bg-muted"
+                        onClick={() => handleOpenEditModule(mod)}
+                        title="Edit module"
+                      >
                         <Pencil size={18} />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-9 w-9 p-0 text-destructive hover:bg-destructive/10"
-                        onClick={() => setModules(modules.filter(m => m.id !== mod.id))}
+                        disabled={isDeleting === mod.id}
+                        onClick={() => handleDeleteModule(mod.id)}
+                        title="Delete module"
                       >
                         <Trash size={18} />
                       </Button>
@@ -356,9 +417,9 @@ export default function CourseDetailPage({ params: paramsPromise }) {
             <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
               <div>
                 <CardTitle className="text-xl font-bold">
-                  {modalType === "VIDEO" && "Add Video Lesson Module"}
-                  {modalType === "DOCUMENT" && "Add PDF / Reading Module"}
-                  {modalType === "QUIZ" && "Add Quiz Assessment Module"}
+                  {editingModuleId ? "Edit" : "Add"} {modalType === "VIDEO" && "Video Lesson Module"}
+                  {editingModuleId ? "Edit" : "Add"} {modalType === "DOCUMENT" && "PDF / Reading Module"}
+                  {editingModuleId ? "Edit" : "Add"} {modalType === "QUIZ" && "Quiz Assessment Module"}
                 </CardTitle>
                 <CardDescription className="text-sm">Course aggregate curriculum builder</CardDescription>
               </div>
@@ -367,7 +428,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
               </button>
             </CardHeader>
 
-            <form onSubmit={handleAddModule}>
+            <form onSubmit={handleSaveModule}>
               <CardContent className="space-y-4 pt-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-muted-foreground uppercase">Module Title</label>
@@ -466,7 +527,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
 
               <div className="flex justify-end gap-3 p-5 border-t border-border bg-muted/20 rounded-b-2xl">
                 <Button type="button" variant="outline" size="lg" className="font-semibold" onClick={closeModal}>Cancel</Button>
-                <Button type="submit" size="lg" className="font-bold">Save Module</Button>
+                <Button type="submit" size="lg" className="font-bold">{editingModuleId ? "Save Changes" : "Save Module"}</Button>
               </div>
             </form>
           </Card>
