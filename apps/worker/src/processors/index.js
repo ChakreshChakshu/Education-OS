@@ -3,7 +3,7 @@ const fs = require('fs');
 const { JOBS } = require('../jobs');
 const { VideoTranscoder } = require('../services/transcoder');
 
-let DatabaseClient, R2StorageProvider;
+let DatabaseClient, R2StorageProvider, ResendMailProvider;
 try {
   DatabaseClient = require('@eos/infra-database').DatabaseClient;
 } catch (e) {
@@ -16,7 +16,14 @@ try {
   R2StorageProvider = require('../../../../packages/infrastructure/storage/src').R2StorageProvider;
 }
 
+try {
+  ResendMailProvider = require('@eos/infra-mail').ResendMailProvider;
+} catch (e) {
+  ResendMailProvider = require('../../../../packages/infrastructure/mail/src').ResendMailProvider;
+}
+
 const transcoder = new VideoTranscoder();
+const mailProvider = new ResendMailProvider();
 
 async function uploadDirectoryToR2(r2Provider, localDir, r2Prefix) {
   const entries = fs.readdirSync(localDir, { withFileTypes: true });
@@ -220,8 +227,70 @@ const PROCESSORS = {
   },
 
   [JOBS.EMAIL_SEND]: async (payload, job) => {
-    console.log(`[Processor:email.send] Dispatching email to ${payload.to} with template '${payload.template}'`);
-    return { success: true };
+    const to = payload.to;
+    const template = payload.template || 'welcome';
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    let subject = payload.subject;
+    let html = '';
+    let text = '';
+
+    if (template === 'student_invitation') {
+      subject = subject || `Course Invitation: ${payload.courseTitle || 'Curriculum Course'}`;
+      const activationLink = payload.activationUrl 
+        ? (payload.activationUrl.startsWith('http') ? payload.activationUrl : `${appUrl}${payload.activationUrl}`)
+        : (payload.activationToken ? `${appUrl}/activate?token=${payload.activationToken}` : appUrl);
+
+      html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; color: #1e293b; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div style="margin-bottom: 24px; text-align: center;">
+            <div style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 14px; letter-spacing: 0.5px;">EDUCATION OS</div>
+          </div>
+          <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-align: center;">You have been enrolled in a course!</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #475569; margin-bottom: 20px;">
+            Hello <strong>${payload.name || 'Student'}</strong>,<br/>
+            You have been enrolled in <strong>${payload.courseTitle || 'your academic curriculum'}</strong>${payload.courseCode ? ` (${payload.courseCode})` : ''}.
+          </p>
+          ${payload.temporaryPassword ? `
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">Temporary Credentials</div>
+              <div style="font-size: 14px; color: #334155; margin-bottom: 2px;">Email: <strong>${to}</strong></div>
+              <div style="font-size: 14px; color: #334155;">Temporary Password: <strong style="font-family: monospace; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${payload.temporaryPassword}</strong></div>
+            </div>
+          ` : ''}
+          <div style="text-align: center; margin-bottom: 28px;">
+            <a href="${activationLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 28px; text-decoration: none; border-radius: 8px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+              Activate Account & Enter Classroom
+            </a>
+          </div>
+          <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; text-align: center; margin-bottom: 0;">
+            This invitation link is valid for 7 days. If you did not expect this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      `;
+      text = `Hello ${payload.name || 'Student'},\n\nYou have been enrolled in ${payload.courseTitle || 'your course'}.\n\nActivate your account: ${activationLink}\n\nTemporary Password: ${payload.temporaryPassword || 'N/A'}`;
+    } else {
+      subject = subject || 'Welcome to Education Operating System';
+      html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0f172a; font-size: 20px; font-weight: 800; margin-bottom: 12px;">Welcome to EducationOS, ${payload.name || 'User'}!</h2>
+          <p style="color: #475569; font-size: 14px; line-height: 1.6;">Your multi-tenant academic portal account is ready. Access the campus dashboard below:</p>
+          <div style="margin: 24px 0;">
+            <a href="${appUrl}/dashboard" style="background: #0f172a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px;">Open Dashboard</a>
+          </div>
+        </div>
+      `;
+      text = `Welcome to EducationOS, ${payload.name || 'User'}!\n\nOpen your dashboard: ${appUrl}/dashboard`;
+    }
+
+    const result = await mailProvider.sendMail({
+      to,
+      subject,
+      html,
+      text
+    });
+
+    console.log(`[Processor:email.send] Dispatched email to ${to} (id: ${result.id}, mock: ${!!result.mock})`);
+    return { success: true, emailId: result.id, mock: !!result.mock };
   },
 
   [JOBS.BILLING_RECURRING]: async (payload, job) => {

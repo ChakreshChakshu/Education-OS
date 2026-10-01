@@ -58,6 +58,23 @@ class OutboxPublisher {
           }
         };
 
+      case 'EnrollmentCreated':
+        return {
+          jobName: JOBS.EMAIL_SEND,
+          queueName: 'email',
+          payload: {
+            to: payload.studentEmail || payload.email,
+            subject: `Course Invitation: ${payload.courseTitle || 'Your Academic Curriculum'}`,
+            template: 'student_invitation',
+            name: payload.studentName || payload.name || 'Student',
+            courseTitle: payload.courseTitle || 'Enrolled Course',
+            courseCode: payload.courseCode || '',
+            temporaryPassword: payload.temporaryPassword || null,
+            activationToken: payload.activationToken || null,
+            activationUrl: payload.activationUrl || null
+          }
+        };
+
       case 'TenantCreated':
         return {
           jobName: JOBS.BILLING_RECURRING,

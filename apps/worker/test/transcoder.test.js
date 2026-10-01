@@ -88,3 +88,22 @@ test('Video transcoding processor executes MediaUploaded job with multi-bitrate 
   assert.deepEqual(result.variants, ['360p', '720p', '1080p']);
 });
 
+test('Email processor renders student invitation template and dispatches via ResendMailProvider', async () => {
+  const { PROCESSORS } = require('../src/processors');
+  const { JOBS } = require('../src/jobs');
+
+  const result = await PROCESSORS[JOBS.EMAIL_SEND]({
+    to: 'student.test@neon.edu',
+    template: 'student_invitation',
+    name: 'Test Student',
+    courseTitle: 'Enterprise Domain Architecture',
+    courseCode: 'CS-401',
+    temporaryPassword: 'Learn@9999',
+    activationToken: 'eyJhbGciOiJIUzI1Ni...'
+  });
+
+  assert.equal(result.success, true);
+  assert.ok(result.emailId);
+});
+
+

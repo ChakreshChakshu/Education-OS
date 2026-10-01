@@ -6,6 +6,6 @@
   "scripts": {
     "build": "echo \"infra-mail build: no-op\"",
     "lint": "eslint src/**/*.js",
-    "test": "echo \"infra-mail test: no-op\""
+    "test": "node --test test/mail.test.js"
   }
 }
