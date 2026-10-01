@@ -15,9 +15,10 @@ class ResendMailProvider extends MailProvider {
     }
 
     const recipient = Array.isArray(to) ? to : [to];
-    const fromSender = from || this.fromEmail;
+    const apiKey = this.apiKey || process.env.RESEND_API_KEY;
+    const fromSender = from || this.fromEmail || process.env.RESEND_FROM_EMAIL || 'EducationOS <onboarding@resend.dev>';
 
-    if (!this.apiKey) {
+    if (!apiKey) {
       console.warn('[ResendMailProvider] RESEND_API_KEY is not configured. Email logged in mock mode:');
       console.warn(`   To: ${recipient.join(', ')}`);
       console.warn(`   Subject: ${subject}`);
@@ -45,7 +46,7 @@ class ResendMailProvider extends MailProvider {
     const response = await this.fetchFn(`${this.baseUrl}/emails`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)

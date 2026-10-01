@@ -1,3 +1,8 @@
+const path = require('path');
+require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../../api/.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
+
 const { bootstrapWorker } = require('./bootstrap');
 const { startScheduler } = require('./scheduler');
 const { WorkerPool } = require('./workers');
