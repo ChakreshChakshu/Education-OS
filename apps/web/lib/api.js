@@ -289,9 +289,11 @@ class ApiClient {
 
   static async completeLesson({ studentUserId, lessonModuleId, batchId }) {
     try {
+      const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('eos_user') || '{}') : {};
+      const resolvedUserId = studentUserId || activeUser.id || activeUser.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/lessons/complete`, {
         method: 'POST',
-        body: JSON.stringify({ studentUserId, lessonModuleId, batchId })
+        body: JSON.stringify({ studentUserId: resolvedUserId, lessonModuleId, batchId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to complete lesson');
@@ -302,11 +304,27 @@ class ApiClient {
     }
   }
 
-  static async submitQuiz({ studentUserId, lessonModuleId, score, passingScore = 70 }) {
+  static async getCourseProgress(courseId, studentUserId) {
     try {
+      const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('eos_user') || '{}') : {};
+      const resolvedUserId = studentUserId || activeUser.id || activeUser.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/courses/${courseId}/progress?studentUserId=${resolvedUserId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch course progress');
+      return data;
+    } catch (err) {
+      console.error('API getCourseProgress Error:', err.message);
+      return { success: false, data: { completedLessonIds: [], progressPercent: 0 } };
+    }
+  }
+
+  static async submitQuiz({ studentUserId, lessonModuleId, score, passingScore = 70, batchId }) {
+    try {
+      const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('eos_user') || '{}') : {};
+      const resolvedUserId = studentUserId || activeUser.id || activeUser.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/quizzes/submit`, {
         method: 'POST',
-        body: JSON.stringify({ studentUserId, lessonModuleId, score, passingScore })
+        body: JSON.stringify({ studentUserId: resolvedUserId, lessonModuleId, score, passingScore, batchId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit quiz');

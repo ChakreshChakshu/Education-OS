@@ -47,6 +47,16 @@ class DrizzleStudentProgressRepository extends BaseRepository {
   }
 
   async findByStudentAndModule(studentUserId, lessonModuleId) {
+    if (!studentUserId || !lessonModuleId) return null;
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : null;
+    if (queryFn) {
+      const res = await queryFn(
+        'SELECT * FROM student_progress WHERE student_user_id = $1 AND lesson_module_id = $2 LIMIT 1',
+        [studentUserId, lessonModuleId]
+      );
+      return res.rows[0] ? DrizzleStudentProgressRepository.toDomain(res.rows[0]) : null;
+    }
+
     if (this.db && this.db.select) {
       const rows = await this.db
         .select()
@@ -54,8 +64,7 @@ class DrizzleStudentProgressRepository extends BaseRepository {
         .where(
           and(
             eq(this.table.studentUserId, studentUserId),
-            eq(this.table.lessonModuleId, lessonModuleId),
-            isNull(this.table.deletedAt)
+            eq(this.table.lessonModuleId, lessonModuleId)
           )
         )
         .limit(1);
@@ -65,8 +74,7 @@ class DrizzleStudentProgressRepository extends BaseRepository {
     for (const raw of this._progressStore.values()) {
       if (
         raw.studentUserId === studentUserId &&
-        raw.lessonModuleId === lessonModuleId &&
-        !raw.deletedAt
+        raw.lessonModuleId === lessonModuleId
       ) {
         return DrizzleStudentProgressRepository.toDomain(raw);
       }
@@ -74,15 +82,85 @@ class DrizzleStudentProgressRepository extends BaseRepository {
     return null;
   }
 
+  async findByStudent(studentUserId) {
+    if (!studentUserId) return [];
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : null;
+    if (queryFn) {
+      const res = await queryFn(
+        'SELECT * FROM student_progress WHERE student_user_id = $1 AND status = $2',
+        [studentUserId, 'COMPLETED']
+      );
+      return res.rows.map((r) => DrizzleStudentProgressRepository.toDomain(r)).filter(Boolean);
+    }
+
+    if (this.db && this.db.select) {
+      const rows = await this.db
+        .select()
+        .from(this.table)
+        .where(
+          and(
+            eq(this.table.studentUserId, studentUserId),
+            eq(this.table.status, 'COMPLETED')
+          )
+        );
+      return rows.map((r) => DrizzleStudentProgressRepository.toDomain(r)).filter(Boolean);
+    }
+
+    const results = [];
+    for (const raw of this._progressStore.values()) {
+      if (raw.studentUserId === studentUserId && raw.status === 'COMPLETED') {
+        const dom = DrizzleStudentProgressRepository.toDomain(raw);
+        if (dom) results.push(dom);
+      }
+    }
+    return results;
+  }
+
   async save(progress) {
     const raw = DrizzleStudentProgressRepository.toPersistence(progress);
+    this._progressStore.set(progress.id, raw);
+
+    const queryFn = this.db?.query ? this.db.query.bind(this.db) : null;
+    if (queryFn) {
+      await queryFn(`
+        INSERT INTO student_progress (id, student_user_id, batch_id, lesson_module_id, status, completed_at, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (id) DO UPDATE SET
+          status = EXCLUDED.status,
+          completed_at = EXCLUDED.completed_at,
+          updated_at = NOW();
+      `, [
+        raw.id,
+        raw.studentUserId,
+        raw.batchId || null,
+        raw.lessonModuleId,
+        raw.status,
+        raw.completedAt || new Date(),
+        raw.createdAt || new Date(),
+        raw.updatedAt || new Date()
+      ]);
+      return progress;
+    }
+
     if (this.db && this.db.insert) {
-      await this.db.insert(this.table).values(raw).onConflictDoUpdate({
+      await this.db.insert(this.table).values({
+        id: raw.id,
+        studentUserId: raw.studentUserId,
+        batchId: raw.batchId,
+        lessonModuleId: raw.lessonModuleId,
+        status: raw.status,
+        completedAt: raw.completedAt,
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt
+      }).onConflictDoUpdate({
         target: this.table.id,
-        set: raw
+        set: {
+          status: raw.status,
+          completedAt: raw.completedAt,
+          updatedAt: new Date()
+        }
       });
     }
-    this._progressStore.set(progress.id, raw);
     return progress;
   }
 }

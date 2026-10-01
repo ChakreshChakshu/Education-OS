@@ -215,6 +215,17 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
             setIsRealCurriculum(false);
           }
         }
+
+        // Fetch real student progress from Neon DB
+        try {
+          const resolvedUserId = user?.id || user?.userId;
+          const progressRes = await ApiClient.getCourseProgress(courseId, resolvedUserId);
+          if (progressRes?.success && progressRes?.data?.completedLessonIds && isMounted) {
+            setCompletedLessons(new Set(progressRes.data.completedLessonIds));
+          }
+        } catch (e) {
+          console.warn("Could not fetch initial progress:", e.message);
+        }
       } catch (err) {
         console.error("Failed to load course/curriculum:", err);
         if (isMounted) {
@@ -230,7 +241,7 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     return () => {
       isMounted = false;
     };
-  }, [courseId, lessonId, router]);
+  }, [courseId, lessonId, router, user?.id, user?.userId]);
 
   // 2. Synchronize Cloud Notes, Bookmarks, and Active Tab when current lesson changes
   useEffect(() => {
@@ -380,7 +391,23 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
   };
 
+  const markLessonComplete = async (id) => {
+    if (!id) return;
+    setCompletedLessons((prev) => {
+      if (prev.has(id)) return prev;
+      return new Set([...prev, id]);
+    });
+
+    const resolvedUserId = user?.id || user?.userId;
+    await ApiClient.completeLesson({
+      studentUserId: resolvedUserId,
+      lessonModuleId: id,
+      batchId: course?.batchId
+    });
+  };
+
   const toggleLessonComplete = async (id) => {
+    if (!id) return;
     const next = new Set(completedLessons);
     const isNowDone = !next.has(id);
     if (isNowDone) {
@@ -390,12 +417,21 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
     setCompletedLessons(next);
 
-    if (isNowDone && user?.id) {
+    if (isNowDone) {
+      const resolvedUserId = user?.id || user?.userId;
       await ApiClient.completeLesson({
-        studentUserId: user.id,
+        studentUserId: resolvedUserId,
         lessonModuleId: id,
         batchId: course?.batchId
       });
+    }
+  };
+
+  const handleVideoProgress = (currentTime) => {
+    setCurrentPlaybackTime(currentTime);
+    const duration = playerRef.current?.getDuration() || 0;
+    if (duration > 0 && currentTime / duration >= 0.9 && !completedLessons.has(currentLesson.id)) {
+      markLessonComplete(currentLesson.id);
     }
   };
 
@@ -420,17 +456,17 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     const correct = String(optionKey).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
     setQuizCorrect(correct);
     if (correct) {
-      setCompletedLessons(new Set([...completedLessons, currentLesson.id]));
+      markLessonComplete(currentLesson.id);
     }
 
-    if (user?.id) {
-      await ApiClient.submitQuiz({
-        studentUserId: user.id,
-        lessonModuleId: currentLesson.id,
-        score: correct ? 100 : 0,
-        passingScore: 70
-      });
-    }
+    const resolvedUserId = user?.id || user?.userId;
+    await ApiClient.submitQuiz({
+      studentUserId: resolvedUserId,
+      lessonModuleId: currentLesson.id,
+      score: correct ? 100 : 0,
+      passingScore: 70,
+      batchId: course?.batchId
+    });
   };
 
   const progressPercent = Math.round((completedLessons.size / allLessons.length) * 100);
@@ -530,8 +566,8 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                 src={currentLesson.hlsUrl || currentLesson.contentUrl}
                 title={currentLesson.title}
                 chapters={currentLesson.chapters || []}
-                onTimeUpdate={(t) => setCurrentPlaybackTime(t)}
-                onEnded={() => toggleLessonComplete(currentLesson.id)}
+                onTimeUpdate={(t) => handleVideoProgress(t)}
+                onEnded={() => markLessonComplete(currentLesson.id)}
               />
 
               {/* Player Quick Action Toolbar */}
@@ -617,13 +653,13 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                     </a>
                   )}
                   <Button
-                    onClick={() => toggleLessonComplete(currentLesson.id)}
+                    onClick={() => markLessonComplete(currentLesson.id)}
                     variant={completedLessons.has(currentLesson.id) ? "success" : "default"}
                     size="sm"
                     className="gap-2 font-bold"
                   >
                     <CheckCircle size={16} weight="bold" />
-                    <span>{completedLessons.has(currentLesson.id) ? "Marked Complete" : "Mark as Read"}</span>
+                    <span>{completedLessons.has(currentLesson.id) ? "Marked Complete" : "Mark as Read & Complete"}</span>
                   </Button>
                 </div>
               </div>
@@ -1259,6 +1295,19 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
             {/* TAB 2: COURSE CURRICULUM SYLLABUS */}
             {rightDrawerTab === "curriculum" && (
               <CardContent className="p-3 space-y-4 animate-in fade-in duration-150">
+                <div className="p-3 border border-border/80 bg-muted/20 rounded-xl mb-1 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-muted-foreground">Course Completion</span>
+                    <span className="text-primary font-mono font-extrabold">{progressPercent}%</span>
+                  </div>
+                  <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+
                 {modules.map((mod) => (
                   <div key={mod.id} className="space-y-1.5">
                     <div className="px-2 py-1 text-[11px] uppercase font-bold text-muted-foreground/80 tracking-wider">

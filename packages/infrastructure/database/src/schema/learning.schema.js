@@ -55,7 +55,8 @@ const studentProgressTable = pgTable(
     lessonModuleId: uuid('lesson_module_id').notNull().references(() => lessonModulesTable.id),
     status: varchar('status', { length: 50 }).notNull().default('COMPLETED'),
     completedAt: timestamp('completed_at', { withTimezone: true }).notNull().defaultNow(),
-    ...auditColumns
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     studentIdx: index('idx_sp_student_id').on(table.studentUserId),

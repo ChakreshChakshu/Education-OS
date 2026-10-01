@@ -203,6 +203,17 @@ test('POST /api/v1/internal/learning/lessons/complete records lesson completion'
   const app = await buildApp();
   const tenantId = await getOrCreateTestTenant(app);
   const studentUserId = crypto.randomUUID();
+  const userRepo = container.resolve('UserRepository');
+  const { User } = require('../src/bootstrap/domain-bridge').identityDomain.domain;
+  const student = User.create(
+    {
+      email: `student_${Date.now()}_${crypto.randomBytes(4).toString('hex')}@test.com`,
+      passwordHash: 'hashed_pw',
+      name: 'Test Student'
+    },
+    studentUserId
+  ).getValue();
+  await userRepo.save(student);
 
   // Create prerequisite course to satisfy FK
   const courseRes = await app.inject({
@@ -409,4 +420,91 @@ test('Lesson modules support CRUD: create, update, list, and delete', async () =
   const listAfterDelData = JSON.parse(listAfterDel.payload).data;
   assert.equal(listAfterDelData.some(m => m.id === createdMod.id), false);
 });
+
+test('Student progress tracking: complete lesson and query course progress', async () => {
+  const app = await buildApp();
+  const tenantId = await getOrCreateTestTenant(app);
+  const userRepo = container.resolve('UserRepository');
+  const moduleRepo = container.resolve('LessonModuleRepository');
+  const { User } = require('../src/bootstrap/domain-bridge').identityDomain.domain;
+
+  // Create prerequisite course to satisfy FK
+  const courseRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/academics/courses',
+    headers: { 'x-tenant-id': tenantId },
+    payload: {
+      tenantId,
+      title: 'Progress Tracking 101',
+      code: `PRG-${Date.now().toString().slice(-4)}`
+    }
+  });
+  const courseId = JSON.parse(courseRes.payload).data.id;
+
+  const module1 = {
+    id: crypto.randomUUID(),
+    courseId,
+    title: 'Lesson 1: Outbox Fundamentals',
+    contentType: 'VIDEO',
+    order: 1,
+    status: 'PUBLISHED',
+    props: { createdAt: new Date() }
+  };
+  const module2 = {
+    id: crypto.randomUUID(),
+    courseId,
+    title: 'Lesson 2: Dequeuing Workers',
+    contentType: 'DOCUMENT',
+    order: 2,
+    status: 'PUBLISHED',
+    props: { createdAt: new Date() }
+  };
+  await moduleRepo.save(module1);
+  await moduleRepo.save(module2);
+
+  const testStudentId = crypto.randomUUID();
+  const studentProgressUser = User.create(
+    {
+      email: `student_prog_${Date.now()}_${crypto.randomBytes(4).toString('hex')}@test.com`,
+      passwordHash: 'hashed_pw',
+      name: 'Progress Student'
+    },
+    testStudentId
+  ).getValue();
+  await userRepo.save(studentProgressUser);
+
+  // 1. Initially 0% progress
+  const initialProgRes = await app.inject({
+    method: 'GET',
+    url: `/api/v1/internal/learning/courses/${courseId}/progress?studentUserId=${testStudentId}`
+  });
+  assert.equal(initialProgRes.statusCode, 200);
+  const initialProg = JSON.parse(initialProgRes.payload).data;
+  assert.equal(initialProg.progressPercent, 0);
+  assert.equal(initialProg.completedLessonIds.length, 0);
+  assert.equal(initialProg.totalModules, 2);
+
+  // 2. Complete Lesson 1
+  const completeRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/internal/learning/lessons/complete',
+    payload: {
+      studentUserId: testStudentId,
+      lessonModuleId: module1.id
+    }
+  });
+  assert.equal(completeRes.statusCode, 200);
+
+  // 3. Query progress -> 50%
+  const updatedProgRes = await app.inject({
+    method: 'GET',
+    url: `/api/v1/internal/learning/courses/${courseId}/progress?studentUserId=${testStudentId}`
+  });
+  assert.equal(updatedProgRes.statusCode, 200);
+  const updatedProg = JSON.parse(updatedProgRes.payload).data;
+  assert.equal(updatedProg.progressPercent, 50);
+  assert.equal(updatedProg.completedCount, 1);
+  assert.equal(updatedProg.completedLessonIds.includes(module1.id), true);
+});
+
 

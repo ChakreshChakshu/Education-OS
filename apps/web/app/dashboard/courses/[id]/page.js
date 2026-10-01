@@ -51,6 +51,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
   const [optD, setOptD] = useState("");
   const [correctOpt, setCorrectOpt] = useState("A");
   const [hlsUrl, setHlsUrl] = useState("");
+  const [courseProgress, setCourseProgress] = useState({ completedLessonIds: [], progressPercent: 0, completedCount: 0 });
 
   useEffect(() => {
     async function loadCourseData() {
@@ -79,6 +80,17 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       if (modulesRes.success && Array.isArray(modulesRes.data)) {
         setModules(modulesRes.data);
       }
+
+      // Load Progress
+      try {
+        const progRes = await ApiClient.getCourseProgress(courseId);
+        if (progRes.success && progRes.data) {
+          setCourseProgress(progRes.data);
+        }
+      } catch (e) {
+        console.warn("Could not fetch course progress:", e.message);
+      }
+
       setLoading(false);
     }
 
@@ -237,21 +249,41 @@ export default function CourseDetailPage({ params: paramsPromise }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Link href={`/dashboard/courses/${courseId}/lesson/${modules[0]?.id || "default"}`}>
-              <Button size="lg" variant="default" className="gap-2 font-bold bg-primary text-primary-foreground">
-                <PlayCircle size={22} weight="bold" /> Student Classroom
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
+            {modules.length > 0 && (
+              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border min-w-[170px]">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-muted-foreground">My Progress</span>
+                  <span className="text-primary font-mono font-extrabold">{courseProgress.progressPercent || 0}%</span>
+                </div>
+                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${courseProgress.progressPercent || 0}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {courseProgress.completedCount || (courseProgress.completedLessonIds?.length || 0)} of {modules.length} completed
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link href={`/dashboard/courses/${courseId}/lesson/${modules[0]?.id || "default"}`}>
+                <Button size="lg" variant="default" className="gap-2 font-bold bg-primary text-primary-foreground shadow-xs">
+                  <PlayCircle size={22} weight="bold" /> Student Classroom
+                </Button>
+              </Link>
+              <Button onClick={() => setModalType("VIDEO")} variant="secondary" size="lg" className="gap-2 font-bold">
+                <Video size={20} weight="bold" /> Add Video
               </Button>
-            </Link>
-            <Button onClick={() => setModalType("VIDEO")} variant="secondary" size="lg" className="gap-2 font-bold">
-              <Video size={20} weight="bold" /> Add Video
-            </Button>
-            <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="lg" className="gap-2 font-bold">
-              <FileText size={20} weight="bold" /> Add Reading
-            </Button>
-            <Button onClick={() => setModalType("QUIZ")} variant="outline" size="lg" className="gap-2 font-bold">
-              <CheckSquare size={20} weight="bold" /> Add Quiz
-            </Button>
+              <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="lg" className="gap-2 font-bold">
+                <FileText size={20} weight="bold" /> Add Reading
+              </Button>
+              <Button onClick={() => setModalType("QUIZ")} variant="outline" size="lg" className="gap-2 font-bold">
+                <CheckSquare size={20} weight="bold" /> Add Quiz
+              </Button>
+            </div>
           </div>
         </div>
       </div>
