@@ -19,6 +19,7 @@ test('R2StorageProvider constructs Cloudflare R2 URLs and presigned targets', as
     bucketName: 'production-media',
     publicDomain: 'https://cdn.skillyards.com'
   });
+  provider.client = { send: async () => ({}) };
 
   const uploadRes = await provider.upload('videos/intro.mp4', Buffer.from('video-stream'), 'video/mp4');
   assert.equal(uploadRes.key, 'videos/intro.mp4');

@@ -101,7 +101,7 @@ class R2StorageProvider extends StorageProvider {
   }
 
   async getSignedUrl(key, expiresInSeconds = 3600) {
-    if (this.client && PutObjectCommand && getSignedUrl) {
+    if (this.client && this.client.config && PutObjectCommand && getSignedUrl) {
       const command = new PutObjectCommand({
         Bucket: this.config.bucketName,
         Key: key
@@ -114,7 +114,7 @@ class R2StorageProvider extends StorageProvider {
   }
 
   async getSignedGetUrl(key, expiresInSeconds = 86400) {
-    if (this.client && GetObjectCommand && getSignedUrl) {
+    if (this.client && this.client.config && GetObjectCommand && getSignedUrl) {
       const command = new GetObjectCommand({
         Bucket: this.config.bucketName,
         Key: key

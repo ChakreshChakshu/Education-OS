@@ -28,7 +28,10 @@ import {
   ArrowsClockwise,
   BookmarkSimple,
   Plus,
-  Trash
+  Trash,
+  Video,
+  CheckSquare,
+  ArrowSquareOut
 } from "@phosphor-icons/react";
 
 export default function ClassroomLessonPage({ params: paramsPromise }) {
@@ -127,36 +130,129 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
   ];
 
-  // Flattened lessons list
-  const allLessons = defaultModules.flatMap((m) => m.lessons);
+  const [isRealCurriculum, setIsRealCurriculum] = useState(false);
+
+  // Dynamic syllabus calculations: derives from real Neon DB modules or demo fallback
+  const activeModules = modules.length > 0 ? modules : defaultModules;
+  const allLessons = activeModules.flatMap((m) => m.lessons || []);
   const currentLessonIndex = allLessons.findIndex((l) => l.id === lessonId);
-  const currentLesson = allLessons[currentLessonIndex] || allLessons[0];
-  const nextLesson = allLessons[currentLessonIndex + 1] || null;
-  const prevLesson = allLessons[currentLessonIndex - 1] || null;
+  const currentLesson = currentLessonIndex !== -1 ? allLessons[currentLessonIndex] : allLessons[0] || {
+    id: lessonId,
+    title: "Lesson Module",
+    contentType: "VIDEO",
+    chapters: []
+  };
+  const nextLesson = currentLessonIndex !== -1 && currentLessonIndex < allLessons.length - 1 ? allLessons[currentLessonIndex + 1] : null;
+  const prevLesson = currentLessonIndex > 0 ? allLessons[currentLessonIndex - 1] : null;
 
+  // 1. Initial Load: Fetch Course and Real Modules in parallel
   useEffect(() => {
-    async function loadCourse() {
+    let isMounted = true;
+    async function loadCourseAndModules() {
       setLoading(true);
-      const res = await ApiClient.getCourseById(courseId);
-      if (res.success && res.data) {
-        setCourse(res.data);
-      } else {
-        setCourse({
-          id: courseId,
-          code: "EOS-401",
-          title: "Enterprise Educational Operating System Architecture"
-        });
-      }
-      setModules(defaultModules);
-
-      // 1. Initial responsive populate from local buffer
-      const localNotes = typeof window !== "undefined" ? localStorage.getItem(`eos_notes_${currentLesson.id}`) || "" : "";
-      setStudentNotes(localNotes);
-
-      // 2. Fetch authoritative cloud notes from Neon DB
       try {
-        const cloudRes = await ApiClient.getLessonNotes(currentLesson.id);
-        if (cloudRes.success && cloudRes.data && cloudRes.data.content !== undefined) {
+        const [courseRes, modulesRes] = await Promise.all([
+          ApiClient.getCourseById(courseId),
+          ApiClient.getCourseModules(courseId)
+        ]);
+
+        let courseData = null;
+        if (courseRes?.success && courseRes?.data) {
+          courseData = courseRes.data;
+          if (isMounted) setCourse(courseData);
+        } else {
+          if (isMounted) {
+            setCourse({
+              id: courseId,
+              code: "EOS-401",
+              title: "Enterprise Educational Operating System Architecture"
+            });
+          }
+        }
+
+        if (modulesRes?.success && Array.isArray(modulesRes.data) && modulesRes.data.length > 0) {
+          const realLessons = modulesRes.data.map((m, idx) => {
+            let parsedQuiz = m.quiz;
+            if (typeof parsedQuiz === "string") {
+              try {
+                parsedQuiz = JSON.parse(parsedQuiz);
+              } catch (e) {
+                parsedQuiz = null;
+              }
+            }
+
+            return {
+              id: m.id,
+              title: m.title,
+              duration: m.duration || (m.contentType === "QUIZ" ? "05:00" : m.contentType === "DOCUMENT" ? "10:00" : "15:00"),
+              contentType: m.contentType || "VIDEO",
+              hlsUrl: m.hlsUrl || (m.contentUrl && (m.contentUrl.includes(".m3u8") || m.contentUrl.includes(".mp4")) ? m.contentUrl : null),
+              contentUrl: m.contentUrl || null,
+              fallbackUrl: m.contentUrl || null,
+              chapters: m.chapters || [],
+              quiz: parsedQuiz
+            };
+          });
+
+          if (isMounted) {
+            setModules([
+              {
+                id: "mod_real_root",
+                title: courseData?.title ? `${courseData.title} Syllabus` : "Course Curriculum",
+                lessons: realLessons
+              }
+            ]);
+            setIsRealCurriculum(true);
+
+            // Canonicalize URL if lessonId does not match any real lesson
+            if (realLessons.length > 0 && !realLessons.some((l) => l.id === lessonId)) {
+              router.replace(`/dashboard/courses/${courseId}/lesson/${realLessons[0].id}`);
+            }
+          }
+        } else {
+          if (isMounted) {
+            setModules(defaultModules);
+            setIsRealCurriculum(false);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load course/curriculum:", err);
+        if (isMounted) {
+          setModules(defaultModules);
+          setIsRealCurriculum(false);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadCourseAndModules();
+    return () => {
+      isMounted = false;
+    };
+  }, [courseId, lessonId, router]);
+
+  // 2. Synchronize Cloud Notes, Bookmarks, and Active Tab when current lesson changes
+  useEffect(() => {
+    if (!currentLesson?.id) return;
+
+    // Set appropriate initial tab based on content type
+    if (currentLesson.contentType === "DOCUMENT") {
+      setActiveTab("notes");
+    } else if (currentLesson.contentType === "QUIZ") {
+      setActiveTab("quiz");
+    } else {
+      setActiveTab(currentLesson.chapters && currentLesson.chapters.length > 0 ? "chapters" : "notes");
+    }
+
+    // A. Populate from local storage buffer immediately
+    const localNotes = typeof window !== "undefined" ? localStorage.getItem(`eos_notes_${currentLesson.id}`) || "" : "";
+    setStudentNotes(localNotes);
+
+    // B. Fetch authoritative cloud notes from Neon DB
+    ApiClient.getLessonNotes(currentLesson.id)
+      .then((cloudRes) => {
+        if (cloudRes?.success && cloudRes?.data && cloudRes.data.content !== undefined) {
           const cloudContent = cloudRes.data.content;
           if (cloudContent) {
             setStudentNotes(cloudContent);
@@ -164,37 +260,37 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               localStorage.setItem(`eos_notes_${currentLesson.id}`, cloudContent);
             }
           } else if (localNotes) {
-            // Local notes exist but cloud is empty -> push local to cloud
             ApiClient.saveLessonNotes(currentLesson.id, localNotes);
           }
           setNotesSyncStatus("synced");
         } else {
           setNotesSyncStatus(localNotes ? "offline" : "synced");
         }
-      } catch (err) {
-        // Non-fatal fallback
-      }
+      })
+      .catch(() => {});
 
-      // 3. Fetch authoritative cloud bookmarks from Neon DB
-      try {
-        const bmRes = await ApiClient.getLessonBookmarks(currentLesson.id);
+    // C. Fetch authoritative cloud bookmarks from Neon DB
+    ApiClient.getLessonBookmarks(currentLesson.id)
+      .then((bmRes) => {
         if (bmRes?.success && Array.isArray(bmRes.data)) {
           setBookmarks(bmRes.data);
+        } else {
+          setBookmarks([]);
         }
-      } catch (err) {
-        // Non-fatal fallback
-      }
+      })
+      .catch(() => {});
 
-      setLoading(false);
-    }
-    loadCourse();
+    // D. Reset quiz evaluation state for this lesson
+    setSelectedOption(null);
+    setQuizSubmitted(false);
+    setQuizCorrect(false);
 
     return () => {
       if (notesSaveTimerRef.current) {
         clearTimeout(notesSaveTimerRef.current);
       }
     };
-  }, [courseId, lessonId, currentLesson.id]);
+  }, [currentLesson?.id, currentLesson?.contentType]);
 
   const handleNotesChange = (e) => {
     const val = e.target.value;
@@ -303,10 +399,25 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
   };
 
+  const resolvedQuiz = currentLesson.quiz && Array.isArray(currentLesson.quiz.options) && currentLesson.quiz.options.length > 0
+    ? currentLesson.quiz
+    : {
+        question: "In the Transactional Outbox pattern, why are domain events written to the database instead of directly published to message queues?",
+        options: [
+          { key: "A", text: "Because message queues cannot store JSON payloads" },
+          { key: "B", text: "To eliminate dual-write partial failures by participating in the same database transaction" },
+          { key: "C", text: "To avoid encrypting network packets over HTTP" },
+          { key: "D", text: "Because PostgreSQL has higher throughput than all external message brokers" }
+        ],
+        correct: "B",
+        explanation: "Relational DB commits guarantee that business state and outbox event records are saved atomically, eliminating dual-write failures."
+      };
+
   const handleQuizAnswer = async (optionKey) => {
     setSelectedOption(optionKey);
     setQuizSubmitted(true);
-    const correct = optionKey === "B";
+    const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
+    const correct = String(optionKey).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
     setQuizCorrect(correct);
     if (correct) {
       setCompletedLessons(new Set([...completedLessons, currentLesson.id]));
@@ -411,12 +522,12 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: PLAYER & INTERACTIVE WORKSPACE (8 COLS) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Custom HLS Video Player */}
+          {/* Main Content Stage: VIDEO, DOCUMENT, or QUIZ */}
           {currentLesson.contentType === "VIDEO" ? (
             <div className="space-y-3">
               <HlsVideoPlayer
                 ref={playerRef}
-                src={currentLesson.hlsUrl}
+                src={currentLesson.hlsUrl || currentLesson.contentUrl}
                 title={currentLesson.title}
                 chapters={currentLesson.chapters || []}
                 onTimeUpdate={(t) => setCurrentPlaybackTime(t)}
@@ -458,53 +569,191 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                 </div>
               </div>
             </div>
-          ) : (
-            /* Quiz / Text Lesson Stage */
-            <Card className="p-8 bg-card border-border rounded-2xl text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto">
-                <Question size={32} weight="bold" />
+          ) : currentLesson.contentType === "DOCUMENT" ? (
+            /* Document / PDF Reader Stage */
+            <div className="space-y-3">
+              <div className="relative w-full aspect-[4/3] md:aspect-[16/10] bg-muted/20 border border-border rounded-2xl overflow-hidden shadow-xs flex flex-col">
+                {currentLesson.contentUrl ? (
+                  <iframe
+                    src={currentLesson.contentUrl}
+                    title={currentLesson.title}
+                    className="w-full h-full border-0 bg-card"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center flex-1 p-8 text-center text-muted-foreground space-y-3">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                      <FileText size={32} weight="bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-base font-bold text-foreground">Reading Document Module</p>
+                      <p className="text-xs max-w-sm">No source document URL attached to this module yet.</p>
+                    </div>
+                  </div>
+                )}
               </div>
-              <h2 className="text-xl font-bold">{currentLesson.title}</h2>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Complete the checkpoint evaluation below to advance your course progress.
-              </p>
+
+              {/* Document Action Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-card border border-border">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono text-[10px] font-bold uppercase gap-1">
+                    <FileText size={12} weight="bold" />
+                    <span>PDF / Document</span>
+                  </Badge>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    Interactive Reading Material
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {currentLesson.contentUrl && (
+                    <a
+                      href={currentLesson.contentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold text-foreground transition-colors"
+                    >
+                      <ArrowSquareOut size={14} weight="bold" />
+                      <span>Open in New Tab</span>
+                    </a>
+                  )}
+                  <Button
+                    onClick={() => toggleLessonComplete(currentLesson.id)}
+                    variant={completedLessons.has(currentLesson.id) ? "success" : "default"}
+                    size="sm"
+                    className="gap-2 font-bold"
+                  >
+                    <CheckCircle size={16} weight="bold" />
+                    <span>{completedLessons.has(currentLesson.id) ? "Marked Complete" : "Mark as Read"}</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Quiz / Knowledge Assessment Stage */
+            <Card className="border-border bg-card p-6 md:p-8 rounded-2xl space-y-6 shadow-sm">
+              <div className="flex items-center justify-between border-b border-border/80 pb-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono text-xs font-bold uppercase gap-1">
+                    <CheckSquare size={13} weight="bold" className="text-primary" />
+                    <span>Knowledge Checkpoint</span>
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px] font-mono">
+                    Passing: 70%
+                  </Badge>
+                </div>
+                {quizSubmitted && (
+                  <Badge variant={quizCorrect ? "success" : "destructive"} className="font-bold">
+                    {quizCorrect ? "PASSED (100%)" : "FAILED (0%)"}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-lg md:text-xl font-extrabold text-foreground leading-snug">
+                  {resolvedQuiz.question}
+                </h2>
+
+                <div className="space-y-2.5">
+                  {(resolvedQuiz.options || []).map((opt) => {
+                    const isSelected = selectedOption === opt.key;
+                    const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
+                    const isAnswerCorrect = String(opt.key).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
+
+                    let btnStyle = "border-border hover:bg-muted/50 hover:border-primary/40 text-foreground";
+                    if (quizSubmitted) {
+                      if (isAnswerCorrect) {
+                        btnStyle = "bg-emerald-500/10 border-emerald-500/60 text-emerald-400 font-bold";
+                      } else if (isSelected) {
+                        btnStyle = "bg-red-500/10 border-red-500/60 text-red-400";
+                      }
+                    } else if (isSelected) {
+                      btnStyle = "bg-primary/10 border-primary text-primary font-bold";
+                    }
+
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => handleQuizAnswer(opt.key)}
+                        disabled={quizSubmitted}
+                        className={`w-full flex items-center gap-3.5 p-4 rounded-xl border text-left text-sm font-medium transition-all ${btnStyle}`}
+                      >
+                        <span className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center font-mono font-extrabold text-xs shrink-0">
+                          {opt.key}
+                        </span>
+                        <span className="flex-1">{opt.text}</span>
+                        {quizSubmitted && isAnswerCorrect && (
+                          <CheckCircle size={18} weight="fill" className="text-emerald-500 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {quizSubmitted && (
+                  <div
+                    className={`p-4 rounded-xl border text-xs leading-relaxed animate-in fade-in duration-200 ${
+                      quizCorrect
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-medium"
+                        : "bg-red-500/10 border-red-500/30 text-red-400 font-medium"
+                    }`}
+                  >
+                    {quizCorrect ? (
+                      <div className="space-y-1">
+                        <strong className="block text-sm">Correct Answer!</strong>
+                        <span>{resolvedQuiz.explanation || "Domain entity checks validated. Your score has been submitted to your academic record."}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <strong className="block text-sm">Review Needed</strong>
+                        <span>
+                          Option {resolvedQuiz.correct || "A"} is correct. {resolvedQuiz.explanation || "Re-review the prerequisite module materials and retry."}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </Card>
           )}
 
           {/* Interactive Workspace Navigation Tabs */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-border pb-1 overflow-x-auto">
-              <button
-                onClick={() => setActiveTab("chapters")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeTab === "chapters"
-                    ? "bg-secondary text-secondary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <ListBullets size={16} weight="bold" />
-                <span>Chapters</span>
-                {currentLesson.chapters && (
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
-                    {currentLesson.chapters.length}
-                  </span>
-                )}
-              </button>
+              {currentLesson.contentType === "VIDEO" && (
+                <button
+                  onClick={() => setActiveTab("chapters")}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    activeTab === "chapters"
+                      ? "bg-secondary text-secondary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <ListBullets size={16} weight="bold" />
+                  <span>Chapters</span>
+                  {currentLesson.chapters && currentLesson.chapters.length > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
+                      {currentLesson.chapters.length}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab("bookmarks")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeTab === "bookmarks"
-                    ? "bg-secondary text-secondary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <BookmarkSimple size={16} weight="bold" />
-                <span>Bookmarks</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
-                  {bookmarks.length}
-                </span>
-              </button>
+              {currentLesson.contentType === "VIDEO" && (
+                <button
+                  onClick={() => setActiveTab("bookmarks")}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    activeTab === "bookmarks"
+                      ? "bg-secondary text-secondary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <BookmarkSimple size={16} weight="bold" />
+                  <span>Bookmarks</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
+                    {bookmarks.length}
+                  </span>
+                </button>
+              )}
 
               <button
                 onClick={() => setActiveTab("notes")}
@@ -521,17 +770,19 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                 )}
               </button>
 
-              <button
-                onClick={() => setActiveTab("quiz")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeTab === "quiz"
-                    ? "bg-secondary text-secondary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <Sparkle size={16} weight="bold" />
-                <span>Knowledge Check</span>
-              </button>
+              {currentLesson.contentType === "VIDEO" && (
+                <button
+                  onClick={() => setActiveTab("quiz")}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    activeTab === "quiz"
+                      ? "bg-secondary text-secondary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Sparkle size={16} weight="bold" />
+                  <span>Knowledge Check</span>
+                </button>
+              )}
             </div>
 
             {/* Tab 1: Chapters & Milestones */}
@@ -769,44 +1020,57 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               </div>
             )}
 
-            {/* Tab 3: Knowledge Check Quiz */}
+            {/* Tab: Knowledge Check Quiz */}
             {activeTab === "quiz" && (
               <Card className="border-border bg-card p-6 rounded-2xl animate-in fade-in duration-200">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                    <Sparkle size={16} weight="bold" />
-                    <span>Quick Architecture Checkpoint</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                      <Sparkle size={16} weight="bold" />
+                      <span>Knowledge Checkpoint</span>
+                    </div>
+                    {quizSubmitted && (
+                      <Badge variant={quizCorrect ? "success" : "destructive"} className="text-[11px] font-bold">
+                        {quizCorrect ? "PASSED (100%)" : "FAILED (0%)"}
+                      </Badge>
+                    )}
                   </div>
 
                   <h3 className="text-base font-bold text-foreground">
-                    In the Transactional Outbox pattern, why are domain events written to the database instead of directly published to message queues?
+                    {resolvedQuiz.question}
                   </h3>
 
                   <div className="space-y-2">
-                    {[
-                      { key: "A", text: "Because message queues cannot store JSON payloads" },
-                      { key: "B", text: "To eliminate dual-write partial failures by participating in the same database transaction" },
-                      { key: "C", text: "To avoid encrypting network packets over HTTP" },
-                      { key: "D", text: "Because PostgreSQL has higher throughput than all external message brokers" }
-                    ].map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => handleQuizAnswer(opt.key)}
-                        disabled={quizSubmitted}
-                        className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left text-sm font-medium transition-all ${
-                          selectedOption === opt.key
-                            ? opt.key === "B"
-                              ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
-                              : "bg-red-500/10 border-red-500/50 text-red-400"
-                            : "border-border hover:bg-muted/50 hover:border-primary/40 text-foreground"
-                        }`}
-                      >
-                        <span className="h-6 w-6 rounded-lg bg-muted flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                          {opt.key}
-                        </span>
-                        <span>{opt.text}</span>
-                      </button>
-                    ))}
+                    {(resolvedQuiz.options || []).map((opt) => {
+                      const isSelected = selectedOption === opt.key;
+                      const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
+                      const isAnswerCorrect = String(opt.key).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
+
+                      let btnStyle = "border-border hover:bg-muted/50 hover:border-primary/40 text-foreground";
+                      if (quizSubmitted) {
+                        if (isAnswerCorrect) {
+                          btnStyle = "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 font-bold";
+                        } else if (isSelected) {
+                          btnStyle = "bg-red-500/10 border-red-500/50 text-red-400";
+                        }
+                      } else if (isSelected) {
+                        btnStyle = "bg-primary/10 border-primary text-primary font-bold";
+                      }
+
+                      return (
+                        <button
+                          key={opt.key}
+                          onClick={() => handleQuizAnswer(opt.key)}
+                          disabled={quizSubmitted}
+                          className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left text-sm font-medium transition-all ${btnStyle}`}
+                        >
+                          <span className="h-6 w-6 rounded-lg bg-muted flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                            {opt.key}
+                          </span>
+                          <span>{opt.text}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {quizSubmitted && (
@@ -819,11 +1083,11 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                     >
                       {quizCorrect ? (
                         <span>
-                          <strong>Correct!</strong> Relational DB commits guarantee that business state and outbox event records are saved atomically, eliminating dual-write failures.
+                          <strong>Correct!</strong> {resolvedQuiz.explanation || "Domain entity checks validated. Your score has been submitted to your academic transcript."}
                         </span>
                       ) : (
                         <span>
-                          <strong>Incorrect.</strong> Option B is correct: External queues cannot join ACID database transactions, causing dual-write race conditions.
+                          <strong>Incorrect.</strong> Option {resolvedQuiz.correct || "A"} is correct: {resolvedQuiz.explanation || "Review course material and retry."}
                         </span>
                       )}
                     </div>
@@ -1021,8 +1285,12 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                                 <CheckCircle size={16} weight="fill" className="text-emerald-500 shrink-0" />
                               ) : isActive ? (
                                 <PlayCircle size={16} weight="fill" className="text-primary shrink-0 animate-pulse" />
+                              ) : les.contentType === "DOCUMENT" ? (
+                                <FileText size={16} className="text-muted-foreground shrink-0" />
+                              ) : les.contentType === "QUIZ" ? (
+                                <CheckSquare size={16} className="text-muted-foreground shrink-0" />
                               ) : (
-                                <Circle size={16} className="text-muted-foreground shrink-0" />
+                                <Video size={16} className="text-muted-foreground shrink-0" />
                               )}
                               <span className="line-clamp-1">{les.title}</span>
                             </div>

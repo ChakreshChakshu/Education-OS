@@ -185,7 +185,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Link href={`/dashboard/courses/${courseId}/learn`}>
+            <Link href={`/dashboard/courses/${courseId}/lesson/${modules[0]?.id || "default"}`}>
               <Button size="lg" variant="default" className="gap-2 font-bold bg-primary text-primary-foreground">
                 <PlayCircle size={22} weight="bold" /> Student Classroom
               </Button>
@@ -289,6 +289,12 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      <Link href={`/dashboard/courses/${courseId}/lesson/${mod.id}`}>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 text-xs border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-primary">
+                          <PlayCircle size={16} weight="bold" />
+                          <span>Enter Lesson</span>
+                        </Button>
+                      </Link>
                       <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
                         <Pencil size={18} />
                       </Button>
