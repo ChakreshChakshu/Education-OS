@@ -522,6 +522,20 @@ class ApiClient {
     }
   }
 
+  static async deleteEnrollment(id) {
+    try {
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments/${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete enrollment');
+      return data;
+    } catch (err) {
+      console.error('API deleteEnrollment Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
   static async getBatches(courseId) {
     try {
       const qs = courseId ? `?courseId=${courseId}` : '';

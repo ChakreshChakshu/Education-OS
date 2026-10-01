@@ -367,17 +367,19 @@ async function academicsRoutes(fastify, options) {
         request.user?.tenantId ||
         '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
 
-      const studentUserId =
-        request.body.studentUserId ||
-        request.user?.userId ||
-        request.user?.id;
+      // Only fallback to logged-in user if neither studentUserId NOR studentEmail was provided (self-enrollment)
+      const isSelfEnrollment = !request.body.studentUserId && !request.body.studentEmail;
+
+      const studentUserId = request.body.studentUserId || (isSelfEnrollment ? (request.user?.userId || request.user?.id) : null);
+      const studentEmail = request.body.studentEmail || (isSelfEnrollment ? request.user?.email : null);
+      const studentName = request.body.studentName || (isSelfEnrollment ? request.user?.name : null);
 
       const useCase = container.resolve('EnrollStudentUseCase');
       const result = await useCase.execute({
         tenantId,
         studentUserId,
-        studentEmail: request.body.studentEmail || request.user?.email,
-        studentName: request.body.studentName || request.user?.name,
+        studentEmail,
+        studentName,
         courseId: request.body.courseId,
         batchId: request.body.batchId,
         temporaryPassword: request.body.temporaryPassword
@@ -387,9 +389,40 @@ async function academicsRoutes(fastify, options) {
         return reply.status(400).send({ success: false, error: result.error });
       }
 
+      const enrollmentData = result.getValue();
+
+      // Emit outbox event to dispatch transactional email via background worker
+      try {
+        const outboxRepo = container.resolve('OutboxRepository');
+        const courseRepo = container.resolve('CourseRepository');
+        const course = await courseRepo.findById(request.body.courseId);
+        const studentObj = enrollmentData.student || {};
+
+        await outboxRepo.create({
+          eventName: 'EnrollmentCreated',
+          aggregateType: 'Enrollment',
+          aggregateId: enrollmentData.id,
+          payload: {
+            enrollmentId: enrollmentData.id,
+            tenantId,
+            courseId: request.body.courseId,
+            courseTitle: course?.title || 'Academic Curriculum',
+            courseCode: course?.code?.value || course?.code || '',
+            studentUserId: enrollmentData.studentUserId,
+            studentEmail: studentObj.email || studentEmail,
+            studentName: studentObj.name || studentName || 'Student',
+            temporaryPassword: enrollmentData.temporaryPassword || null,
+            activationToken: enrollmentData.activationToken || null,
+            activationUrl: enrollmentData.activationUrl ? `${process.env.APP_URL || 'http://localhost:3000'}${enrollmentData.activationUrl}` : null
+          }
+        });
+      } catch (err) {
+        request.log.warn(`[Academics] Failed to emit EnrollmentCreated outbox event: ${err.message}`);
+      }
+
       return reply.status(201).send({
         success: true,
-        data: result.getValue()
+        data: enrollmentData
       });
     }
   );
@@ -431,6 +464,25 @@ async function academicsRoutes(fastify, options) {
         success: true,
         data: result.getValue()
       });
+    }
+  );
+
+  // Delete Enrollment (Remove student from course cohort)
+  fastify.delete(
+    '/enrollments/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string' } }
+        }
+      }
+    },
+    async (request, reply) => {
+      const repo = container.resolve('EnrollmentRepository');
+      await repo.delete(request.params.id);
+      return reply.send({ success: true, message: 'Enrollment deleted successfully' });
     }
   );
 }

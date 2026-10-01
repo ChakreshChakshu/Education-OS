@@ -209,6 +209,20 @@ export default function StudentsPage() {
     }
   };
 
+  // Remove enrollment from cohort
+  const handleDeleteEnrollment = async (enrollmentId, studentName) => {
+    if (!confirm(`Are you sure you want to remove ${studentName || "this student"} from the course cohort?`)) {
+      return;
+    }
+    try {
+      setEnrollments((prev) => prev.filter((e) => e.id !== enrollmentId));
+      await ApiClient.deleteEnrollment(enrollmentId);
+    } catch (err) {
+      console.error("Failed to delete enrollment:", err);
+      fetchData(true);
+    }
+  };
+
   // Filtered roster
   const filteredEnrollments = enrollments.filter((e) => {
     const matchesSearch =
@@ -559,13 +573,23 @@ export default function StudentsPage() {
 
                       {/* Actions */}
                       <td className="p-4 text-right pr-6">
-                        <a
-                          href={`/dashboard/courses/${e.courseId}`}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
-                        >
-                          <span>Course</span>
-                          <ArrowSquareOut size={13} weight="bold" />
-                        </a>
+                        <div className="flex items-center justify-end gap-2">
+                          <a
+                            href={`/dashboard/courses/${e.courseId}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
+                          >
+                            <span>Course</span>
+                            <ArrowSquareOut size={13} weight="bold" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEnrollment(e.id, e.studentName)}
+                            title="Remove student from cohort"
+                            className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          >
+                            <Trash size={14} weight="bold" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

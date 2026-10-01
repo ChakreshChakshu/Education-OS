@@ -24,8 +24,8 @@ class EnrollStudentUseCase {
     let rawTemporaryPassword = temporaryPassword || null;
     let resolvedEmail = studentEmail || null;
 
-    // If studentUserId is not provided or not valid UUID, but studentEmail is given, find or create student user
-    if ((!resolvedStudentId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedStudentId)) && studentEmail && this.userRepository) {
+    // If studentEmail is provided, always find or provision student user for that email
+    if (studentEmail && this.userRepository) {
       const existingUser = await this.userRepository.findByEmail(studentEmail);
       if (existingUser) {
         resolvedStudentId = existingUser.id;
