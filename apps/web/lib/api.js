@@ -479,6 +479,7 @@ class ApiClient {
       if (filters.batchId) queryParams.append('batchId', filters.batchId);
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.search) queryParams.append('search', filters.search);
+      if (filters.studentUserId) queryParams.append('studentUserId', filters.studentUserId);
       const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments${qs}`);

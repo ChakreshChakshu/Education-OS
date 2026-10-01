@@ -6,7 +6,7 @@ class GetTenantEnrollmentsUseCase {
   }
 
   async execute(request = {}) {
-    const { tenantId, courseId, batchId, status, search } = request;
+    const { tenantId, courseId, batchId, status, search, studentUserId } = request;
 
     if (!tenantId) {
       return Result.fail('Tenant ID is required.');
@@ -17,7 +17,8 @@ class GetTenantEnrollmentsUseCase {
       courseId,
       batchId,
       status,
-      search
+      search,
+      studentUserId
     });
 
     return Result.ok(enrollments);

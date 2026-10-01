@@ -302,7 +302,7 @@ async function academicsRoutes(fastify, options) {
   // List Enrollments for Tenant / Filtered
   fastify.get('/enrollments', async (request, reply) => {
     const tenantId = request.headers['x-tenant-id'] || request.query.tenantId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
-    const { courseId, batchId, status, search } = request.query;
+    const { courseId, batchId, status, search, studentUserId } = request.query;
 
     const useCase = container.resolve('GetTenantEnrollmentsUseCase');
     const result = await useCase.execute({
@@ -310,7 +310,8 @@ async function academicsRoutes(fastify, options) {
       courseId,
       batchId,
       status,
-      search
+      search,
+      studentUserId
     });
 
     if (result.isFailure) {
@@ -366,12 +367,17 @@ async function academicsRoutes(fastify, options) {
         request.user?.tenantId ||
         '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
 
+      const studentUserId =
+        request.body.studentUserId ||
+        request.user?.userId ||
+        request.user?.id;
+
       const useCase = container.resolve('EnrollStudentUseCase');
       const result = await useCase.execute({
         tenantId,
-        studentUserId: request.body.studentUserId,
-        studentEmail: request.body.studentEmail,
-        studentName: request.body.studentName,
+        studentUserId,
+        studentEmail: request.body.studentEmail || request.user?.email,
+        studentName: request.body.studentName || request.user?.name,
         courseId: request.body.courseId,
         batchId: request.body.batchId,
         temporaryPassword: request.body.temporaryPassword

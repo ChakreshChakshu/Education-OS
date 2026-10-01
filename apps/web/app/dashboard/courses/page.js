@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -26,7 +27,8 @@ import {
   ArrowsClockwise,
   Sparkle,
   Globe,
-  Sliders
+  Sliders,
+  PlayCircle
 } from "@phosphor-icons/react";
 
 const LEVEL_CONFIG = {
@@ -37,11 +39,18 @@ const LEVEL_CONFIG = {
 };
 
 export default function CoursesPage() {
-  const { activeTenant } = useAuth();
+  const router = useRouter();
+  const { user, activeTenant } = useAuth();
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Portal mode: 'STUDENT' | 'ADMIN'
+  const [portalMode, setPortalMode] = useState("ADMIN");
+  const [activeTab, setActiveTab] = useState("ALL"); // 'ALL' | 'ENROLLED'
+  const [enrolledMap, setEnrolledMap] = useState({});
+  const [enrollingId, setEnrollingId] = useState(null);
 
   const [courses, setCourses] = useState([]);
 
@@ -60,9 +69,35 @@ export default function CoursesPage() {
 
   const fileInputRef = useRef(null);
 
+  // Sync portal mode
   useEffect(() => {
-    async function loadCourses() {
-      const res = await ApiClient.getCourses();
+    if (typeof window !== "undefined") {
+      const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
+      const savedMode = localStorage.getItem("eos_portal_mode");
+      if (savedMode) {
+        setPortalMode(savedMode);
+      } else if (isStudentRole) {
+        setPortalMode("STUDENT");
+      } else {
+        setPortalMode("ADMIN");
+      }
+
+      const handleModeChange = (e) => {
+        if (e.detail) setPortalMode(e.detail);
+      };
+      window.addEventListener("eos_portal_mode_change", handleModeChange);
+      return () => window.removeEventListener("eos_portal_mode_change", handleModeChange);
+    }
+  }, [user, activeTenant]);
+
+  useEffect(() => {
+    async function loadData() {
+      const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const [res, enrollRes] = await Promise.all([
+        ApiClient.getCourses(),
+        ApiClient.getEnrollments({ studentUserId: studentId })
+      ]);
+
       if (res.success && Array.isArray(res.data)) {
         setCourses(res.data.map(c => ({
           ...c,
@@ -73,9 +108,51 @@ export default function CoursesPage() {
           slug: c.slug || c.code?.toLowerCase() || ""
         })));
       }
+
+      if (enrollRes?.success && Array.isArray(enrollRes.data)) {
+        const map = {};
+        for (const enr of enrollRes.data) {
+          map[enr.courseId] = {
+            isEnrolled: true,
+            progressPercent: enr.progressPercentage || 0,
+            batchName: enr.batchName || "Standard",
+            enrollmentId: enr.id
+          };
+        }
+        setEnrolledMap(map);
+      }
     }
-    loadCourses();
-  }, [activeTenant]);
+    loadData();
+  }, [activeTenant, user]);
+
+  const handleEnrollCourse = async (courseId) => {
+    setEnrollingId(courseId);
+    try {
+      const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const res = await ApiClient.enrollStudent({
+        courseId,
+        studentUserId: studentId,
+        studentEmail: user?.email || "student@neon.edu",
+        studentName: user?.name || "Student"
+      });
+
+      if (res.success) {
+        setEnrolledMap(prev => ({
+          ...prev,
+          [courseId]: { isEnrolled: true, progressPercent: 0, batchName: "General" }
+        }));
+        const modRes = await ApiClient.getCourseModules(courseId);
+        const firstLessonId = modRes.data?.[0]?.id || "first";
+        router.push(`/dashboard/courses/${courseId}/lesson/${firstLessonId}`);
+      } else {
+        alert(res.error || "Failed to enroll in course");
+      }
+    } catch (err) {
+      alert(err.message || "Failed to enroll in course");
+    } finally {
+      setEnrollingId(null);
+    }
+  };
 
   // Auto-slugify on title changes if slug not manually customized
   const handleTitleChange = (val) => {
@@ -192,11 +269,17 @@ export default function CoursesPage() {
     setLoading(false);
   };
 
-  const filteredCourses = courses.filter((c) =>
-    (c.title || "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.code || "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.level || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCourses = courses.filter((c) => {
+    const matchesSearch =
+      (c.title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.code || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.level || "").toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    if (activeTab === "ENROLLED") return !!enrolledMap[c.id];
+    return true;
+  });
+
+  const enrolledCount = Object.keys(enrolledMap).length;
 
   return (
     <div className="space-y-8">
@@ -204,28 +287,60 @@ export default function CoursesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border border-border shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary uppercase tracking-wider">Academics</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary uppercase tracking-wider">
+              {portalMode === "STUDENT" ? "Student Learning" : "Academics"}
+            </span>
             <span className="text-xs text-muted-foreground">• Centralized Curriculum</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Course Catalog</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            {portalMode === "STUDENT" ? "Course Catalog & Curriculums" : "Course Catalog"}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Structured courses, syllabus modules, and media assets for <strong className="text-foreground">{activeTenant?.name || "Institution"}</strong>
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold px-6 shadow-sm">
-          <Plus size={18} weight="bold" /> Create Course
-        </Button>
+        {portalMode !== "STUDENT" && (
+          <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold px-6 shadow-sm">
+            <Plus size={18} weight="bold" /> Create Course
+          </Button>
+        )}
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-lg">
-        <MagnifyingGlass size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by course code, title, or level..."
-          className="pl-11 h-12 text-base rounded-xl bg-card border-border shadow-2xs"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Search Bar & Filter Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="relative max-w-lg flex-1">
+          <MagnifyingGlass size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by course code, title, or level..."
+            className="pl-11 h-12 text-base rounded-xl bg-card border-border shadow-2xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* Catalog Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border shrink-0">
+          <button
+            onClick={() => setActiveTab("ALL")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "ALL"
+                ? "bg-card text-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Courses ({courses.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("ENROLLED")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "ENROLLED"
+                ? "bg-card text-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            My Enrolled ({enrolledCount})
+          </button>
+        </div>
       </div>
 
       {/* Course Grid / Empty State */}
@@ -235,19 +350,32 @@ export default function CoursesPage() {
             <BookBookmark size={44} weight="bold" />
           </div>
           <div className="space-y-2 max-w-md">
-            <h3 className="text-2xl font-bold">No Courses Created Yet</h3>
+            <h3 className="text-2xl font-bold">
+              {activeTab === "ENROLLED" ? "No Enrolled Courses" : "No Courses Found"}
+            </h3>
             <p className="text-sm text-muted-foreground font-medium">
-              Academic catalog for {activeTenant?.name || "Institution"} is clear. Click <strong>"Create Course"</strong> to upload thumbnails, publish syllabus modules, and enroll students.
+              {activeTab === "ENROLLED"
+                ? "You haven't enrolled in any courses yet. Switch to 'All Courses' to explore and enroll in your first curriculum."
+                : `Academic catalog for ${activeTenant?.name || "Institution"} has no matching courses.`}
             </p>
           </div>
-          <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold mt-2">
-            <Plus size={18} weight="bold" /> Create Course
-          </Button>
+          {activeTab === "ENROLLED" ? (
+            <Button onClick={() => setActiveTab("ALL")} size="lg" className="gap-2 font-bold mt-2">
+              Browse All Courses
+            </Button>
+          ) : portalMode !== "STUDENT" ? (
+            <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold mt-2">
+              <Plus size={18} weight="bold" /> Create Course
+            </Button>
+          ) : null}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map((course) => {
             const levelInfo = LEVEL_CONFIG[course.level] || LEVEL_CONFIG.ALL_LEVELS;
+            const enrollment = enrolledMap[course.id];
+            const isEnrolled = !!enrollment;
+
             return (
               <Card 
                 key={course.id} 
@@ -283,11 +411,18 @@ export default function CoursesPage() {
                       </span>
                     </div>
 
-                    {/* Status Pill */}
-                    <div className="absolute top-3 right-3">
-                      <Badge variant={course.status === "ACTIVE" || course.status === "PUBLISHED" ? "success" : "secondary"} className="text-xs font-semibold px-2 py-0.5 shadow-xs backdrop-blur-md">
-                        {course.status || "ACTIVE"}
-                      </Badge>
+                    {/* Status / Enrolled Pill */}
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                      {isEnrolled ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/90 text-white backdrop-blur-xs shadow-xs">
+                          <CheckCircle size={13} weight="bold" />
+                          <span>Enrolled • {enrollment.progressPercent}%</span>
+                        </span>
+                      ) : (
+                        <Badge variant={course.status === "ACTIVE" || course.status === "PUBLISHED" ? "success" : "secondary"} className="text-xs font-semibold px-2 py-0.5 shadow-xs backdrop-blur-md">
+                          {course.status || "ACTIVE"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -323,13 +458,41 @@ export default function CoursesPage() {
                     </span>
                   </div>
 
+                  {/* Actions: Classroom vs. 1-Click Enroll vs. Curriculum Builder */}
                   <div className="pt-1">
-                    <Link href={`/dashboard/courses/${course.id}`} className="block">
-                      <Button variant="secondary" className="w-full gap-2 font-bold justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs">
-                        <span>Curriculum Builder</span>
-                        <ArrowRight size={16} weight="bold" />
+                    {isEnrolled ? (
+                      <Link href={`/dashboard/courses/${course.id}/lesson/${enrollment.firstLessonId || 'first'}`} className="block">
+                        <Button className="w-full gap-2 font-bold justify-between shadow-2xs">
+                          <span className="flex items-center gap-1.5">
+                            <PlayCircle size={16} weight="bold" /> Enter Classroom
+                          </span>
+                          <ArrowRight size={16} weight="bold" />
+                        </Button>
+                      </Link>
+                    ) : portalMode === "STUDENT" ? (
+                      <Button 
+                        onClick={() => handleEnrollCourse(course.id)}
+                        disabled={enrollingId === course.id}
+                        className="w-full gap-2 font-bold justify-center shadow-2xs"
+                      >
+                        {enrollingId === course.id ? (
+                          <>
+                            <ArrowsClockwise size={15} className="animate-spin" /> Enrolling...
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={15} weight="bold" /> 1-Click Enroll & Start
+                          </>
+                        )}
                       </Button>
-                    </Link>
+                    ) : (
+                      <Link href={`/dashboard/courses/${course.id}`} className="block">
+                        <Button variant="secondary" className="w-full gap-2 font-bold justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs">
+                          <span>Curriculum Builder</span>
+                          <ArrowRight size={16} weight="bold" />
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>

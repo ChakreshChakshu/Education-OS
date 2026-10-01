@@ -39,13 +39,24 @@ export default function DashboardLayout({ children }) {
   const { user, activeTenant, tenants, switchTenant, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDark, setIsDark] = useState(true);
+  const [portalMode, setPortalMode] = useState("ADMIN");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const isDarkMode = document.documentElement.classList.contains("dark");
       setIsDark(isDarkMode);
+
+      const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
+      const savedMode = localStorage.getItem("eos_portal_mode");
+      if (savedMode) {
+        setPortalMode(savedMode);
+      } else if (isStudentRole) {
+        setPortalMode("STUDENT");
+      } else {
+        setPortalMode("ADMIN");
+      }
     }
-  }, []);
+  }, [user, activeTenant]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -72,7 +83,20 @@ export default function DashboardLayout({ children }) {
     }
   };
 
-  const navItems = [
+  const togglePortalMode = () => {
+    const next = portalMode === "ADMIN" ? "STUDENT" : "ADMIN";
+    setPortalMode(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("eos_portal_mode", next);
+      window.dispatchEvent(new CustomEvent("eos_portal_mode_change", { detail: next }));
+    }
+  };
+
+  const navItems = portalMode === "STUDENT" ? [
+    { name: "My Learning", href: "/dashboard", icon: GraduationCap },
+    { name: "Course Catalog", href: "/dashboard/courses", icon: BookOpen },
+    { name: "Settings & Profile", href: "/dashboard/settings", icon: Gear }
+  ] : [
     { name: "Overview", href: "/dashboard", icon: SquaresFour },
     { name: "Course Manager", href: "/dashboard/courses", icon: BookOpen },
     { name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings },
@@ -330,6 +354,26 @@ export default function DashboardLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Student Portal / Admin Mode Switcher */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={togglePortalMode}
+              className="text-xs font-bold gap-1.5 h-8.5 px-3 border-border hover:border-primary/50 transition-colors"
+            >
+              {portalMode === "ADMIN" ? (
+                <>
+                  <GraduationCap size={16} weight="bold" className="text-primary" />
+                  <span className="hidden sm:inline">Student View</span>
+                </>
+              ) : (
+                <>
+                  <SquaresFour size={16} weight="bold" className="text-primary" />
+                  <span className="hidden sm:inline">Admin View</span>
+                </>
+              )}
+            </Button>
+
             <Badge variant="outline" className="text-[11px] gap-1.5 py-1 px-3 font-mono font-bold border-border">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Neon Cloud Live</span>

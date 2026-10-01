@@ -110,12 +110,13 @@ class DrizzleEnrollmentRepository {
     return res.rows[0] ? DrizzleEnrollmentRepository.toDomain(res.rows[0]) : null;
   }
 
-  async findByTenant({ tenantId, courseId, batchId, status, search }) {
+  async findByTenant({ tenantId, courseId, batchId, status, search, studentUserId }) {
     if (!this.db) {
       const results = [];
       for (const raw of this._enrollmentStore.values()) {
         const tId = raw.tenantId || raw.tenant_id;
-        if (tId === tenantId) {
+        const sId = raw.studentUserId || raw.student_user_id;
+        if (tId === tenantId && (!studentUserId || sId === studentUserId)) {
           const domain = DrizzleEnrollmentRepository.toDomain(raw);
           if (domain) results.push(domain);
         }
@@ -140,6 +141,11 @@ class DrizzleEnrollmentRepository {
     `;
     const params = [tenantId];
     let paramIndex = 2;
+
+    if (studentUserId) {
+      query += ` AND e.student_user_id = $${paramIndex++}`;
+      params.push(studentUserId);
+    }
 
     if (courseId) {
       query += ` AND e.course_id = $${paramIndex++}`;
