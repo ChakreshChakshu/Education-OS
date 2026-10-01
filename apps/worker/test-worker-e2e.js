@@ -22,6 +22,7 @@ async function runE2ETest() {
   const queueProvider = new PostgresQueueProvider(dbClient);
 
   // Clean test artifacts if any
+  await dbClient.query("DELETE FROM outbox_events WHERE status = 'PENDING'");
   const testUserId = crypto.randomUUID();
   const testEmail = `test_worker_${Date.now()}@neon.edu`;
 

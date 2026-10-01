@@ -66,3 +66,25 @@ test('VideoTranscoder transcodes MP4 into multi-bitrate HLS and poster thumbnail
   assert.equal(fs.existsSync(result.posterPath), true);
   assert.ok(fs.statSync(result.posterPath).size > 0);
 });
+
+test('Video transcoding processor executes MediaUploaded job with multi-bitrate HLS output', async () => {
+  const { PROCESSORS } = require('../src/processors');
+  const { JOBS } = require('../src/jobs');
+  const transcoder = new VideoTranscoder();
+
+  const testVideoPath = path.join(TEST_SCRATCH, 'processor_test.mp4');
+  await transcoder.createSyntheticVideo(testVideoPath, 2);
+
+  const mediaAssetId = '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+  const result = await PROCESSORS[JOBS.VIDEO_TRANSCODE]({
+    mediaAssetId,
+    filename: 'processor_test.mp4',
+    filePath: testVideoPath
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.mediaAssetId, mediaAssetId);
+  assert.ok(result.manifestUrl.includes('master.m3u8'));
+  assert.deepEqual(result.variants, ['360p', '720p', '1080p']);
+});
+

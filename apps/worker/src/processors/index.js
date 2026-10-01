@@ -178,15 +178,25 @@ const PROCESSORS = {
         [manifestUrl, mediaAssetId]
       );
 
-      // Check if any lesson_modules point to this mediaAssetId or filename
-      await dbClient.query(
-        `UPDATE lesson_modules 
-         SET content_url = $1,
-             updated_at = NOW() 
-         WHERE (content_url LIKE '%' || $2 || '%' OR content_url LIKE '%' || $3 || '%') 
-           AND (content_type = 'VIDEO' OR content_type IS NULL)`,
-        [manifestUrl, mediaAssetId, payload.filename || '']
-      );
+      // Update associated lesson_modules (by explicit moduleId or URL match)
+      if (payload.moduleId) {
+        await dbClient.query(
+          `UPDATE lesson_modules 
+           SET content_url = $1,
+               updated_at = NOW() 
+           WHERE id = $2`,
+          [manifestUrl, payload.moduleId]
+        );
+      } else {
+        await dbClient.query(
+          `UPDATE lesson_modules 
+           SET content_url = $1,
+               updated_at = NOW() 
+           WHERE (content_url LIKE '%' || $2 || '%' OR content_url LIKE '%' || $3 || '%') 
+             AND (content_type = 'VIDEO' OR content_type IS NULL)`,
+          [manifestUrl, mediaAssetId, payload.filename || '']
+        );
+      }
 
       await dbClient.disconnect();
       console.log(`[video.transcode] Updated media_assets (${mediaAssetId}) -> status='READY', hls_manifest_url='${manifestUrl}'`);

@@ -50,7 +50,11 @@ class OutboxPublisher {
           payload: {
             mediaAssetId: payload.mediaAssetId || payload.id,
             filename: payload.filename,
-            storageKey: payload.storageKey
+            storageKey: payload.storageKey,
+            filePath: payload.filePath || null,
+            tenantId: payload.tenantId || null,
+            moduleId: payload.moduleId || null,
+            courseId: payload.courseId || null
           }
         };
 

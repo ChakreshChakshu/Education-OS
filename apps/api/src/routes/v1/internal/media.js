@@ -202,9 +202,12 @@ async function mediaRoutes(fastify, options) {
           mediaAssetId: media.id,
           filename: media.filename,
           storageKey: media.storageKey,
-          tenantId: media.tenantId
+          tenantId: media.tenantId,
+          moduleId: request.body?.moduleId || null,
+          courseId: request.body?.courseId || null
         }
       });
+      request.log.info(`[MediaConfirm] Emitted MediaUploaded outbox event for media ${media.id}`);
     } catch (e) {
       request.log.warn(`Failed to create MediaUploaded outbox event: ${e.message}`);
     }

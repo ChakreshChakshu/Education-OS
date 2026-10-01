@@ -19,11 +19,13 @@ class DrizzleOutboxRepository extends BaseRepository {
 
   async create(eventData, client = null) {
     const db = this._resolveDb(client);
+    const isUuid = typeof eventData.aggregateId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventData.aggregateId);
+    const aggregateId = isUuid ? eventData.aggregateId : crypto.randomUUID();
     const record = {
       id: eventData.id || crypto.randomUUID(),
       eventName: eventData.eventName,
-      aggregateType: eventData.aggregateType,
-      aggregateId: eventData.aggregateId,
+      aggregateType: eventData.aggregateType || 'General',
+      aggregateId,
       payload: typeof eventData.payload === 'string' ? eventData.payload : JSON.stringify(eventData.payload || {}),
       status: eventData.status || 'PENDING',
       attempts: eventData.attempts || 0,
