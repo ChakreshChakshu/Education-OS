@@ -3,7 +3,8 @@ const { MailProvider } = require('./MailProvider');
 class ResendMailProvider extends MailProvider {
   constructor(options = {}) {
     super();
-    this.apiKey = options.apiKey || process.env.RESEND_API_KEY || null;
+    this.explicitApiKey = options.apiKey !== undefined;
+    this.apiKey = options.apiKey !== undefined ? options.apiKey : (process.env.RESEND_API_KEY || null);
     this.fromEmail = options.fromEmail || process.env.RESEND_FROM_EMAIL || 'EducationOS <onboarding@resend.dev>';
     this.baseUrl = options.baseUrl || 'https://api.resend.com';
     this.fetchFn = options.fetchFn || globalThis.fetch;
@@ -15,8 +16,43 @@ class ResendMailProvider extends MailProvider {
     }
 
     const recipient = Array.isArray(to) ? to : [to];
-    const apiKey = this.apiKey || process.env.RESEND_API_KEY;
-    const fromSender = from || this.fromEmail || process.env.RESEND_FROM_EMAIL || 'EducationOS <onboarding@resend.dev>';
+    let apiKey = this.apiKey;
+    let fromSender = from || this.fromEmail || process.env.RESEND_FROM_EMAIL;
+
+    if (!apiKey && !this.explicitApiKey && process.env.NODE_ENV !== 'test') {
+      apiKey = process.env.RESEND_API_KEY || null;
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const candidates = [
+          path.resolve(process.cwd(), 'apps/api/.env'),
+          path.resolve(process.cwd(), '.env'),
+          path.resolve(__dirname, '../../../../apps/api/.env'),
+          path.resolve(__dirname, '../../../../.env')
+        ];
+        for (const cand of candidates) {
+          if (fs.existsSync(cand)) {
+            const content = fs.readFileSync(cand, 'utf8');
+            if (!apiKey) {
+              const matchKey = content.match(/^RESEND_API_KEY\s*=\s*(.+)$/m);
+              if (matchKey) {
+                apiKey = matchKey[1].trim().replace(/^["']|["']$/g, '');
+                process.env.RESEND_API_KEY = apiKey;
+              }
+            }
+            if (!fromSender) {
+              const matchFrom = content.match(/^RESEND_FROM_EMAIL\s*=\s*(.+)$/m);
+              if (matchFrom) {
+                fromSender = matchFrom[1].trim().replace(/^["']|["']$/g, '');
+                process.env.RESEND_FROM_EMAIL = fromSender;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    fromSender = fromSender || 'EducationOS <onboarding@resend.dev>';
 
     if (!apiKey) {
       console.warn('[ResendMailProvider] RESEND_API_KEY is not configured. Email logged in mock mode:');
