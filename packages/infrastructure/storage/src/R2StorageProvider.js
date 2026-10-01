@@ -70,16 +70,27 @@ class R2StorageProvider extends StorageProvider {
 
   async download(key) {
     if (this.client && GetObjectCommand) {
-      const command = new GetObjectCommand({
-        Bucket: this.config.bucketName,
-        Key: key
-      });
-      const response = await this.client.send(command);
-      const chunks = [];
-      for await (const chunk of response.Body) {
-        chunks.push(chunk);
+      try {
+        const command = new GetObjectCommand({
+          Bucket: this.config.bucketName,
+          Key: key
+        });
+        const response = await this.client.send(command);
+        if (response.Body && typeof response.Body.transformToByteArray === 'function') {
+          const bytes = await response.Body.transformToByteArray();
+          return Buffer.from(bytes);
+        }
+        const chunks = [];
+        for await (const chunk of response.Body) {
+          chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+      } catch (err) {
+        if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+          return null;
+        }
+        throw err;
       }
-      return Buffer.concat(chunks);
     }
 
     console.log(`[R2StorageProvider] Mock downloading ${key}`);

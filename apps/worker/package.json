@@ -8,7 +8,7 @@
     "build": "echo \"worker build: no-op\"",
     "start": "node src/index.js",
     "lint": "eslint src/**/*.js",
-    "test": "echo \"worker test: no-op\"",
+    "test": "node --test test/transcoder.test.js",
     "clean": "rimraf dist"
   },
   "dependencies": {
