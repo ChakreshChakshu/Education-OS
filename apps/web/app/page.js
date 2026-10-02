@@ -7,58 +7,62 @@ import { Badge } from "@/components/ui/badge";
 import { ParallaxComponent } from "@/components/ui/parallax-scrolling";
 import {
   GraduationCap,
-  Building2,
+  Buildings,
   BookOpen,
   Users,
   Video,
   ShieldCheck,
-  Check,
-  X,
+  CheckCircle,
   ArrowRight,
-  ChevronRight,
+  Sparkle,
+  Lightning,
+  ChartLineUp,
+  Palette,
+  Check,
   FileText,
-  BarChart3,
-  Layers,
-  Laptop
-} from "lucide-react";
+  PlayCircle,
+  CaretRight,
+  Shield,
+  Clock,
+  Broadcast
+} from "@phosphor-icons/react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("campuses");
-  const [deploymentStep, setDeploymentStep] = useState(1);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-sans">
-      {/* Primary Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-sm">
+    <div className="flex flex-col min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+      {/* Primary Sticky Header */}
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                <GraduationCap className="h-4.5 w-4.5" />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold shadow-xs transition-transform group-hover:scale-105">
+                <GraduationCap size={20} weight="bold" />
               </div>
-              <span className="font-bold text-base tracking-tight text-foreground">
+              <span className="font-extrabold text-base tracking-tight text-foreground">
                 Education<span className="text-primary">OS</span>
               </span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+            <nav className="hidden md:flex items-center gap-6 text-xs sm:text-sm font-semibold text-muted-foreground">
               <a href="#overview" className="hover:text-foreground transition-colors">Overview</a>
-              <a href="#capabilities" className="hover:text-foreground transition-colors">Capabilities</a>
-              <a href="#solutions" className="hover:text-foreground transition-colors">Who We Serve</a>
-              <a href="#comparison" className="hover:text-foreground transition-colors">Comparison</a>
-              <a href="#deployment" className="hover:text-foreground transition-colors">Deployment</a>
+              <a href="#features" className="hover:text-foreground transition-colors">Pillars</a>
+              <a href="#architecture" className="hover:text-foreground transition-colors">Architecture</a>
+              <a href="#setup" className="hover:text-foreground transition-colors">Setup</a>
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-sm font-medium">
-                Sign in
+              <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-semibold cursor-pointer">
+                Sign In
               </Button>
             </Link>
             <Link href="/dashboard">
-              <Button size="sm" className="text-sm font-medium">
-                Live Demo
+              <Button size="sm" className="text-xs sm:text-sm font-bold gap-1.5 cursor-pointer shadow-xs">
+                <span>Live Campus Demo</span>
+                <ArrowRight size={14} weight="bold" />
               </Button>
             </Link>
           </div>
@@ -69,323 +73,279 @@ export default function Home() {
         {/* Parallax Hero Section */}
         <ParallaxComponent
           badge="Complete Privacy Across Campuses & Colleges"
-          title="The Unified Platform for"
-          subtitle="Modern University Networks"
+          title="The Operating System for"
+          subtitle="Modern Higher Education"
         >
-          <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-normal">
-            Replace messy, disconnected software with a single unified system. Seamlessly manage multiple campuses, 
-            deliver buffer-free HD video lectures, run stress-free exams without server crashes, and keep student records completely private.
+          <p className="mt-5 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-normal">
+            A unified multi-tenant platform for autonomous campus branches, buffer-free HD lecture streaming, and crash-proof exam submissions.
           </p>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
             <Link href="/dashboard" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto text-base font-bold px-8 h-12 rounded-xl gap-2 shadow-lg shadow-electric-indigo-500/25 hover:shadow-electric-indigo-500/40 transition-all">
-                Explore Interactive Campus Demo <ArrowRight className="h-5 w-5" />
+              <Button size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl gap-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all cursor-pointer">
+                <span>Explore Live Campus Demo</span>
+                <ArrowRight size={18} weight="bold" />
               </Button>
             </Link>
             <Link href="/register" className="w-full sm:w-auto">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base font-bold px-8 h-12 rounded-xl bg-card/70 backdrop-blur-sm border-border hover:bg-secondary transition-all">
-                Register Your Institution
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl bg-card/80 backdrop-blur-sm border-border hover:bg-muted transition-all cursor-pointer">
+                Register Institution
               </Button>
             </Link>
           </div>
-        </ParallaxComponent>
 
-        {/* Key Reliability Highlights Strip */}
-        <section className="relative z-20 py-8 px-6 lg:px-12 max-w-6xl mx-auto w-full -mt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 w-full text-left">
-            <div className="p-4 rounded-xl bg-card/70 backdrop-blur-sm border border-border/80 shadow-xs">
-              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Student Data Privacy</div>
-              <div className="mt-1 text-xl font-bold font-heading text-foreground">100% Private</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Campus records stay isolated & secure</div>
+          {/* Compact Trust Highlights Strip */}
+          <div className="mt-10 pt-6 border-t border-border/50 max-w-3xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+            <div className="p-3 rounded-xl bg-card/60 backdrop-blur-xs border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider block">Boundary</span>
+              <span className="text-sm font-extrabold text-foreground mt-0.5 block">100% Private</span>
+              <span className="text-[11px] text-muted-foreground">Strict schema isolation</span>
             </div>
-            <div className="p-4 rounded-xl bg-card/70 backdrop-blur-sm border border-border/80 shadow-xs">
-              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Exam Reliability</div>
-              <div className="mt-1 text-xl font-bold font-heading text-foreground">99.99% Uptime</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Zero crashes during peak final exams</div>
+            <div className="p-3 rounded-xl bg-card/60 backdrop-blur-xs border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider block">Reliability</span>
+              <span className="text-sm font-extrabold text-foreground mt-0.5 block">99.99% Uptime</span>
+              <span className="text-[11px] text-muted-foreground">Zero finals dropouts</span>
             </div>
-            <div className="p-4 rounded-xl bg-card/70 backdrop-blur-sm border border-border/80 shadow-xs">
-              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Lecture Streaming</div>
-              <div className="mt-1 text-xl font-bold font-heading text-foreground">Buffer-Free HD</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Smooth playback on any phone or laptop</div>
+            <div className="p-3 rounded-xl bg-card/60 backdrop-blur-xs border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider block">Streaming</span>
+              <span className="text-sm font-extrabold text-foreground mt-0.5 block">Adaptive HLS</span>
+              <span className="text-[11px] text-muted-foreground">Cloudflare R2 + FFmpeg</span>
             </div>
-            <div className="p-4 rounded-xl bg-card/70 backdrop-blur-sm border border-border/80 shadow-xs">
-              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Campus Setup</div>
-              <div className="mt-1 text-xl font-bold font-heading text-foreground">Ready in Minutes</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Quick setup with custom logos & colors</div>
+            <div className="p-3 rounded-xl bg-card/60 backdrop-blur-xs border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider block">Database</span>
+              <span className="text-sm font-extrabold text-foreground mt-0.5 block">Neon Cloud</span>
+              <span className="text-[11px] text-muted-foreground">Postgres ACID isolation</span>
             </div>
           </div>
-        </section>
+        </ParallaxComponent>
 
-        {/* Interactive Platform Preview - Simple Mac View */}
-        <section id="overview" className="max-w-6xl mx-auto px-6 pb-20">
-          <div className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
-            {/* Mac Window Chrome Bar */}
+        {/* Section 1: Interactive Spotlight Product Preview */}
+        <section id="overview" className="max-w-6xl mx-auto px-6 py-16">
+          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
+            <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
+              Interactive Spotlight
+            </Badge>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Designed for Higher-Ed Operational Precision
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Experience the actual interface: autonomous campus governance, seamless digital classrooms, and live cohort progress.
+            </p>
+          </div>
+
+          <div className="border border-border rounded-2xl bg-card overflow-hidden shadow-sm">
+            {/* macOS Chrome Header Bar */}
             <div className="border-b border-border bg-muted/60 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                {/* Classic Traffic Light Window Controls */}
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded-full bg-[#ff5f56] border border-[#e0443e]" />
                   <div className="h-3 w-3 rounded-full bg-[#ffbd2e] border border-[#dea123]" />
                   <div className="h-3 w-3 rounded-full bg-[#27c93f] border border-[#1aab29]" />
                 </div>
-                {/* Clean Mac App URL / Title */}
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-background border border-border/80 text-xs text-muted-foreground font-medium">
-                  <Building2 className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-foreground font-semibold">Apex University System</span>
-                  <span className="text-muted-foreground/50">&bull;</span>
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-background border border-border text-xs text-muted-foreground font-mono">
+                  <span className="text-foreground font-bold">Apex University System</span>
+                  <span className="text-muted-foreground/50">•</span>
                   <span>https://apex.educationos.edu</span>
                 </div>
               </div>
 
               {/* View Switcher Tabs */}
-              <div className="flex items-center gap-1 bg-background p-1 rounded-md border border-border">
+              <div className="flex items-center gap-1 bg-background p-1 rounded-xl border border-border">
                 <button
                   type="button"
                   onClick={() => setActiveTab("campuses")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     activeTab === "campuses"
-                      ? "bg-secondary text-secondary-foreground font-semibold"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Campus Branches
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("courses")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                    activeTab === "courses"
-                      ? "bg-secondary text-secondary-foreground font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Courses & Cohorts
+                  Campus Network
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("classroom")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     activeTab === "classroom"
-                      ? "bg-secondary text-secondary-foreground font-semibold"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Digital Classroom
+                  HD Classroom
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("exams")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                    activeTab === "exams"
-                      ? "bg-secondary text-secondary-foreground font-semibold"
+                  onClick={() => setActiveTab("cohorts")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    activeTab === "cohorts"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Exams & Grading
+                  Cohort Velocity
                 </button>
               </div>
             </div>
 
-            {/* Tab 1: Campuses View */}
+            {/* TAB 1: Campuses View */}
             {activeTab === "campuses" && (
-              <div className="p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+              <div className="p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Multi-Campus Governance</h3>
-                    <p className="text-sm text-muted-foreground">Autonomous branches operating under central institutional policy.</p>
+                    <h3 className="text-base sm:text-lg font-bold text-foreground">Multi-Campus Governance & Autonomy</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Autonomous branches operating under central institutional policy with independent branding.</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">3 Active Branches</Badge>
-                    <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50/50">Tenant Isolation Enforced</Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-xs font-mono font-bold">3 Branches Active</Badge>
+                    <Badge variant="success" className="text-xs font-bold">Isolated Boundaries</Badge>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-lg border border-border bg-background space-y-3">
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-primary">BRANCH-MAIN</span>
-                      <span className="text-[11px] font-medium text-emerald-600">Active</span>
+                      <span className="text-xs font-mono font-bold text-primary">BRANCH-MAIN</span>
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#5b12ed]" title="Indigo Brand" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-base text-foreground">Main Campus</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">Dean: Dr. Sarah Vance &bull; 12 Departments</p>
+                      <h4 className="font-bold text-sm sm:text-base text-foreground">Main Campus</h4>
+                      <p className="text-xs text-muted-foreground">Dean: Dr. Sarah Vance • 12 Departments</p>
                     </div>
-                    <div className="pt-2 border-t border-border text-xs text-muted-foreground flex justify-between">
-                      <span>Enrollment</span>
-                      <span className="font-medium text-foreground">8,420 Students</span>
+                    <div className="pt-2 border-t border-border text-xs flex justify-between">
+                      <span className="text-muted-foreground">Enrolled Students</span>
+                      <span className="font-bold font-mono text-foreground">8,420</span>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-lg border border-border bg-background space-y-3">
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-primary">BRANCH-MED</span>
-                      <span className="text-[11px] font-medium text-emerald-600">Active</span>
+                      <span className="text-xs font-mono font-bold text-emerald-600">BRANCH-MED</span>
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" title="Emerald Brand" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-base text-foreground">School of Medicine</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">Dean: Dr. Marcus Chen &bull; 6 Departments</p>
+                      <h4 className="font-bold text-sm sm:text-base text-foreground">School of Medicine</h4>
+                      <p className="text-xs text-muted-foreground">Dean: Dr. Marcus Chen • 6 Clinical Units</p>
                     </div>
-                    <div className="pt-2 border-t border-border text-xs text-muted-foreground flex justify-between">
-                      <span>Enrollment</span>
-                      <span className="font-medium text-foreground">2,150 Students</span>
+                    <div className="pt-2 border-t border-border text-xs flex justify-between">
+                      <span className="text-muted-foreground">Enrolled Students</span>
+                      <span className="font-bold font-mono text-foreground">2,150</span>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-lg border border-border bg-background space-y-3">
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-primary">BRANCH-LAW</span>
-                      <span className="text-[11px] font-medium text-emerald-600">Active</span>
+                      <span className="text-xs font-mono font-bold text-blue-600">BRANCH-LAW</span>
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" title="Sapphire Brand" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-base text-foreground">School of Law</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">Dean: Prof. Elena Rostova &bull; 4 Departments</p>
+                      <h4 className="font-bold text-sm sm:text-base text-foreground">School of Law</h4>
+                      <p className="text-xs text-muted-foreground">Dean: Prof. Elena Rostova • 4 Divisions</p>
                     </div>
-                    <div className="pt-2 border-t border-border text-xs text-muted-foreground flex justify-between">
-                      <span>Enrollment</span>
-                      <span className="font-medium text-foreground">1,340 Students</span>
+                    <div className="pt-2 border-t border-border text-xs flex justify-between">
+                      <span className="text-muted-foreground">Enrolled Students</span>
+                      <span className="font-bold font-mono text-foreground">1,340</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span>Data boundary policy: Student records in School of Medicine are completely inaccessible from School of Law staff accounts.</span>
-                  <Link href="/dashboard" className="text-primary font-medium hover:underline inline-flex items-center gap-1 shrink-0">
-                    Open Branch Manager <ChevronRight className="h-3.5 w-3.5" />
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck size={16} className="text-primary shrink-0" />
+                    Data Isolation Policy: Medical records remain cryptographically unreachable by School of Law staff.
+                  </span>
+                  <Link href="/dashboard/tenants" className="text-primary font-bold hover:underline inline-flex items-center gap-1 shrink-0">
+                    Open Branch Manager <CaretRight size={14} weight="bold" />
                   </Link>
                 </div>
               </div>
             )}
 
-            {/* Tab 2: Courses & Cohorts */}
-            {activeTab === "courses" && (
-              <div className="p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Course & Curriculum Directory</h3>
-                    <p className="text-sm text-muted-foreground">Syllabi, lecture archives, and cohort-specific enrollment management.</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">Fall Semester 2026</Badge>
-                </div>
-
-                <div className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-background">
-                  <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-primary">CS-301</span>
-                        <h4 className="font-semibold text-sm text-foreground">Distributed Operating Systems</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Instructor: Dr. Vance &bull; Cohort A & B (184 students enrolled)</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-muted-foreground">14 Modules</span>
-                      <Badge variant="secondary" className="text-xs">In Progress</Badge>
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-primary">MED-510</span>
-                        <h4 className="font-semibold text-sm text-foreground">Advanced Clinical Neuroanatomy</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Instructor: Dr. Chen &bull; Year 2 Cohort (76 students enrolled)</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-muted-foreground">18 Modules</span>
-                      <Badge variant="secondary" className="text-xs">In Progress</Badge>
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-primary">LAW-204</span>
-                        <h4 className="font-semibold text-sm text-foreground">Constitutional Jurisprudence</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Instructor: Prof. Rostova &bull; 1L Section 3 (112 students enrolled)</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-muted-foreground">12 Modules</span>
-                      <Badge variant="secondary" className="text-xs">In Progress</Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Digital Classroom */}
+            {/* TAB 2: HD Classroom View */}
             {activeTab === "classroom" && (
-              <div className="p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+              <div className="p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Interactive Digital Classroom</h3>
-                    <p className="text-sm text-muted-foreground">Buffer-free lecture delivery with instant playback on all devices.</p>
+                    <h3 className="text-base sm:text-lg font-bold text-foreground">Adaptive HLS Video Streaming</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Sub-second latency video delivery powered by Cloudflare R2 storage and FFmpeg transcoding.</p>
                   </div>
-                  <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50/50">HLS Adaptive HD Active</Badge>
+                  <Badge variant="outline" className="text-xs font-mono text-emerald-600 border-emerald-300 bg-emerald-500/10">
+                    1080p ABR Active
+                  </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="lg:col-span-2 rounded-lg border border-border bg-muted/30 p-6 flex flex-col justify-between min-h-[220px]">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-xs font-bold text-foreground uppercase tracking-wide">Live Lecture Streaming</span>
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">1080p 60fps &bull; Sub-second latency</span>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                  <div className="lg:col-span-8 rounded-xl border border-border bg-black/90 p-5 flex flex-col justify-between min-h-[240px] text-white shadow-xs relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-red-600/90 text-white animate-pulse">
+                        <Broadcast size={14} weight="bold" /> LIVE SESSION
+                      </span>
+                      <span className="text-xs font-mono text-white/70">1080p • 60fps • 4.2 Mbps</span>
                     </div>
 
-                    <div className="my-auto py-4 text-center">
-                      <div className="text-sm font-semibold text-foreground">CS-301: Distributed Consensus & Raft Protocol</div>
-                      <div className="text-xs text-muted-foreground mt-1">Live broadcast with real-time student Q&A and attendance logging</div>
+                    <div className="my-auto py-6 text-center relative z-10">
+                      <p className="text-base sm:text-lg font-extrabold text-white">CS-301: Distributed Consensus & Raft Protocol</p>
+                      <p className="text-xs text-white/70 mt-1">Instructor: Dr. Sarah Vance • Synchronous Q&A and Attendance Enabled</p>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-                      <span>162 Students Connected</span>
-                      <span>Audio & Screen Share: Optimal</span>
+                    <div className="flex items-center justify-between text-xs text-white/80 pt-3 border-t border-white/10 relative z-10">
+                      <span className="flex items-center gap-1.5"><Users size={14} /> 184 Students Connected</span>
+                      <span className="text-emerald-400 font-medium">HLS Buffer Health: 99.8%</span>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="p-3.5 rounded-lg border border-border bg-background space-y-1.5">
-                      <div className="text-xs font-semibold text-foreground">Automated Attendance</div>
-                      <p className="text-xs text-muted-foreground">Student presence is verified automatically through session engagement timestamps.</p>
+                  <div className="lg:col-span-4 flex flex-col justify-between gap-3">
+                    <div className="p-4 rounded-xl border border-border bg-background space-y-1.5 shadow-2xs">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Clock size={16} className="text-primary" /> Automated Attendance
+                      </span>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Student presence is logged via cryptographic session heartbeats without manual roll-calls.
+                      </p>
                     </div>
-                    <div className="p-3.5 rounded-lg border border-border bg-background space-y-1.5">
-                      <div className="text-xs font-semibold text-foreground">Instant Cloud Archive</div>
-                      <p className="text-xs text-muted-foreground">Lectures are indexed and available for student replay immediately after the session ends.</p>
+
+                    <div className="p-4 rounded-xl border border-border bg-background space-y-1.5 shadow-2xs">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <PlayCircle size={16} className="text-primary" /> Instant Cloud Archives
+                      </span>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Lectures transcode into ABR video segments and become available for replay immediately.
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Tab 4: Exams & Grading */}
-            {activeTab === "exams" && (
-              <div className="p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+            {/* TAB 3: Cohort Velocity View */}
+            {activeTab === "cohorts" && (
+              <div className="p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Examination & Assessment Reliability</h3>
-                    <p className="text-sm text-muted-foreground">Zero-crash test submissions during campus-wide finals with automated grading.</p>
+                    <h3 className="text-base sm:text-lg font-bold text-foreground">Cohort Velocity & Examination Engine</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Postgres row-locked submission pipelines preventing crashes during campus-wide finals week.</p>
                   </div>
-                  <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50/50">99.99% Concurrency Passed</Badge>
+                  <Badge variant="outline" className="text-xs font-mono text-emerald-600 border-emerald-300">
+                    SKIP LOCKED Queue Active
+                  </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-lg border border-border bg-background">
-                    <div className="text-xs text-muted-foreground">Current Active Exams</div>
-                    <div className="text-2xl font-bold text-foreground mt-1">4 Assessments</div>
-                    <div className="text-xs text-emerald-600 mt-1">Running smoothly across 2 campuses</div>
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-1 shadow-2xs">
+                    <span className="text-xs text-muted-foreground font-semibold">Active Finals Assessments</span>
+                    <span className="text-2xl font-extrabold text-foreground block">4 Modules</span>
+                    <span className="text-xs text-emerald-600 font-medium">Running smoothly across all branches</span>
                   </div>
-                  <div className="p-4 rounded-lg border border-border bg-background">
-                    <div className="text-xs text-muted-foreground">Submissions Processed</div>
-                    <div className="text-2xl font-bold text-foreground mt-1">1,842 Total</div>
-                    <div className="text-xs text-muted-foreground mt-1">Zero dropped submissions</div>
+
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-1 shadow-2xs">
+                    <span className="text-xs text-muted-foreground font-semibold">Concurrent Submissions</span>
+                    <span className="text-2xl font-extrabold text-foreground block">1,842 Total</span>
+                    <span className="text-xs text-muted-foreground font-medium">0 dropped packets or timeouts</span>
                   </div>
-                  <div className="p-4 rounded-lg border border-border bg-background">
-                    <div className="text-xs text-muted-foreground">Automated Grade Sync</div>
-                    <div className="text-2xl font-bold text-foreground mt-1">Instant</div>
-                    <div className="text-xs text-muted-foreground mt-1">Directly into verified gradebook</div>
+
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-1 shadow-2xs">
+                    <span className="text-xs text-muted-foreground font-semibold">Automated Gradebook Sync</span>
+                    <span className="text-2xl font-extrabold text-primary block">Instantaneous</span>
+                    <span className="text-xs text-muted-foreground font-medium">Real-time Neon Cloud ACID updates</span>
                   </div>
                 </div>
               </div>
@@ -393,445 +353,229 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Core Institutional Capabilities */}
-        <section id="capabilities" className="py-20 border-t border-border bg-muted/20">
+        {/* Section 2: Core Pillars (Clean Bento Grid) */}
+        <section id="features" className="py-20 border-t border-border bg-muted/20">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="max-w-2xl mb-12">
-              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Core Capabilities</div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Engineered for operational clarity across every department
+            <div className="max-w-2xl mb-12 space-y-2">
+              <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
+                Core Architecture
+              </Badge>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Engineered to replace fragmented campus software
               </h2>
-              <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Traditional higher-ed software forces institutions to juggle multiple unintegrated vendors. EducationOS consolidates governance, classroom teaching, and compliance into a single standard.
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Consolidating branch governance, adaptive media streaming, and student privacy into one standard.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Feature 1 */}
-              <div className="p-6 rounded-xl border border-border bg-card space-y-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
-                  <Building2 className="h-5 w-5" />
+              {/* Card 1 */}
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <Buildings size={24} weight="bold" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">Multi-Branch Campus Architecture</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Support central university oversight while granting individual colleges, professional schools, and regional branches full administrative autonomy over their cohorts, staff, and grading rules.
+                <h3 className="text-lg font-bold text-foreground">Multi-Tenant Campus Isolation</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Support central university oversight while granting individual colleges and regional branches full administrative autonomy, custom branding palettes, and strict database query isolation.
                 </p>
-                <ul className="pt-2 space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Strict database-level isolation per branch
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Executive roll-up reports for chancellors and deans
-                  </li>
-                </ul>
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Custom Domain Routing
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Autonomous Deans
+                  </span>
+                </div>
               </div>
 
-              {/* Feature 2 */}
-              <div className="p-6 rounded-xl border border-border bg-card space-y-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
-                  <Video className="h-5 w-5" />
+              {/* Card 2 */}
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <Video size={24} weight="bold" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">High-Definition Lecture Delivery</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Deliver synchronous and asynchronous video lectures with adaptive bitrates. Students with low bandwidth experience smooth audio and video without frustrating pauses or buffering.
+                <h3 className="text-lg font-bold text-foreground">High-Definition HLS Video Delivery</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Deliver synchronous and asynchronous video lectures with adaptive bitrates. Low-bandwidth students experience smooth audio and playback with zero manual transcode rendering.
                 </p>
-                <ul className="pt-2 space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Responsive playback on mobile phones, tablets, and laptops
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Immediate archive availability with zero manual rendering
-                  </li>
-                </ul>
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Cloudflare R2 Storage
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    360p - 1080p ABR
+                  </span>
+                </div>
               </div>
 
-              {/* Feature 3 */}
-              <div className="p-6 rounded-xl border border-border bg-card space-y-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
-                  <FileText className="h-5 w-5" />
+              {/* Card 3 */}
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <FileText size={24} weight="bold" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">Resilient Exam Submissions</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Prevent the notorious server crashes that plague legacy portals during finals week. Dedicated submission pipelines guarantee student tests are safely received and timestamped.
+                <h3 className="text-lg font-bold text-foreground">Concurrency-Proof Exam Submissions</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Eliminate server crashes during finals week. Dedicated PostgreSQL row-locked submission pipelines guarantee tests are timestamped, safely received, and instantly graded.
                 </p>
-                <ul className="pt-2 space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Automated quiz grading with instant feedback
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Tamper-evident gradebook logging and audit histories
-                  </li>
-                </ul>
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Zero-Timeout Finals
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Instant Gradebook Sync
+                  </span>
+                </div>
               </div>
 
-              {/* Feature 4 */}
-              <div className="p-6 rounded-xl border border-border bg-card space-y-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
-                  <ShieldCheck className="h-5 w-5" />
+              {/* Card 4 */}
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <ShieldCheck size={24} weight="bold" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">Student Record Privacy & Compliance</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Built to meet FERPA and GDPR standards out of the box. Precise role-based permissions ensure faculty and staff only access the students and grade records relevant to their approved scope.
+                <h3 className="text-lg font-bold text-foreground">FERPA & GDPR Student Privacy</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Fine-grained RBAC ensures professors and staff access only the rosters and grade records within their approved scope, with complete audit logs for accreditation inspections.
                 </p>
-                <ul className="pt-2 space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Scoped access levels for deans, professors, and registrars
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary" /> Comprehensive audit logs for accreditation inspections
-                  </li>
-                </ul>
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Multi-Tenant Boundaries
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+                    Tamper-Evident Logs
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Stakeholder Value Grid */}
-        <section id="solutions" className="py-20 border-t border-border">
+        {/* Section 3: High-Impact Architecture Comparison */}
+        <section id="architecture" className="py-20 border-t border-border">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="max-w-2xl mb-12">
-              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Designed for Campuses</div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Built for everyone in the university ecosystem
+            <div className="max-w-2xl mb-12 space-y-2">
+              <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
+                Comparison
+              </Badge>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Modern Cloud Infrastructure vs Legacy LMS Monoliths
               </h2>
-              <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Each stakeholder interacts with a purpose-built view tailored specifically to their academic responsibilities.
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Why forward-thinking universities are phasing out slow, decade-old monolithic portals.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="p-5 rounded-xl border border-border bg-card space-y-2.5">
-                <div className="text-xs font-semibold text-primary uppercase">Leadership</div>
-                <h3 className="font-semibold text-base text-foreground">Deans & Provosts</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Real-time visibility into cross-branch retention, faculty workloads, accreditation metrics, and institutional enrollment.
-                </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
+                <span className="text-xs font-mono font-bold text-muted-foreground uppercase">Campus Isolation</span>
+                <div className="space-y-2">
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs">
+                    <span className="font-bold text-destructive block">Legacy Portals</span>
+                    <span className="text-muted-foreground mt-0.5 block">Shared tables prone to misconfigurations and accidental cross-branch student record leakage.</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs">
+                    <span className="font-bold text-primary block">EducationOS</span>
+                    <span className="text-foreground font-medium mt-0.5 block">Cryptographically scoped tenant context verified on every database query.</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-5 rounded-xl border border-border bg-card space-y-2.5">
-                <div className="text-xs font-semibold text-primary uppercase">Instruction</div>
-                <h3 className="font-semibold text-base text-foreground">Faculty & Instructors</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Fast curriculum creation, automated grading, attendance tracking, and intuitive course resource distribution.
-                </p>
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
+                <span className="text-xs font-mono font-bold text-muted-foreground uppercase">Media & Streaming</span>
+                <div className="space-y-2">
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs">
+                    <span className="font-bold text-destructive block">Legacy Portals</span>
+                    <span className="text-muted-foreground mt-0.5 block">External video links with frequent buffering and manual attendance cross-checking.</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs">
+                    <span className="font-bold text-primary block">EducationOS</span>
+                    <span className="text-foreground font-medium mt-0.5 block">Native HLS adaptive multi-bitrate player with automated timestamp attendance.</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-5 rounded-xl border border-border bg-card space-y-2.5">
-                <div className="text-xs font-semibold text-primary uppercase">Learning</div>
-                <h3 className="font-semibold text-base text-foreground">Enrolled Students</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  A modern, responsive learning portal with video playback speed controls, assignment deadlines, and instant quiz results.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-xl border border-border bg-card space-y-2.5">
-                <div className="text-xs font-semibold text-primary uppercase">Infrastructure</div>
-                <h3 className="font-semibold text-base text-foreground">Campus IT & Registrars</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Instant campus branch setup, automated backups, zero cross-tenant data leaks, and 99.99% guaranteed uptime.
-                </p>
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
+                <span className="text-xs font-mono font-bold text-muted-foreground uppercase">Finals Concurrency</span>
+                <div className="space-y-2">
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs">
+                    <span className="font-bold text-destructive block">Legacy Portals</span>
+                    <span className="text-muted-foreground mt-0.5 block">Server timeouts and dropped submissions when thousands test simultaneously.</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs">
+                    <span className="font-bold text-primary block">EducationOS</span>
+                    <span className="text-foreground font-medium mt-0.5 block">Postgres row-locked outbox queue with ACID transaction resilience.</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Practical Comparison Table */}
-        <section id="comparison" className="py-20 border-t border-border bg-muted/20">
+        {/* Section 4: 3-Step Campus Setup Timeline */}
+        <section id="setup" className="py-20 border-t border-border bg-muted/20">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="max-w-2xl mb-12">
-              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Architectural Comparison</div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                How EducationOS compares to legacy university portals
+            <div className="max-w-2xl mb-12 space-y-2">
+              <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
+                Rapid Onboarding
+              </Badge>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Operational in minutes, not 18-month IT cycles
               </h2>
-              <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                A straightforward assessment of modern infrastructure versus decade-old monolithic campus systems.
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Self-service institution setup with instant multi-branch provisioning.
               </p>
             </div>
 
-            <div className="border border-border rounded-xl bg-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="p-4 font-semibold text-foreground">Capability</th>
-                      <th className="p-4 font-semibold text-muted-foreground">Legacy Campus Portals</th>
-                      <th className="p-4 font-semibold text-primary">EducationOS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr>
-                      <td className="p-4 font-medium text-foreground">Campus Isolation</td>
-                      <td className="p-4 text-muted-foreground">Shared tables prone to misconfigurations and accidental record exposure</td>
-                      <td className="p-4 font-medium text-foreground">Dedicated schema boundaries enforced on every query</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 font-medium text-foreground">Exam Concurrency</td>
-                      <td className="p-4 text-muted-foreground">Frequent bottlenecks and crashes during simultaneous finals submissions</td>
-                      <td className="p-4 font-medium text-foreground">High-throughput submission queue designed for peak volume</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 font-medium text-foreground">Video Classroom</td>
-                      <td className="p-4 text-muted-foreground">Third-party external links with manual attendance cross-checking</td>
-                      <td className="p-4 font-medium text-foreground">Native adaptive streaming with automated participation tracking</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 font-medium text-foreground">Deployment Time</td>
-                      <td className="p-4 text-muted-foreground">12 to 18 months involving expensive enterprise IT consulting</td>
-                      <td className="p-4 font-medium text-foreground">Operational in hours with self-serve campus registration</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 font-medium text-foreground">User Experience</td>
-                      <td className="p-4 text-muted-foreground">Dated 2000s desktop-only tables that confuse students and staff</td>
-                      <td className="p-4 font-medium text-foreground">Clean, responsive interface built with modern accessibility standards</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Interactive Multi-Step Deployment Walkthrough */}
-        <section id="deployment" className="py-20 border-t border-border bg-muted/20">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="max-w-2xl mb-10">
-              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Guided Setup</div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Set up your institution in three clean, guided steps
-              </h2>
-              <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Click through the interactive steps below to see how straightforward campus onboarding is with EducationOS.
-              </p>
-            </div>
-
-            {/* Step Navigation Pill Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <button
-                type="button"
-                onClick={() => setDeploymentStep(1)}
-                className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 cursor-pointer ${
-                  deploymentStep === 1
-                    ? "border-primary bg-card shadow-sm ring-1 ring-primary"
-                    : "border-border bg-card/60 hover:bg-card hover:border-border/80"
-                }`}
-              >
-                <div className={`h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${
-                  deploymentStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3 relative shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-sm shadow-xs">
                   1
                 </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground">Register Institution</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Workspace domain & administrator setup</div>
-                </div>
-              </button>
+                <h3 className="font-bold text-base text-foreground">Register Institution</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Claim your institutional subdomain and set up master administrator credentials.
+                </p>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setDeploymentStep(2)}
-                className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 cursor-pointer ${
-                  deploymentStep === 2
-                    ? "border-primary bg-card shadow-sm ring-1 ring-primary"
-                    : "border-border bg-card/60 hover:bg-card hover:border-border/80"
-                }`}
-              >
-                <div className={`h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${
-                  deploymentStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}>
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3 relative shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-sm shadow-xs">
                   2
                 </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground">Configure Branches</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Autonomous colleges & faculty rosters</div>
-                </div>
-              </button>
+                <h3 className="font-bold text-base text-foreground">Configure Campus & Branding</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Provision autonomous branches, assign faculty roles, and set custom color palettes.
+                </p>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setDeploymentStep(3)}
-                className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 cursor-pointer ${
-                  deploymentStep === 3
-                    ? "border-primary bg-card shadow-sm ring-1 ring-primary"
-                    : "border-border bg-card/60 hover:bg-card hover:border-border/80"
-                }`}
-              >
-                <div className={`h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${
-                  deploymentStep === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}>
+              <div className="p-6 rounded-2xl border border-border bg-card space-y-3 relative shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-sm shadow-xs">
                   3
                 </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground">Launch Cohorts</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Enroll students & deliver live lectures</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Interactive Step Content Box */}
-            <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-xs">
-              {deploymentStep === 1 && (
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Step 1: Workspace & Administrator Profile</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground">Claim your unique institutional URL and create root administrative credentials.</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs w-fit">Step 1 of 3</Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-foreground">Institution Name</label>
-                      <input
-                        type="text"
-                        readOnly
-                        value="Apex University System"
-                        className="w-full h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground font-medium"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-foreground">Campus Portal Subdomain</label>
-                      <div className="flex items-center h-10 rounded-lg border border-border bg-muted/30 px-3 text-sm">
-                        <span className="text-muted-foreground font-mono text-xs">https://</span>
-                        <span className="font-semibold text-primary font-mono text-xs px-1">apex</span>
-                        <span className="text-muted-foreground font-mono text-xs">.educationos.edu</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-foreground">Primary Administrator</label>
-                      <input
-                        type="text"
-                        readOnly
-                        value="Dr. Eleanor Vance (Dean of Academic Governance)"
-                        className="w-full h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-foreground">Administrative Email</label>
-                      <input
-                        type="text"
-                        readOnly
-                        value="provost@apex.edu"
-                        className="w-full h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Dedicated tenant schema initialized
-                    </span>
-                    <Button onClick={() => setDeploymentStep(2)} size="sm" className="gap-1.5 font-medium cursor-pointer">
-                      Next: Configure Branches <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {deploymentStep === 2 && (
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Step 2: Campus Branches & Department Curricula</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground">Establish isolated branch campuses and assign autonomous deans and faculty.</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs w-fit">Step 2 of 3</Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-2">
-                      <div className="text-xs font-semibold text-primary">BRANCH 01</div>
-                      <div className="text-sm font-semibold text-foreground">Main Campus</div>
-                      <div className="text-xs text-muted-foreground">12 Academic Departments &bull; 8,420 Enrolled</div>
-                      <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 pt-1">
-                        <Check className="h-3 w-3" /> Fully Configured
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-2">
-                      <div className="text-xs font-semibold text-primary">BRANCH 02</div>
-                      <div className="text-sm font-semibold text-foreground">School of Medicine</div>
-                      <div className="text-xs text-muted-foreground">6 Clinical Departments &bull; 2,150 Enrolled</div>
-                      <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 pt-1">
-                        <Check className="h-3 w-3" /> Fully Configured
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-2">
-                      <div className="text-xs font-semibold text-primary">BRANCH 03</div>
-                      <div className="text-sm font-semibold text-foreground">School of Law</div>
-                      <div className="text-xs text-muted-foreground">4 Legal Divisions &bull; 1,340 Enrolled</div>
-                      <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 pt-1">
-                        <Check className="h-3 w-3" /> Fully Configured
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between">
-                    <Button onClick={() => setDeploymentStep(1)} variant="ghost" size="sm" className="cursor-pointer">
-                      Back to Step 1
-                    </Button>
-                    <Button onClick={() => setDeploymentStep(3)} size="sm" className="gap-1.5 font-medium cursor-pointer">
-                      Next: Launch Cohorts <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {deploymentStep === 3 && (
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Step 3: Cohort Enrollment & Classroom Launch</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground">Invite student cohorts, deliver buffer-free video lectures, and conduct exams.</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs w-fit text-emerald-600 border-emerald-300">Ready to Teach</Badge>
-                  </div>
-
-                  <div className="p-4 rounded-lg border border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-foreground">Fall Semester 2026 Batch Active</div>
-                      <div className="text-xs text-muted-foreground">184 students enrolled in CS-301 &bull; Live lecture stream ready &bull; Exam schedule set</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-medium text-emerald-600">Online & Operational</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between">
-                    <Button onClick={() => setDeploymentStep(2)} variant="ghost" size="sm" className="cursor-pointer">
-                      Back to Step 2
-                    </Button>
-                    <Link href="/dashboard">
-                      <Button size="sm" className="gap-1.5 font-medium cursor-pointer">
-                        Open Live Campus Portal <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              )}
+                <h3 className="font-bold text-base text-foreground">Launch Cohorts & Stream</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Enroll student rosters, broadcast buffer-free lectures, and conduct live exams.
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Action Callout */}
-        <section className="py-16 border-t border-border bg-muted/40">
+        {/* Section 5: High-Impact Callout */}
+        <section className="py-20 border-t border-border bg-gradient-to-b from-card to-background">
           <div className="max-w-4xl mx-auto px-6 text-center space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
               Ready to modernize your university network?
             </h2>
-            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
+            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
               Test the platform directly with our interactive demo campus, or register your institution to begin setting up your autonomous branches.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
               <Link href="/dashboard" className="w-full sm:w-auto">
-                <Button size="lg" className="w-full sm:w-auto gap-2">
-                  Explore Demo Campus <ArrowRight className="h-4 w-4" />
+                <Button size="lg" className="w-full sm:w-auto font-bold px-8 h-12 rounded-xl gap-2 shadow-lg shadow-primary/25 cursor-pointer">
+                  <span>Explore Demo Campus</span>
+                  <ArrowRight size={18} weight="bold" />
                 </Button>
               </Link>
               <Link href="/register" className="w-full sm:w-auto">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto font-bold px-8 h-12 rounded-xl border-border hover:bg-muted cursor-pointer">
                   Register Institution
                 </Button>
               </Link>
@@ -840,28 +584,28 @@ export default function Home() {
         </section>
       </main>
 
-      {/* Structured Footer */}
-      <footer className="border-t border-border bg-background py-10 px-6">
+      {/* Structured Minimal Footer */}
+      <footer className="border-t border-border bg-background py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
           <div className="flex items-center gap-2.5">
-            <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold">
-              <GraduationCap className="h-3.5 w-3.5" />
+            <div className="h-7 w-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">
+              <GraduationCap size={16} weight="bold" />
             </div>
-            <span className="font-semibold text-foreground">EducationOS</span>
-            <span>&bull; Modern University Operating System</span>
+            <span className="font-bold text-foreground">EducationOS</span>
+            <span>• Modern University Operating System</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5">
+          <div className="flex flex-wrap items-center gap-5 font-medium">
             <a href="#overview" className="hover:text-foreground transition-colors">Overview</a>
-            <a href="#capabilities" className="hover:text-foreground transition-colors">Capabilities</a>
-            <a href="#solutions" className="hover:text-foreground transition-colors">Stakeholders</a>
-            <a href="#comparison" className="hover:text-foreground transition-colors">Comparison</a>
+            <a href="#features" className="hover:text-foreground transition-colors">Pillars</a>
+            <a href="#architecture" className="hover:text-foreground transition-colors">Architecture</a>
+            <a href="#setup" className="hover:text-foreground transition-colors">Setup</a>
             <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
             <Link href="/register" className="hover:text-foreground transition-colors">Register</Link>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="flex items-center gap-2 font-mono">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Operational (99.99% Uptime)</span>
           </div>
         </div>
