@@ -41,6 +41,7 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
   const { user } = useAuth();
   const playerRef = useRef(null);
   const notesSaveTimerRef = useRef(null);
+  const lastSavedTimeRef = useRef(0);
 
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
@@ -429,6 +430,16 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
 
   const handleVideoProgress = (currentTime) => {
     setCurrentPlaybackTime(currentTime);
+
+    if (typeof window !== "undefined" && currentLesson?.id) {
+      if (Math.abs(currentTime - lastSavedTimeRef.current) >= 2) {
+        lastSavedTimeRef.current = currentTime;
+        try {
+          localStorage.setItem(`eos_video_time_${currentLesson.id}`, String(currentTime));
+        } catch (e) {}
+      }
+    }
+
     const duration = playerRef.current?.getDuration() || 0;
     if (duration > 0 && currentTime / duration >= 0.9 && !completedLessons.has(currentLesson.id)) {
       markLessonComplete(currentLesson.id);
@@ -562,12 +573,25 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
           {currentLesson.contentType === "VIDEO" ? (
             <div className="space-y-3">
               <HlsVideoPlayer
+                key={currentLesson.id}
                 ref={playerRef}
                 src={currentLesson.hlsUrl || currentLesson.contentUrl}
                 title={currentLesson.title}
                 chapters={currentLesson.chapters || []}
+                initialTime={
+                  typeof window !== "undefined" && currentLesson?.id
+                    ? parseFloat(localStorage.getItem(`eos_video_time_${currentLesson.id}`) || "0")
+                    : 0
+                }
                 onTimeUpdate={(t) => handleVideoProgress(t)}
-                onEnded={() => markLessonComplete(currentLesson.id)}
+                onEnded={() => {
+                  if (typeof window !== "undefined" && currentLesson?.id) {
+                    try {
+                      localStorage.removeItem(`eos_video_time_${currentLesson.id}`);
+                    } catch (e) {}
+                  }
+                  markLessonComplete(currentLesson.id);
+                }}
               />
 
               {/* Player Quick Action Toolbar */}

@@ -13,7 +13,9 @@ import {
   Check,
   ArrowCounterClockwise,
   ArrowClockwise,
-  Lightning
+  Lightning,
+  Clock,
+  X
 } from "@phosphor-icons/react";
 
 const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
@@ -22,6 +24,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     poster,
     title = "Video Lesson",
     chapters = [],
+    initialTime = 0,
     onTimeUpdate,
     onEnded,
     autoPlay = false,
@@ -33,6 +36,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
   const containerRef = useRef(null);
   const hlsRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
+  const initialSeekDoneRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     seekTo(time) {
@@ -60,10 +64,12 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
   const [showControls, setShowControls] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [centerBurst, setCenterBurst] = useState(null); // 'play' | 'pause' | null
+  const [resumeToast, setResumeToast] = useState(null); // { time: number } | null
 
   // HLS Quality state
   const [qualities, setQualities] = useState([]); // [{ index: -1, name: 'Auto' }, ...]
   const [currentQuality, setCurrentQuality] = useState(-1); // -1 is auto
+  const [activeBitrateName, setActiveBitrateName] = useState(null); // e.g. '720p', '1080p'
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [settingsTab, setSettingsTab] = useState("main"); // 'main' | 'quality' | 'speed'
 
@@ -80,6 +86,31 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     return `${mins < 10 ? "0" : ""}${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  // Restore saved playback speed on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedSpeed = parseFloat(localStorage.getItem("eos_player_speed") || "1");
+      if (!isNaN(savedSpeed) && savedSpeed > 0 && videoRef.current) {
+        videoRef.current.playbackRate = savedSpeed;
+        setPlaybackRate(savedSpeed);
+      }
+    }
+  }, []);
+
+  // Handle initial timestamp seek & resume notification
+  const performInitialSeek = useCallback((vidDuration) => {
+    if (initialSeekDoneRef.current) return;
+    if (initialTime && initialTime > 5 && vidDuration > 10 && initialTime < vidDuration - 5) {
+      if (videoRef.current) {
+        videoRef.current.currentTime = initialTime;
+        setCurrentTime(initialTime);
+        setResumeToast({ time: initialTime });
+        setTimeout(() => setResumeToast(null), 6000);
+      }
+    }
+    initialSeekDoneRef.current = true;
+  }, [initialTime]);
+
   // Initialize HLS.js or native playback
   useEffect(() => {
     const video = videoRef.current;
@@ -88,6 +119,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     // Reset states
     setCurrentTime(0);
     setIsBuffering(true);
+    initialSeekDoneRef.current = false;
 
     const isHlsSource = src.includes(".m3u8") || src.includes("/hls/");
 
@@ -119,13 +151,27 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
           ...levels.reverse()
         ];
         setQualities(uniqueQualities);
+
+        // Pick first level name for auto display
+        if (data.levels && data.levels.length > 0) {
+          const firstLvl = data.levels[data.firstLevel || 0] || data.levels[0];
+          if (firstLvl) setActiveBitrateName(`${firstLvl.height}p`);
+        }
+
+        if (video.duration) {
+          performInitialSeek(video.duration);
+        }
+
         if (autoPlay) {
           video.play().catch(() => {});
         }
       });
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-        // Automatically updated level
+        const levelObj = hls.levels?.[data.level];
+        if (levelObj) {
+          setActiveBitrateName(`${levelObj.height}p`);
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -151,11 +197,17 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
       video.src = src;
       video.addEventListener("loadedmetadata", () => {
         setIsBuffering(false);
+        performInitialSeek(video.duration);
         if (autoPlay) video.play().catch(() => {});
       });
     } else {
       // Direct MP4 playback fallback
       video.src = src;
+      video.addEventListener("loadedmetadata", () => {
+        setIsBuffering(false);
+        performInitialSeek(video.duration);
+        if (autoPlay) video.play().catch(() => {});
+      });
     }
 
     return () => {
@@ -324,6 +376,9 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     if (!video) return;
     video.playbackRate = rate;
     setPlaybackRate(rate);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("eos_player_speed", String(rate));
+    }
     setShowSettingsMenu(false);
     setSettingsTab("main");
   };
@@ -379,6 +434,34 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
         </div>
       )}
 
+      {/* Resume Playback Toast */}
+      {resumeToast && (
+        <div className="absolute top-16 left-4 z-40 flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#0A0E14]/90 backdrop-blur-md border border-white/20 text-white text-xs shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <Clock size={15} weight="bold" />
+            <span>Resumed from {formatTime(resumeToast.time)}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              seekTo(0);
+              setResumeToast(null);
+            }}
+            className="text-[11px] font-semibold text-white/80 hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
+          >
+            Start Over
+          </button>
+          <button
+            type="button"
+            onClick={() => setResumeToast(null)}
+            className="text-white/50 hover:text-white p-0.5 transition-colors cursor-pointer"
+            title="Dismiss"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        </div>
+      )}
+
       {/* Buffering Spinner */}
       {isBuffering && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] pointer-events-none z-10">
@@ -399,9 +482,18 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
           <span className="h-2 w-2 rounded-full bg-[#FF7328] animate-pulse" />
           <h4 className="text-sm font-bold tracking-tight text-white/95 line-clamp-1">{title}</h4>
         </div>
-        {qualities.length > 1 && (
-          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90 border border-white/15">
-            {currentQuality === -1 ? "HLS Auto" : qualities.find(q => q.index === currentQuality)?.name}
+        {qualities.length > 1 ? (
+          <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-white/10 text-white/90 border border-white/15 flex items-center gap-1.5 shadow-xs">
+            <Lightning size={12} weight="fill" className="text-[#FF7328]" />
+            <span>
+              {currentQuality === -1
+                ? `Auto (${activeBitrateName || "Adaptive"})`
+                : qualities.find((q) => q.index === currentQuality)?.name}
+            </span>
+          </span>
+        ) : (
+          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/80 border border-white/15">
+            1080p HD
           </span>
         )}
       </div>
@@ -557,16 +649,27 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
                         <div className="px-2 py-1 text-[10px] uppercase font-bold text-white/50 tracking-wider">
                           Video Quality
                         </div>
-                        {qualities.map((q) => (
-                          <button
-                            key={q.index}
-                            onClick={() => handleQualityChange(q.index)}
-                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/90 text-left font-mono"
-                          >
-                            <span>{q.name}</span>
-                            {currentQuality === q.index && <Check size={14} className="text-[#FF7328]" />}
-                          </button>
-                        ))}
+                        {qualities.map((q) => {
+                          const label = q.index === -1
+                            ? `Auto (${activeBitrateName || "Adaptive"})`
+                            : q.name === "1080p"
+                            ? "1080p Full HD"
+                            : q.name === "720p"
+                            ? "720p HD"
+                            : q.name === "360p"
+                            ? "360p SD"
+                            : q.name;
+                          return (
+                            <button
+                              key={q.index}
+                              onClick={() => handleQualityChange(q.index)}
+                              className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/90 text-left font-mono cursor-pointer"
+                            >
+                              <span>{label}</span>
+                              {currentQuality === q.index && <Check size={14} className="text-[#FF7328]" />}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -576,13 +679,13 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
                         <div className="px-2 py-1 text-[10px] uppercase font-bold text-white/50 tracking-wider">
                           Playback Speed
                         </div>
-                        {[0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                        {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
                           <button
                             key={rate}
                             onClick={() => handleSpeedChange(rate)}
-                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/90 text-left font-mono"
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/90 text-left font-mono cursor-pointer"
                           >
-                            <span>{rate}x</span>
+                            <span>{rate === 1 ? "1.0x (Normal)" : `${rate}x`}</span>
                             {playbackRate === rate && <Check size={14} className="text-[#FF7328]" />}
                           </button>
                         ))}
