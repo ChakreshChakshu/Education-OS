@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AuthMultiStepLoader } from "@/components/auth-multi-step-loader";
 import { 
   GraduationCap, 
   EnvelopeSimple, 
@@ -40,20 +41,24 @@ function LoginContent() {
     try {
       const res = await login(loginEmail, loginPassword);
       if (res.success) {
-        setSuccess("Login successful! Entering dashboard...");
-        setTimeout(() => router.push("/dashboard"), 600);
+        setSuccess("Login verified! Entering dashboard...");
+        setTimeout(() => router.push("/dashboard"), 1800);
       } else {
         setError(res.error || "Invalid email or password.");
+        setLoading(false);
       }
     } catch (err) {
       setError(err.message || "An unexpected error occurred.");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="border-border shadow-sm rounded-2xl bg-card overflow-hidden">
+    <>
+      {/* Dynamic Multi-Step Login Loader */}
+      <AuthMultiStepLoader loading={loading && !error} mode="login" />
+
+      <Card className="border-border shadow-sm rounded-2xl bg-card overflow-hidden">
       <div className="p-6 sm:p-8 border-b border-border space-y-1.5">
         <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Sign in to your portal</h2>
         <p className="text-xs text-muted-foreground">Enter your credentials to access your courses and campus dashboard.</p>
@@ -123,6 +128,7 @@ function LoginContent() {
         </div>
       </CardContent>
     </Card>
+    </>
   );
 }
 

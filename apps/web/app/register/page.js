@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { AuthMultiStepLoader } from "@/components/auth-multi-step-loader";
 import {
   GraduationCap,
   Buildings,
@@ -188,7 +189,9 @@ export default function RegisterOnboardingPage() {
       const res = await register(payload);
 
       if (res.success) {
-        router.push("/dashboard");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1800);
       } else {
         setError(res.error || "Registration failed. Please check your credentials.");
         setLoading(false);
@@ -201,6 +204,9 @@ export default function RegisterOnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/20">
+      {/* Multi-Step Provisioning Loader */}
+      <AuthMultiStepLoader loading={loading} mode="register" />
+
       {/* Top Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
