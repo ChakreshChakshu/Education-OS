@@ -34,9 +34,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const applyTenants = (realTenants, preferredId) => {
-    setTenants(realTenants);
-    const preferred = preferredId && realTenants.find((t) => t.id === preferredId);
-    const next = preferred || realTenants[0] || null;
+    // Deduplicate tenants by id so UI never receives multiple items with identical keys
+    const seen = new Set();
+    const uniqueTenants = (realTenants || []).filter((t) => {
+      if (!t?.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+
+    setTenants(uniqueTenants);
+    const preferred = preferredId && uniqueTenants.find((t) => t.id === preferredId);
+    const next = preferred || uniqueTenants[0] || null;
     setActiveTenant(next);
     if (next) {
       localStorage.setItem('eos_tenant', JSON.stringify(next));
@@ -134,6 +142,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('eos_tenant_id', tenant.id);
   };
 
+  const addTenant = (newTenant) => {
+    applyTenants([...tenants, newTenant], newTenant.id);
+  };
+
   const logout = () => {
     ApiClient.logout().catch(() => {});
     setUser(null);
@@ -153,6 +165,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         switchTenant,
+        addTenant,
         updateCurrentUser,
         updateActiveTenant,
         logout

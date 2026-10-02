@@ -21,9 +21,19 @@ import {
 } from "@phosphor-icons/react";
 
 export default function TenantsPage() {
-  const { activeTenant, tenants, switchTenant } = useAuth();
+  const { activeTenant, tenants, switchTenant, addTenant } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Safeguard: Ensure unique tenants by ID to avoid React key collision
+  const uniqueTenants = React.useMemo(() => {
+    const seen = new Set();
+    return (tenants || []).filter((t) => {
+      if (!t?.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+  }, [tenants]);
 
   const [tenantName, setTenantName] = useState("");
   const [slug, setSlug] = useState("");
@@ -49,8 +59,11 @@ export default function TenantsPage() {
           slug: tenantData.slug || slug,
           branch: res.data.organization?.name || branchName || "Main Campus"
         };
-        tenants.push(created);
-        switchTenant(created);
+        if (addTenant) {
+          addTenant(created);
+        } else {
+          switchTenant(created);
+        }
         setIsModalOpen(false);
         setTenantName("");
         setSlug("");
@@ -106,9 +119,9 @@ export default function TenantsPage() {
 
       {/* Tenant List */}
       <div className="space-y-4">
-        <h3 className="text-xl font-bold text-foreground">Registered Institutions & Branches ({tenants.length})</h3>
+        <h3 className="text-xl font-bold text-foreground">Registered Institutions & Branches ({uniqueTenants.length})</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tenants.map((t) => {
+          {uniqueTenants.map((t) => {
             const isActive = activeTenant?.id === t.id;
             return (
               <Card key={t.id} className={`p-2 transition-colors ${isActive ? "border-primary bg-card" : "hover:border-primary/50 bg-card"}`}>

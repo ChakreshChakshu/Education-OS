@@ -15,10 +15,22 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
       throw new Error(`Cannot assign unknown role "${roleName}" — has seedRbacDefaults() run?`);
     }
 
+    // Check if role assignment already exists (accounting for NULL organization_id)
+    const existing = await db.query(
+      `SELECT 1 FROM role_assignments 
+       WHERE user_id = $1 AND tenant_id = $2 
+         AND (organization_id = $3 OR (organization_id IS NULL AND $3 IS NULL))
+         AND role_id = $4 LIMIT 1`,
+      [userId, tenantId, organizationId, role.id]
+    );
+
+    if (existing.rows && existing.rows.length > 0) {
+      return;
+    }
+
     await db.query(
       `INSERT INTO role_assignments (id, user_id, tenant_id, organization_id, role_id)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id, tenant_id, organization_id, role_id) DO NOTHING`,
+       VALUES ($1, $2, $3, $4, $5)`,
       [randomUUID(), userId, tenantId, organizationId, role.id]
     );
   }
@@ -26,6 +38,7 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
   /**
    * Returns every tenant a user has a role in, with the role name resolved,
    * for populating the tenant switcher after login/registration.
+   * Deduplicates by tenantId so each tenant only appears once in the workspace switcher.
    */
   async findTenantsWithRolesForUser(userId) {
     const db = await this.db.connect();
@@ -39,14 +52,21 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
        ORDER BY ra.created_at ASC`,
       [userId]
     );
-    return res.rows.map((row) => ({
-      tenantId: row.tenant_id,
-      organizationId: row.organization_id,
-      role: row.role_name,
-      name: row.tenant_name,
-      slug: row.tenant_slug,
-      settings: row.settings_json || {}
-    }));
+
+    const tenantsMap = new Map();
+    for (const row of res.rows) {
+      if (!tenantsMap.has(row.tenant_id)) {
+        tenantsMap.set(row.tenant_id, {
+          tenantId: row.tenant_id,
+          organizationId: row.organization_id,
+          role: row.role_name,
+          name: row.tenant_name,
+          slug: row.tenant_slug,
+          settings: row.settings_json || {}
+        });
+      }
+    }
+    return Array.from(tenantsMap.values());
   }
 
   /**
