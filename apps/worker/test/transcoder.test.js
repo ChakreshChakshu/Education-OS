@@ -93,7 +93,7 @@ test('Email processor renders student invitation template and dispatches via Res
   const { JOBS } = require('../src/jobs');
 
   const result = await PROCESSORS[JOBS.EMAIL_SEND]({
-    to: 'student.test@neon.edu',
+    to: process.env.RESEND_TEST_RECIPIENT || 'sharma.ankush9193@gmail.com',
     template: 'student_invitation',
     name: 'Test Student',
     courseTitle: 'Enterprise Domain Architecture',

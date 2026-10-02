@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ParallaxComponent } from "@/components/ui/parallax-scrolling";
+import AppleCardsCarouselDemo from "@/components/apple-cards-carousel-demo";
 import {
   GraduationCap,
   Buildings,
@@ -353,99 +354,9 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Section 2: Core Pillars (Clean Bento Grid) */}
-        <section id="features" className="py-20 border-t border-border bg-muted/20">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="max-w-2xl mb-12 space-y-2">
-              <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
-                Core Architecture
-              </Badge>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                Engineered to replace fragmented campus software
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Consolidating branch governance, adaptive media streaming, and student privacy into one standard.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card 1 */}
-              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
-                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <Buildings size={24} weight="bold" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground">Multi-Tenant Campus Isolation</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Support central university oversight while granting individual colleges and regional branches full administrative autonomy, custom branding palettes, and strict database query isolation.
-                </p>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Custom Domain Routing
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Autonomous Deans
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 2 */}
-              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
-                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <Video size={24} weight="bold" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground">High-Definition HLS Video Delivery</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Deliver synchronous and asynchronous video lectures with adaptive bitrates. Low-bandwidth students experience smooth audio and playback with zero manual transcode rendering.
-                </p>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Cloudflare R2 Storage
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    360p - 1080p ABR
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 3 */}
-              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
-                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <FileText size={24} weight="bold" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground">Concurrency-Proof Exam Submissions</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Eliminate server crashes during finals week. Dedicated PostgreSQL row-locked submission pipelines guarantee tests are timestamped, safely received, and instantly graded.
-                </p>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Zero-Timeout Finals
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Instant Gradebook Sync
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 4 */}
-              <div className="p-6 rounded-2xl border border-border bg-card space-y-3.5 shadow-xs hover:border-primary/40 transition-colors">
-                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <ShieldCheck size={24} weight="bold" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground">FERPA & GDPR Student Privacy</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Fine-grained RBAC ensures professors and staff access only the rosters and grade records within their approved scope, with complete audit logs for accreditation inspections.
-                </p>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Multi-Tenant Boundaries
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
-                    Tamper-Evident Logs
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Section 2: Core Pillars (Apple Cards Carousel) */}
+        <section id="features" className="border-t border-border bg-muted/20 overflow-hidden">
+          <AppleCardsCarouselDemo />
         </section>
 
         {/* Section 3: High-Impact Architecture Comparison */}
