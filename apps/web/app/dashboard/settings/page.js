@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuth } from "@/providers/auth-context";
+import { useAuth, applyTenantTheme } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +31,14 @@ import {
 } from "@phosphor-icons/react";
 
 const BRAND_PALETTES = [
-  { name: "Electric Indigo", hex: "#4f46e5" },
-  { name: "Emerald Forest", hex: "#059669" },
-  { name: "Royal Sapphire", hex: "#0284c7" },
-  { name: "Warm Amber", hex: "#d97706" },
-  { name: "Crimson Rose", hex: "#e11d48" },
-  { name: "Slate Monochrome", hex: "#334155" }
+  { name: "Electric Indigo", hex: "#5b12ed", label: "Default" },
+  { name: "Emerald Forest", hex: "#059669", label: "Growth" },
+  { name: "Royal Sapphire", hex: "#0284c7", label: "Academic" },
+  { name: "Deep Ocean Navy", hex: "#0f62fe", label: "Enterprise" },
+  { name: "Crimson Rose", hex: "#e11d48", label: "Prestigious" },
+  { name: "Warm Amber", hex: "#d97706", label: "Executive" },
+  { name: "Violet Twilight", hex: "#7c3aed", label: "Creative" },
+  { name: "Slate Monochrome", hex: "#334155", label: "Minimal" }
 ];
 
 export default function SettingsPage() {
@@ -81,11 +83,14 @@ export default function SettingsPage() {
     confirmPassword: ""
   });
 
-  // Tenant Branding State
+  // Tenant Branding & Campus State
   const [brandingForm, setBrandingForm] = useState({
     name: "",
     slug: "",
-    primaryColor: "#4f46e5",
+    branchName: "Main Campus",
+    address: "",
+    academicTerm: "Spring 2026",
+    primaryColor: "#5b12ed",
     tagline: "",
     supportEmail: "",
     logoUrl: ""
@@ -127,24 +132,30 @@ export default function SettingsPage() {
       }
     });
 
-    // Fetch tenant settings
+    // Fetch tenant settings & campus parameters
     ApiClient.getTenantSettings().then((res) => {
       if (res?.success && res?.data) {
         const settings = res.data.settingsJson || {};
         const branding = settings.branding || {};
+        const campus = settings.campus || {};
+        const color = branding.primaryColor || settings.primaryColor || "#5b12ed";
         setBrandingForm({
           name: res.data.name || activeTenant?.name || "Institution Workspace",
           slug: res.data.slug || activeTenant?.slug || "academy",
-          primaryColor: branding.primaryColor || settings.primaryColor || "#4f46e5",
+          branchName: campus.branchName || settings.branch || activeTenant?.branch || "Main Campus",
+          address: campus.address || "",
+          academicTerm: campus.academicTerm || "Spring 2026",
+          primaryColor: color,
           tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
-          supportEmail: settings.supportEmail || "support@institution.edu",
+          supportEmail: branding.supportEmail || settings.supportEmail || "support@institution.edu",
           logoUrl: branding.logoUrl || settings.logoUrl || ""
         });
       } else if (activeTenant) {
         setBrandingForm((prev) => ({
           ...prev,
           name: activeTenant.name || prev.name,
-          slug: activeTenant.slug || prev.slug
+          slug: activeTenant.slug || prev.slug,
+          branchName: activeTenant.branch || prev.branchName
         }));
       }
     });
@@ -233,20 +244,37 @@ export default function SettingsPage() {
     }
   };
 
-  // 3. Handle Tenant Branding Save
+  const handleColorSelect = (hex) => {
+    setBrandingForm((prev) => ({ ...prev, primaryColor: hex }));
+    applyTenantTheme(hex);
+  };
+
+  // 3. Handle Tenant Branding & Campus Settings Save
   const handleBrandingSubmit = async (e) => {
     e.preventDefault();
     setSavingBranding(true);
     try {
-      const res = await ApiClient.updateTenantSettings({
-        name: brandingForm.name,
+      const payload = {
+        name: brandingForm.name.trim(),
         settingsJson: {
           primaryColor: brandingForm.primaryColor,
-          tagline: brandingForm.tagline,
-          supportEmail: brandingForm.supportEmail,
-          logoUrl: brandingForm.logoUrl
+          branch: brandingForm.branchName.trim(),
+          branding: {
+            primaryColor: brandingForm.primaryColor,
+            tagline: brandingForm.tagline.trim(),
+            supportEmail: brandingForm.supportEmail.trim(),
+            logoUrl: brandingForm.logoUrl.trim()
+          },
+          campus: {
+            branchName: brandingForm.branchName.trim(),
+            address: brandingForm.address.trim(),
+            academicTerm: brandingForm.academicTerm.trim(),
+            timezone: profileForm.timezone || "UTC"
+          }
         }
-      });
+      };
+
+      const res = await ApiClient.updateTenantSettings(payload);
 
       if (!res?.success) {
         throw new Error(res?.error || "Failed to update tenant branding");
@@ -255,11 +283,14 @@ export default function SettingsPage() {
       if (activeTenant) {
         updateActiveTenant({
           ...activeTenant,
-          name: brandingForm.name
+          name: brandingForm.name.trim(),
+          branch: brandingForm.branchName.trim(),
+          settings: payload.settingsJson
         });
       }
 
-      showNotification("Institutional branding & workspace parameters published");
+      applyTenantTheme(brandingForm.primaryColor);
+      showNotification("Institutional branding & campus configuration published successfully");
     } catch (err) {
       showNotification(err.message, true);
     } finally {
@@ -529,209 +560,364 @@ export default function SettingsPage() {
         {/* Faculty/Admin Only Settings */}
         {!isStudent && (
           <>
-            {/* TAB 3: Institutional Branding & Workspace */}
             <TabsContent value="branding">
-          <form onSubmit={handleBrandingSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Form inputs column */}
-              <div className="lg:col-span-2 space-y-6">
-                <Card className="border-border">
-                  <CardHeader>
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Buildings size={18} className="text-primary" />
-                      <span>Workspace Identity & Custom Theme</span>
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Brand colors, institutional naming, and portal styling applied to the active tenant workspace.
-                    </CardDescription>
-                  </CardHeader>
+              <form onSubmit={handleBrandingSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Form inputs column (7 cols) */}
+                  <div className="lg:col-span-7 space-y-6">
+                    {/* Card 1: Campus Identity & Operations */}
+                    <Card className="border-border shadow-xs">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                          <Buildings size={20} className="text-primary" />
+                          <span>Campus Identity & Operations</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                          Institutional naming, branch designation, and academic scheduling parameters.
+                        </CardDescription>
+                      </CardHeader>
 
-                  <CardContent className="space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-foreground">Institution Display Name</label>
-                        <Input
-                          type="text"
-                          required
-                          value={brandingForm.name}
-                          onChange={(e) => setBrandingForm({ ...brandingForm, name: e.target.value })}
-                          className="text-xs h-10"
-                        />
-                      </div>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground">Institution Name</label>
+                            <Input
+                              type="text"
+                              required
+                              value={brandingForm.name}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, name: e.target.value })}
+                              className="text-xs sm:text-sm h-10"
+                              placeholder="e.g. SkillYards Academy"
+                            />
+                          </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                          <span>Tenant Subdomain</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">Immutable ID</span>
-                        </label>
-                        <div className="flex items-center">
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground flex items-center justify-between">
+                              <span>Tenant Subdomain</span>
+                              <span className="text-xs text-muted-foreground font-mono">Immutable</span>
+                            </label>
+                            <Input
+                              disabled
+                              value={brandingForm.slug}
+                              className="text-xs sm:text-sm h-10 font-mono bg-muted/40 cursor-not-allowed opacity-80"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground">Campus / Branch Name</label>
+                            <Input
+                              type="text"
+                              value={brandingForm.branchName}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, branchName: e.target.value })}
+                              className="text-xs sm:text-sm h-10"
+                              placeholder="e.g. Main Campus, Tech Park Branch"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground">Current Academic Term</label>
+                            <Input
+                              type="text"
+                              value={brandingForm.academicTerm}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, academicTerm: e.target.value })}
+                              className="text-xs sm:text-sm h-10 font-mono"
+                              placeholder="e.g. Spring 2026"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs sm:text-sm font-bold text-foreground">Campus Physical Location</label>
                           <Input
-                            disabled
-                            value={brandingForm.slug}
-                            className="text-xs h-10 font-mono bg-muted/40 cursor-not-allowed opacity-80"
+                            type="text"
+                            placeholder="e.g. Building 4, University Innovation Center, Tech Corridor"
+                            value={brandingForm.address}
+                            onChange={(e) => setBrandingForm({ ...brandingForm, address: e.target.value })}
+                            className="text-xs sm:text-sm h-10"
                           />
                         </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-foreground">Institutional Tagline</label>
-                      <Input
-                        type="text"
-                        placeholder="e.g. Next-Generation Engineering Institute"
-                        value={brandingForm.tagline}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })}
-                        className="text-xs h-10"
-                      />
-                    </div>
+                    {/* Card 2: Visual Branding & Assets */}
+                    <Card className="border-border shadow-xs">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                          <Palette size={20} className="text-primary" />
+                          <span>Visual Branding & Assets</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                          Institutional logo, brand tagline, and public support contact.
+                        </CardDescription>
+                      </CardHeader>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-foreground">Support & Inquiries Email</label>
-                      <Input
-                        type="email"
-                        placeholder="support@yourinstitution.edu"
-                        value={brandingForm.supportEmail}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, supportEmail: e.target.value })}
-                        className="text-xs h-10"
-                      />
-                    </div>
-
-                    {/* Color Palette Selection */}
-                    <div className="space-y-3 pt-2">
-                      <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                        <span>Brand Accent Color</span>
-                        <span className="font-mono text-xs font-bold text-primary">{brandingForm.primaryColor}</span>
-                      </label>
-
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-                        {BRAND_PALETTES.map((p) => {
-                          const isSelected = brandingForm.primaryColor.toLowerCase() === p.hex.toLowerCase();
-                          return (
-                            <button
-                              key={p.hex}
-                              type="button"
-                              onClick={() => setBrandingForm({ ...brandingForm, primaryColor: p.hex })}
-                              className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                                isSelected
-                                  ? "border-primary ring-2 ring-primary/20 bg-accent/40 shadow-xs"
-                                  : "border-border hover:border-primary/40 bg-card"
-                              }`}
+                      <CardContent className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs sm:text-sm font-bold text-foreground">Campus Logo Image URL</label>
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border border-border overflow-hidden shadow-xs"
+                              style={{ backgroundColor: `${brandingForm.primaryColor}15` }}
                             >
-                              <span
-                                className="h-6 w-6 rounded-full shadow-2xs block"
-                                style={{ backgroundColor: p.hex }}
+                              {brandingForm.logoUrl ? (
+                                <img
+                                  src={brandingForm.logoUrl}
+                                  alt="Campus Logo"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <span className="font-extrabold text-base" style={{ color: brandingForm.primaryColor }}>
+                                  {brandingForm.name ? brandingForm.name.charAt(0).toUpperCase() : "E"}
+                                </span>
+                              )}
+                            </div>
+                            <Input
+                              type="url"
+                              placeholder="https://example.com/logo.png"
+                              value={brandingForm.logoUrl}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
+                              className="text-xs sm:text-sm h-10 font-mono flex-1"
+                            />
+                            {brandingForm.logoUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setBrandingForm({ ...brandingForm, logoUrl: "" })}
+                                className="text-xs text-muted-foreground hover:text-foreground h-10 px-2.5"
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Square PNG or SVG with transparent background recommended.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground">Institutional Tagline</label>
+                            <Input
+                              type="text"
+                              placeholder="e.g. Next-Generation Engineering Institute"
+                              value={brandingForm.tagline}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })}
+                              className="text-xs sm:text-sm h-10"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs sm:text-sm font-bold text-foreground">Support & Inquiries Email</label>
+                            <Input
+                              type="email"
+                              placeholder="support@yourinstitution.edu"
+                              value={brandingForm.supportEmail}
+                              onChange={(e) => setBrandingForm({ ...brandingForm, supportEmail: e.target.value })}
+                              className="text-xs sm:text-sm h-10"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Card 3: Color Palette Selection */}
+                    <Card className="border-border shadow-xs">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                            <Sparkle size={20} className="text-primary" />
+                            <span>Institutional Color Palette</span>
+                          </CardTitle>
+                          <span 
+                            className="inline-flex items-center gap-1.5 font-mono text-xs sm:text-sm font-bold px-2.5 py-0.5 rounded-lg border shadow-2xs"
+                            style={{ 
+                              borderColor: `${brandingForm.primaryColor}50`, 
+                              backgroundColor: `${brandingForm.primaryColor}15`, 
+                              color: brandingForm.primaryColor 
+                            }}
+                          >
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: brandingForm.primaryColor }} />
+                            <span>{brandingForm.primaryColor.toUpperCase()}</span>
+                          </span>
+                        </div>
+                        <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                          Selecting a palette immediately adapts your buttons, active links, and classroom player accents in real-time.
+                        </CardDescription>
+                      </CardHeader>
+
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {BRAND_PALETTES.map((p) => {
+                            const isSelected = brandingForm.primaryColor.toLowerCase() === p.hex.toLowerCase();
+                            return (
+                              <button
+                                key={p.hex}
+                                type="button"
+                                onClick={() => handleColorSelect(p.hex)}
+                                className={`p-3 rounded-xl border flex flex-col items-start gap-2 transition-all cursor-pointer text-left ${
+                                  isSelected
+                                    ? "border-primary ring-2 ring-primary/30 bg-muted/60 shadow-sm"
+                                    : "border-border hover:border-primary/40 bg-card hover:bg-muted/30"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <span
+                                    className="h-6 w-6 rounded-full shadow-xs shrink-0 border border-black/10"
+                                    style={{ backgroundColor: p.hex }}
+                                  />
+                                  {isSelected && <CheckCircle size={16} weight="fill" className="text-primary" />}
+                                </div>
+                                <div className="min-w-0 w-full">
+                                  <p className="text-xs sm:text-sm font-bold text-foreground truncate">{p.name}</p>
+                                  <p className="text-xs text-muted-foreground font-mono">{p.label}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Custom Color Input */}
+                        <div className="pt-2 border-t border-border">
+                          <label className="text-xs sm:text-sm font-bold text-foreground block mb-2">Custom Brand Hex</label>
+                          <div className="flex items-center gap-3">
+                            <div className="relative shrink-0">
+                              <input
+                                type="color"
+                                value={brandingForm.primaryColor}
+                                onChange={(e) => handleColorSelect(e.target.value)}
+                                className="h-10 w-14 p-1 border border-border rounded-xl cursor-pointer bg-card"
                               />
-                              <span className="text-[10px] font-bold truncate max-w-full">{p.name.split(" ")[0]}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                            </div>
+                            <Input
+                              type="text"
+                              value={brandingForm.primaryColor}
+                              onChange={(e) => handleColorSelect(e.target.value)}
+                              className="text-xs sm:text-sm h-10 font-mono uppercase w-36"
+                              placeholder="#5B12ED"
+                            />
+                            <span className="text-xs text-muted-foreground hidden sm:inline">
+                              Instant live preview active
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
 
-                      <div className="flex items-center gap-2 pt-1">
-                        <Input
-                          type="color"
-                          value={brandingForm.primaryColor}
-                          onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
-                          className="h-9 w-12 p-0.5 border border-border rounded-lg cursor-pointer shrink-0"
-                        />
-                        <Input
-                          type="text"
-                          value={brandingForm.primaryColor}
-                          onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
-                          className="text-xs h-9 font-mono uppercase"
-                          placeholder="#4F46E5"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="flex justify-end border-t border-border pt-4">
-                    <Button
-                      type="submit"
-                      disabled={savingBranding}
-                      className="font-bold text-xs gap-2 cursor-pointer active:scale-[0.98] transition-transform"
-                    >
-                      <FloppyDisk size={16} weight="bold" />
-                      <span>{savingBranding ? "Publishing..." : "Save Workspace Branding"}</span>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </div>
-
-              {/* Live Preview Column */}
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-card border border-border shadow-xs space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <Sparkle size={16} className="text-primary" />
-                      <span className="text-xs font-bold text-foreground">Live Portal Preview</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      Student View
-                    </Badge>
+                      <CardFooter className="flex justify-end border-t border-border pt-4">
+                        <Button
+                          type="submit"
+                          disabled={savingBranding}
+                          className="font-bold text-xs sm:text-sm h-10 px-5 gap-2 cursor-pointer shadow-xs active:scale-[0.98] transition-transform"
+                        >
+                          <FloppyDisk size={18} weight="bold" />
+                          <span>{savingBranding ? "Publishing to Neon Cloud..." : "Save Workspace Branding"}</span>
+                        </Button>
+                      </CardFooter>
+                    </Card>
                   </div>
 
-                  {/* Render Mock Student Portal Card with live colors */}
-                  <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-xs"
-                        style={{ backgroundColor: brandingForm.primaryColor }}
-                      >
-                        {brandingForm.name.charAt(0) || "E"}
+                  {/* Live Preview Column (5 cols) */}
+                  <div className="lg:col-span-5 space-y-6">
+                    <div className="p-5 rounded-2xl bg-card border border-border shadow-xs space-y-5 sticky top-6">
+                      <div className="flex items-center justify-between pb-3 border-b border-border">
+                        <div className="flex items-center gap-2">
+                          <Sparkle size={18} className="text-primary" />
+                          <span className="text-sm font-bold text-foreground">Live Tenant Preview</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs font-mono font-bold">
+                          Adaptive UI
+                        </Badge>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold truncate text-foreground">
-                          {brandingForm.name || "Institution Name"}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground truncate font-mono">
-                          {brandingForm.slug}.educationos.com
-                        </p>
+
+                      {/* Mock Sidebar Header */}
+                      <div className="p-3.5 rounded-xl border border-border bg-muted/30 space-y-2">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                          Navigation Header
+                        </span>
+                        <div className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border">
+                          <div
+                            className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-extrabold text-xs shadow-xs shrink-0 overflow-hidden"
+                            style={{ backgroundColor: brandingForm.primaryColor }}
+                          >
+                            {brandingForm.logoUrl ? (
+                              <img src={brandingForm.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{brandingForm.name.charAt(0) || "E"}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-bold truncate text-foreground">
+                              {brandingForm.name || "Institution Name"}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate font-mono">
+                              {brandingForm.branchName || "Main Campus"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mock Student Learning Course Card */}
+                      <div className="p-3.5 rounded-xl border border-border bg-muted/30 space-y-2">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                          Classroom Course Card
+                        </span>
+                        <div className="p-3.5 rounded-xl bg-card border border-border space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className="text-xs font-bold px-2.5 py-0.5 rounded-full inline-block"
+                              style={{
+                                backgroundColor: `${brandingForm.primaryColor}20`,
+                                color: brandingForm.primaryColor
+                              }}
+                            >
+                              IN PROGRESS
+                            </span>
+                            <span className="text-xs font-mono font-bold text-muted-foreground">
+                              {brandingForm.academicTerm || "Spring 2026"}
+                            </span>
+                          </div>
+
+                          <p className="text-xs sm:text-sm font-extrabold text-foreground leading-snug">
+                            {brandingForm.tagline || "Advanced Distributed Systems & Microservices"}
+                          </p>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs font-bold">
+                              <span className="text-muted-foreground">Syllabus Progress</span>
+                              <span style={{ color: brandingForm.primaryColor }} className="font-mono">
+                                68%
+                              </span>
+                            </div>
+                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{ width: "68%", backgroundColor: brandingForm.primaryColor }}
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="w-full py-2 px-3 rounded-lg text-white font-bold text-xs sm:text-sm shadow-xs transition-opacity hover:opacity-95 cursor-pointer"
+                            style={{ backgroundColor: brandingForm.primaryColor }}
+                          >
+                            Continue Learning
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground leading-relaxed">
+                        <p className="font-semibold text-foreground mb-0.5">Direct Cloud Sync</p>
+                        Publishing updates this tenant in Neon PostgreSQL. All enrolled students and faculty immediately inherit this branding.
                       </div>
                     </div>
-
-                    <div className="p-3 rounded-lg bg-card border border-border space-y-2">
-                      <span
-                        className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
-                        style={{
-                          backgroundColor: `${brandingForm.primaryColor}20`,
-                          color: brandingForm.primaryColor
-                        }}
-                      >
-                        Active Course
-                      </span>
-                      <p className="text-xs font-extrabold text-foreground leading-tight">
-                        Advanced Distributed Systems & Microservices
-                      </p>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
-                        <span>Module 3 of 12</span>
-                        <span className="font-bold">45% Completed</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: "45%", backgroundColor: brandingForm.primaryColor }}
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="w-full py-2 px-3 rounded-lg text-white font-bold text-xs shadow-xs transition-opacity hover:opacity-95"
-                      style={{ backgroundColor: brandingForm.primaryColor }}
-                    >
-                      Continue Learning
-                    </button>
                   </div>
-
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Student course dashboards, player accents, and institutional email notifications inherit this brand primary color.
-                  </p>
                 </div>
-              </div>
-            </div>
-          </form>
-        </TabsContent>
+              </form>
+            </TabsContent>
 
         {/* TAB 4: Preferences & System */}
         <TabsContent value="system">

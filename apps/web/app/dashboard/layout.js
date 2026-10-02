@@ -216,10 +216,10 @@ export default function DashboardLayout({ children }) {
                       )}
                     </div>
                     <div className="min-w-0 pr-1">
-                      <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">
+                      <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">
                         {activeTenant?.name || "My Academy"}
                       </p>
-                      <p className="text-[10px] text-muted-foreground truncate font-mono">
+                      <p className="text-xs text-muted-foreground truncate font-mono">
                         {activeTenant?.branch || "Main Campus"}
                       </p>
                     </div>
@@ -242,8 +242,8 @@ export default function DashboardLayout({ children }) {
                           className="flex items-center justify-between gap-2 py-2"
                         >
                           <div className="truncate">
-                            <p className="font-bold text-xs truncate">{t.name}</p>
-                            <span className="text-[10px] text-muted-foreground font-mono">{t.branch || "Campus"}</span>
+                            <p className="font-bold text-sm truncate">{t.name}</p>
+                            <span className="text-xs text-muted-foreground font-mono">{t.branch || "Campus"}</span>
                           </div>
                           {isActive && <Check size={14} weight="bold" className="text-primary shrink-0" />}
                         </DropdownMenuItem>
@@ -255,7 +255,7 @@ export default function DashboardLayout({ children }) {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-xs font-bold text-primary">
+                  <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-sm font-bold text-primary">
                     <Plus size={14} weight="bold" />
                     <span>Provision New Branch</span>
                   </Link>
@@ -266,7 +266,7 @@ export default function DashboardLayout({ children }) {
         )}
 
         {/* Navigation Links */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -274,13 +274,13 @@ export default function DashboardLayout({ children }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-xs transition-all ${
+                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
                   active
                     ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground font-semibold"
                 }`}
               >
-                <Icon size={18} weight={active ? "bold" : "regular"} />
+                <Icon size={20} weight={active ? "bold" : "regular"} />
                 {sidebarOpen && <span>{item.name}</span>}
               </Link>
             );
@@ -298,8 +298,8 @@ export default function DashboardLayout({ children }) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="truncate">
-                  <p className="text-xs font-bold truncate leading-tight">{user?.name || "Administrator"}</p>
-                  <p className="text-[10px] text-muted-foreground truncate font-mono">{user?.email}</p>
+                  <p className="text-sm font-bold truncate leading-tight">{user?.name || "Administrator"}</p>
+                  <p className="text-xs text-muted-foreground truncate font-mono">{user?.email}</p>
                 </div>
               </div>
 

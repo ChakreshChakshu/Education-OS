@@ -438,14 +438,14 @@ export default function DashboardOverviewPage() {
           <Card className="hover:border-primary/40 transition-colors shadow-xs">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Enrolled Courses</span>
+                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Enrolled Courses</span>
                 <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                   <BookOpen size={18} weight="bold" />
                 </div>
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-foreground">{studentStats.enrolledCount}</span>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium">Active curriculums</p>
+                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.enrolledCount}</span>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Active curriculums</p>
               </div>
             </CardContent>
           </Card>
@@ -453,14 +453,14 @@ export default function DashboardOverviewPage() {
           <Card className="hover:border-primary/40 transition-colors shadow-xs">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lessons Finished</span>
+                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Lessons Finished</span>
                 <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                   <CheckCircle size={18} weight="bold" />
                 </div>
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-foreground">{studentStats.completedLessonsCount}</span>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium">Verified in Neon DB</p>
+                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.completedLessonsCount}</span>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Verified in Neon DB</p>
               </div>
             </CardContent>
           </Card>
@@ -468,14 +468,14 @@ export default function DashboardOverviewPage() {
           <Card className="hover:border-primary/40 transition-colors shadow-xs">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Average Progress</span>
+                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Average Progress</span>
                 <div className="h-9 w-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
                   <TrendUp size={18} weight="bold" />
                 </div>
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-foreground font-mono">{studentStats.avgProgress}%</span>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium">Across all courses</p>
+                <span className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">{studentStats.avgProgress}%</span>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Across all courses</p>
               </div>
             </CardContent>
           </Card>
@@ -483,14 +483,14 @@ export default function DashboardOverviewPage() {
           <Card className="hover:border-primary/40 transition-colors shadow-xs">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Assessments Passed</span>
+                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Assessments Passed</span>
                 <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
                   <Trophy size={18} weight="bold" />
                 </div>
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-foreground">{studentStats.quizzesPassed}</span>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium">Mastery checks passed</p>
+                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.quizzesPassed}</span>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Mastery checks passed</p>
               </div>
             </CardContent>
           </Card>
@@ -718,14 +718,19 @@ export default function DashboardOverviewPage() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Live Cloud Sync
               </span>
-              <Badge variant="outline" className="text-xs font-medium border-border hidden sm:inline-flex">
-                Spring 2026 Academic Term
+              <Badge variant="outline" className="text-xs font-semibold border-border hidden sm:inline-flex">
+                {activeTenant?.settings?.campus?.academicTerm || "Spring 2026 Academic Term"}
               </Badge>
+              {activeTenant?.branch && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-mono font-medium bg-muted/60 text-muted-foreground border border-border">
+                  {activeTenant.branch}
+                </span>
+              )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">
               Institutional Executive Hub
             </h1>
-            <p className="text-sm text-muted-foreground font-medium max-w-2xl">
+            <p className="text-base sm:text-lg text-muted-foreground font-normal leading-relaxed max-w-3xl">
               High-level academic orchestration, cohort completion velocity, student rosters, and distributed media streaming infrastructure.
             </p>
           </div>
@@ -773,23 +778,23 @@ export default function DashboardOverviewPage() {
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{kpi.title}</span>
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">{kpi.value}</h3>
+                    <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">{kpi.title}</span>
+                    <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">{kpi.value}</h3>
                   </div>
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/15">
-                    <Icon size={20} weight="bold" />
+                  <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/15">
+                    <Icon size={22} weight="bold" />
                   </div>
                 </div>
 
-                <div className="flex items-end justify-between pt-1 border-t border-border/60">
-                  <div className="space-y-0.5">
-                    <p className="text-[11px] font-semibold text-foreground">{kpi.subtitle}</p>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <TrendUp size={13} weight="bold" />
+                <div className="flex items-end justify-between pt-2 border-t border-border/60 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">{kpi.subtitle}</p>
+                    <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      <TrendUp size={15} weight="bold" />
                       <span>{kpi.delta}</span>
                     </span>
                   </div>
-                  <Sparkline data={kpi.sparkData} color={kpi.sparkColor} height={32} />
+                  <Sparkline data={kpi.sparkData} color={kpi.sparkColor} height={36} />
                 </div>
               </CardContent>
             </Card>

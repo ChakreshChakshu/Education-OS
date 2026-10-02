@@ -14,16 +14,82 @@ const AuthContext = createContext({
   logout: () => {}
 });
 
-// Maps the {tenantId, name, slug, role} shape returned by the API's tenant list
-// into the {id, name, slug, branch} shape the rest of the dashboard UI expects.
+// Converts any hex color (#RRGGBB or #RGB) into HSL for dynamic CSS variables
+export function hexToHsl(hex) {
+  if (!hex || typeof hex !== 'string') return null;
+  let c = hex.trim().replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map(x => x + x).join('');
+  }
+  if (c.length !== 6) return null;
+  const r = parseInt(c.slice(0, 2), 16) / 255;
+  const g = parseInt(c.slice(2, 4), 16) / 255;
+  const b = parseInt(c.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h = Math.round(h * 60);
+  }
+  s = Math.round(s * 100);
+  l = Math.round(l * 100);
+  return { h, s, l };
+}
+
+// Dynamically sets root theme CSS variables based on active tenant branding
+export function applyTenantTheme(colorHex) {
+  if (typeof document === 'undefined') return;
+  const targetHex = colorHex || '#5b12ed';
+  const hsl = hexToHsl(targetHex);
+  if (hsl) {
+    document.documentElement.style.setProperty('--primary', `${hsl.h} ${hsl.s}% ${hsl.l}%`);
+    document.documentElement.style.setProperty('--ring', `${hsl.h} ${hsl.s}% ${hsl.l}%`);
+    const isLight = hsl.l > 60;
+    document.documentElement.style.setProperty('--primary-foreground', isLight ? '0 0% 0%' : '0 0% 100%');
+  }
+}
+
+// Maps the API tenant shape into the rich UI tenant structure
 function toUiTenant(apiTenant) {
+  const settings = apiTenant.settings || apiTenant.settingsJson || apiTenant.settings_json || {};
+  const branding = settings.branding || {};
+  const campus = settings.campus || {};
+  const primaryColor = branding.primaryColor || settings.primaryColor || '#5b12ed';
+  const branchName = campus.branchName || settings.branch || apiTenant.branch || 'Main Campus';
+
   return {
     id: apiTenant.tenantId || apiTenant.id,
     name: apiTenant.name,
     slug: apiTenant.slug,
     role: apiTenant.role,
-    branch: apiTenant.branch || 'Main Branch Campus',
-    settings: apiTenant.settings || apiTenant.settingsJson || apiTenant.settings_json || {}
+    branch: branchName,
+    settings: {
+      ...settings,
+      primaryColor,
+      branch: branchName,
+      branding: {
+        primaryColor,
+        secondaryColor: branding.secondaryColor || '#efe7fd',
+        tagline: branding.tagline || settings.tagline || 'Empowering institutional academic excellence',
+        supportEmail: branding.supportEmail || settings.supportEmail || 'support@institution.edu',
+        logoUrl: branding.logoUrl || settings.logoUrl || ''
+      },
+      campus: {
+        branchName,
+        timezone: campus.timezone || 'UTC',
+        academicTerm: campus.academicTerm || 'Spring 2026',
+        address: campus.address || ''
+      }
+    }
   };
 }
 
@@ -119,6 +185,15 @@ export function AuthProvider({ children }) {
     return { success: true, data: res.data || { name: payload.name, email: payload.email }, tenant: res.tenant };
   };
 
+  // Automatically inject tenant brand theme into DOM whenever active tenant changes
+  useEffect(() => {
+    if (activeTenant) {
+      const color = activeTenant?.settings?.branding?.primaryColor || 
+                    activeTenant?.settings?.primaryColor;
+      applyTenantTheme(color);
+    }
+  }, [activeTenant]);
+
   const updateCurrentUser = (partialUser) => {
     setUser((prev) => (prev ? { ...prev, ...partialUser } : partialUser));
   };
@@ -128,6 +203,8 @@ export function AuthProvider({ children }) {
       const next = prev ? { ...prev, ...updatedTenant } : updatedTenant;
       if (next) {
         localStorage.setItem('eos_tenant', JSON.stringify(next));
+        const color = next?.settings?.branding?.primaryColor || next?.settings?.primaryColor;
+        applyTenantTheme(color);
       }
       return next;
     });
@@ -140,6 +217,8 @@ export function AuthProvider({ children }) {
     setActiveTenant(tenant);
     localStorage.setItem('eos_tenant', JSON.stringify(tenant));
     localStorage.setItem('eos_tenant_id', tenant.id);
+    const color = tenant?.settings?.branding?.primaryColor || tenant?.settings?.primaryColor;
+    applyTenantTheme(color);
   };
 
   const addTenant = (newTenant) => {
