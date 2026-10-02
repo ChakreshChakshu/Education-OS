@@ -95,19 +95,28 @@ async function internalRoutes(fastify, options) {
     },
     handler: async (request, reply) => {
       let tenantId = request.body.tenantId || request.headers['x-tenant-id'];
+      const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
+      const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
+        request.user.userId || request.user.sub
+      );
 
       if (!tenantId) {
-        const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
-        const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
-          request.user.userId || request.user.sub
-        );
         if (userTenants && userTenants.length > 0) {
-          tenantId = userTenants[0].id;
+          tenantId = userTenants[0].tenantId || userTenants[0].id;
         }
       }
 
       if (!tenantId) {
         return reply.status(400).send({ success: false, error: 'Tenant ID is required' });
+      }
+
+      // Authorization check: Students are strictly forbidden from modifying campus branding
+      const currentMembership = userTenants.find((t) => (t.tenantId || t.id) === tenantId);
+      if (currentMembership?.role === 'STUDENT' || request.user?.role === 'STUDENT') {
+        return reply.status(403).send({
+          success: false,
+          error: 'Forbidden: Students do not have permission to modify campus branding or institutional settings.'
+        });
       }
 
       const useCase = container.resolve('UpdateTenantSettingsUseCase');

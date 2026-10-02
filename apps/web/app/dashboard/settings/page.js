@@ -42,6 +42,28 @@ const BRAND_PALETTES = [
 export default function SettingsPage() {
   const { user, activeTenant, updateCurrentUser, updateActiveTenant } = useAuth();
 
+  // Role detection: Students must never access campus branding or system diagnostics
+  const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
+  const [portalMode, setPortalMode] = useState(isStudentRole ? "STUDENT" : "ADMIN");
+  const [activeTab, setActiveTab] = useState("profile");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const mode = localStorage.getItem("eos_portal_mode");
+      if (mode && !isStudentRole) {
+        setPortalMode(mode);
+      }
+    }
+  }, [isStudentRole]);
+
+  const isStudent = isStudentRole || portalMode === "STUDENT";
+
+  useEffect(() => {
+    if (isStudent && (activeTab === "branding" || activeTab === "system")) {
+      setActiveTab("profile");
+    }
+  }, [isStudent, activeTab]);
+
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -259,7 +281,9 @@ export default function SettingsPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Manage your personal credentials, communication preferences, and institutional workspace identity.
+            {isStudent
+              ? "Manage your personal credentials, contact details, and account security."
+              : "Manage your personal credentials, communication preferences, and institutional workspace identity."}
           </p>
         </div>
 
@@ -279,8 +303,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Main Tabs Container */}
-      <Tabs defaultValue="profile" className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+        <TabsList className={`grid ${isStudent ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-2 md:grid-cols-4"} w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border`}>
           <TabsTrigger value="profile" className="flex items-center gap-2 py-2.5">
             <User size={16} weight="bold" />
             <span>Profile & Account</span>
@@ -289,14 +313,18 @@ export default function SettingsPage() {
             <ShieldCheck size={16} weight="bold" />
             <span>Security & Auth</span>
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2 py-2.5">
-            <Palette size={16} weight="bold" />
-            <span>Branding & Campus</span>
-          </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-2 py-2.5">
-            <Sliders size={16} weight="bold" />
-            <span>Preferences</span>
-          </TabsTrigger>
+          {!isStudent && (
+            <>
+              <TabsTrigger value="branding" className="flex items-center gap-2 py-2.5">
+                <Palette size={16} weight="bold" />
+                <span>Branding & Campus</span>
+              </TabsTrigger>
+              <TabsTrigger value="system" className="flex items-center gap-2 py-2.5">
+                <Sliders size={16} weight="bold" />
+                <span>Preferences</span>
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* TAB 1: Profile & Account */}
@@ -498,8 +526,11 @@ export default function SettingsPage() {
           </form>
         </TabsContent>
 
-        {/* TAB 3: Institutional Branding & Workspace */}
-        <TabsContent value="branding">
+        {/* Faculty/Admin Only Settings */}
+        {!isStudent && (
+          <>
+            {/* TAB 3: Institutional Branding & Workspace */}
+            <TabsContent value="branding">
           <form onSubmit={handleBrandingSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Form inputs column */}
@@ -769,7 +800,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </>
+    )}
+  </Tabs>
     </div>
   );
 }

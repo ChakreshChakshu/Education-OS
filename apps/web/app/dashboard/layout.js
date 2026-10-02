@@ -47,13 +47,16 @@ export default function DashboardLayout({ children }) {
       setIsDark(isDarkMode);
 
       const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
-      const savedMode = localStorage.getItem("eos_portal_mode");
-      if (savedMode) {
-        setPortalMode(savedMode);
-      } else if (isStudentRole) {
+      if (isStudentRole) {
         setPortalMode("STUDENT");
+        localStorage.setItem("eos_portal_mode", "STUDENT");
       } else {
-        setPortalMode("ADMIN");
+        const savedMode = localStorage.getItem("eos_portal_mode");
+        if (savedMode) {
+          setPortalMode(savedMode);
+        } else {
+          setPortalMode("ADMIN");
+        }
       }
     }
   }, [user, activeTenant]);
@@ -354,25 +357,27 @@ export default function DashboardLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Student Portal / Admin Mode Switcher */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={togglePortalMode}
-              className="text-xs font-bold gap-1.5 h-8.5 px-3 border-border hover:border-primary/50 transition-colors"
-            >
-              {portalMode === "ADMIN" ? (
-                <>
-                  <GraduationCap size={16} weight="bold" className="text-primary" />
-                  <span className="hidden sm:inline">Student View</span>
-                </>
-              ) : (
-                <>
-                  <SquaresFour size={16} weight="bold" className="text-primary" />
-                  <span className="hidden sm:inline">Admin View</span>
-                </>
-              )}
-            </Button>
+            {/* Student Portal / Admin Mode Switcher - Only available to instructors & administrators */}
+            {!(user?.role === "STUDENT" || activeTenant?.role === "STUDENT") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={togglePortalMode}
+                className="text-xs font-bold gap-1.5 h-8.5 px-3 border-border hover:border-primary/50 transition-colors cursor-pointer"
+              >
+                {portalMode === "ADMIN" ? (
+                  <>
+                    <GraduationCap size={16} weight="bold" className="text-primary" />
+                    <span className="hidden sm:inline">Student View</span>
+                  </>
+                ) : (
+                  <>
+                    <SquaresFour size={16} weight="bold" className="text-primary" />
+                    <span className="hidden sm:inline">Admin View</span>
+                  </>
+                )}
+              </Button>
+            )}
 
             <Badge variant="outline" className="text-[11px] gap-1.5 py-1 px-3 font-mono font-bold border-border">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
