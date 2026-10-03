@@ -20,11 +20,11 @@ This document establishes the architecture master guide, principles, and directo
 | **05D – Assessment Model** | Quizzes, Polymorphic Targets, Immutable Snapshotting | [assessment_model.md](file:///home/chakresh/EducationOS/docs/assessment_model.md) |
 | **05E – Media & Video Architecture** | Reusable MediaAssets, FFmpeg HLS Transcoding | [media_and_video_architecture.md](file:///home/chakresh/EducationOS/docs/media_and_video_architecture.md) |
 | **05F – Files & Storage Architecture** | StorageProvider, Presigned URLs, File Lifecycle | [files_and_storage_architecture.md](file:///home/chakresh/EducationOS/docs/files_and_storage_architecture.md) |
-| **05G – Frontend Architecture Guide** | Next.js 16, Solid Minimalism, Outfit/Inter Typography, LMS Player | [frontend_architecture_guide.md](file:///home/chakresh/EducationOS/docs/frontend_architecture_guide.md) |
+| **05G – Frontend Architecture Guide** | Next.js 16, Dynamic Theming, Typography Scale, 3-Step Registration, Aceternity Loaders/Carousels, LMS Player | [frontend_architecture_guide.md](file:///home/chakresh/EducationOS/docs/frontend_architecture_guide.md) |
 | **06 – Module Architecture** | Clean Layering (`domains/`, `infrastructure/`, `shared/`) | [module_architecture.md](file:///home/chakresh/EducationOS/docs/module_architecture.md) |
 | **07 – Authentication & Authorization** | JWT, Opaque Refresh Tokens, Argon2id, Scoped RBAC | [auth_and_authorization.md](file:///home/chakresh/EducationOS/docs/auth_and_authorization.md) |
 | **08 – API Design** | REST, Business Action Routes, Envelopes, Cursor Paging | [api_design.md](file:///home/chakresh/EducationOS/docs/api_design.md) |
-| **08A – REST API Endpoints Reference** | Full 16 Endpoint Specs (Auth, Refresh/Logout, Courses, Modules, Uploads, Quizzes, Tenants) | [api_endpoints_reference.md](file:///home/chakresh/EducationOS/docs/api_endpoints_reference.md) |
+| **08A – REST API Endpoints Reference** | Full 30 Endpoint Specs (Auth, Refresh/Logout, Courses, Modules, Uploads, Quizzes, Tenants, Branding Settings) | [api_endpoints_reference.md](file:///home/chakresh/EducationOS/docs/api_endpoints_reference.md) |
 | **09 – Event & Queue Architecture** | Transactional Outbox, Jobs, Worker Retries | [event_and_queue_architecture.md](file:///home/chakresh/EducationOS/docs/event_and_queue_architecture.md) |
 | **10 – Video Architecture** | Cloudflare R2 Direct Uploads, HLS Bitrate Profiles | [video_architecture.md](file:///home/chakresh/EducationOS/docs/video_architecture.md) |
 | **11 – Storage Architecture** | Single Bucket Prefix Strategy, Asset Lifecycle | [storage_architecture.md](file:///home/chakresh/EducationOS/docs/storage_architecture.md) |

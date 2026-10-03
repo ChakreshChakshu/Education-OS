@@ -5,7 +5,7 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 ## Tech Stack
 
 - **Monorepo Management:** `pnpm` workspaces & `Turborepo`
-- **Frontend:** Next.js 16 (App Router), Vanilla CSS, Outfit & Inter Typography
+- **Frontend:** Next.js 16 (App Router), Vanilla CSS & Tailwind CSS v4, Outfit & Inter Typography, Dynamic Tenant Theming Engine, Aceternity UI Loaders & Carousels
 - **Backend:** Node.js & Fastify (REST API with Composition Root DI & JWT Auth)
 - **Background Jobs:** Node.js Workers (Stateless queue consumers & cron schedulers)
 - **Database Layer:** Neon PostgreSQL Cloud & Drizzle ORM (Direct SQL connection)
@@ -52,6 +52,9 @@ education-os/
   - `POST /api/v1/public/auth/login` (Bcrypt credential check, issues access + refresh token pair, returns the user's tenants)
   - `POST /api/v1/public/auth/refresh` (Rotates a refresh token for a new access/refresh pair)
   - `POST /api/v1/public/auth/logout` (Revokes a single session by its refresh token)
+  - `GET /api/v1/internal/me` (Session bootstrap and active tenant memberships resolution)
+  - `GET /api/v1/internal/tenants/current` (Active tenant details, subdomain slug, and `settingsJson`)
+  - `PATCH /api/v1/internal/tenants/current/settings` (Update tenant branding palette & campus configuration; student restricted)
   - `POST /api/v1/internal/tenants` (Multi-tenant institution & campus branch provisioning; owner is always the authenticated caller)
 
 ### 2. Academics Domain (`@eos/domain-academics`)

@@ -256,6 +256,50 @@ class CourseRepository {
 
 ---
 
+# Tenant Customization & Campus Branding Architecture
+
+Each institution operating on EOS requires custom visual identity, localized campus parameters, and autonomous branch settings without altering the shared database schema.
+
+### 1. Tenant Configuration Schema (`settings_json`)
+
+Every tenant record in `tenants` encapsulates institutional preferences and campus parameters inside `settings_json`:
+
+```json
+{
+  "branding": {
+    "primaryColor": "#5b12ed",
+    "secondaryColor": "#efe7fd",
+    "tagline": "Empowering institutional academic excellence",
+    "supportEmail": "support@institution.edu",
+    "logoUrl": "https://cdn.institution.edu/logo.png"
+  },
+  "campus": {
+    "branchName": "North Engineering Campus",
+    "timezone": "America/New_York",
+    "academicTerm": "Fall 2026",
+    "address": "100 Science Boulevard, Boston, MA"
+  }
+}
+```
+
+### 2. Client-Side DOM Dynamic Theme Engine
+
+1. When a user authenticates or switches active tenant workspaces, the client invokes `applyTenantTheme(colorHex)` inside `apps/web/providers/auth-context.js`.
+2. The hex code is dynamically transformed to HSL format (`hexToHsl`) and injected into the document root:
+   - `--primary`: Institutional brand color applied to action buttons, active navigation markers, and focus states.
+   - `--ring`: Dynamic matching focus outline color.
+   - `--primary-foreground`: Calculated based on luminance (`0 0% 0%` for light swatches, `0 0% 100%` for dark swatches) to ensure WCAG AAA accessibility.
+3. If no custom palette is defined, EOS defaults to Deep Violet (`#5b12ed`).
+
+### 3. Strict Student Authorization Boundary
+
+Campus branding and academic terms reflect institutional governance:
+- Modifying tenant settings requires `ADMIN` or `INSTRUCTOR` roles within the organization.
+- Users holding the `STUDENT` role are strictly prohibited from modifying campus branding or configuration. The API endpoint (`PATCH /api/v1/internal/tenants/current/settings`) rejects student requests with `403 Forbidden: Students do not have permission to modify campus branding or institutional settings.`
+- The frontend UI displays a prominent read-only restriction banner for student accounts navigating to `/dashboard/settings`.
+
+---
+
 # Architectural Decision Records (ADRs)
 
 ---

@@ -776,3 +776,137 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
   }
   ```
 
+---
+
+### 28. Current User & Tenant Session Bootstrap
+* **Endpoint:** `GET /api/v1/internal/me`
+* **Scope:** Internal (requires valid `access_token` httpOnly cookie or Bearer token)
+* **Purpose:** Provides session hydration on initial application load. Because tokens are stored in `httpOnly` cookies inaccessible to JavaScript, the frontend calls this route on page load. Returns the authenticated user entity alongside the full array of authorized tenant memberships with resolved roles.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "user": {
+      "userId": "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8",
+      "email": "admin@oxford.edu",
+      "name": "Jane Doe",
+      "status": "ACTIVE"
+    },
+    "tenants": [
+      {
+        "id": "tnt_01917f8d-5678",
+        "name": "Oxford Institute of Technology",
+        "slug": "oxford-tech",
+        "role": "ADMIN",
+        "status": "ACTIVE",
+        "settingsJson": {
+          "branding": { "primaryColor": "#1e40af" },
+          "campus": { "branchName": "Main Campus", "academicTerm": "Fall 2026" }
+        }
+      }
+    ]
+  }
+  ```
+
+---
+
+### 29. Fetch Current Tenant Details & Settings
+* **Endpoint:** `GET /api/v1/internal/tenants/current`
+* **Scope:** Internal (requires valid JWT/cookie)
+* **Headers:** `x-tenant-id` (optional; falls back to caller's first active tenant)
+* **Purpose:** Retrieves the current active tenant workspace metadata, including institutional name, subdomain slug, account status, and the complete `settingsJson` configuration object containing branding and campus attributes.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "tnt_01917f8d-5678",
+      "name": "Oxford Institute of Technology",
+      "slug": "oxford-tech",
+      "status": "ACTIVE",
+      "settingsJson": {
+        "branding": {
+          "primaryColor": "#5b12ed",
+          "secondaryColor": "#efe7fd",
+          "tagline": "Empowering institutional academic excellence",
+          "supportEmail": "support@oxford.edu",
+          "logoUrl": ""
+        },
+        "campus": {
+          "branchName": "Main Campus",
+          "timezone": "UTC",
+          "academicTerm": "Spring 2026",
+          "address": "100 Science Boulevard"
+        }
+      },
+      "updatedAt": "2026-10-02T14:22:10.000Z"
+    }
+  }
+  ```
+
+---
+
+### 30. Update Tenant Branding & Campus Settings
+* **Endpoint:** `PATCH /api/v1/internal/tenants/current/settings` (also accepts `PUT`)
+* **Scope:** Internal (requires valid JWT/cookie, non-`STUDENT` role)
+* **Headers:**
+  - `x-tenant-id`: (Optional if provided in body)
+  - `x-csrf-token`: Required for browser clients (matches readable `csrf_token` cookie)
+* **Purpose:** Updates tenant name and institutional `settingsJson` preferences (brand swatches, taglines, support contact, branch details, and academic terms).
+* **Role Enforcement:** Rejects requests from accounts holding the `STUDENT` role with `403 Forbidden`. Only `ADMIN` or `INSTRUCTOR` accounts can update institutional settings.
+* **Request Body:**
+  ```json
+  {
+    "tenantId": "tnt_01917f8d-5678",
+    "name": "Oxford Institute of Technology",
+    "settingsJson": {
+      "branding": {
+        "primaryColor": "#1e40af",
+        "secondaryColor": "#dbeafe",
+        "tagline": "Excellence in Research and Learning",
+        "supportEmail": "helpdesk@oxford.edu",
+        "logoUrl": "https://cdn.oxford.edu/logo.png"
+      },
+      "campus": {
+        "branchName": "Engineering Quad",
+        "timezone": "America/New_York",
+        "academicTerm": "Fall 2026",
+        "address": "200 Technology Way, Cambridge, MA"
+      }
+    }
+  }
+  ```
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "tnt_01917f8d-5678",
+      "name": "Oxford Institute of Technology",
+      "settings": {
+        "branding": {
+          "primaryColor": "#1e40af",
+          "secondaryColor": "#dbeafe",
+          "tagline": "Excellence in Research and Learning",
+          "supportEmail": "helpdesk@oxford.edu",
+          "logoUrl": "https://cdn.oxford.edu/logo.png"
+        },
+        "campus": {
+          "branchName": "Engineering Quad",
+          "timezone": "America/New_York",
+          "academicTerm": "Fall 2026",
+          "address": "200 Technology Way, Cambridge, MA"
+        }
+      }
+    }
+  }
+  ```
+* **Error Response (403 Forbidden - Student Role):**
+  ```json
+  {
+    "success": false,
+    "error": "Forbidden: Students do not have permission to modify campus branding or institutional settings."
+  }
+  ```
+
+
