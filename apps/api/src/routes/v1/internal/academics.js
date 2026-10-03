@@ -151,17 +151,26 @@ async function academicsRoutes(fastify, options) {
     const modules = await moduleRepo.findByCourseId(request.params.id);
     return reply.send({
       success: true,
-      data: modules.map((m) => ({
-        id: m.id,
-        courseId: m.courseId,
-        title: m.title,
-        contentType: m.contentType,
-        contentUrl: m.contentUrl,
-        hlsUrl: m.props?.hlsUrl || (m.contentUrl && m.contentUrl.includes('.m3u8') ? m.contentUrl : null),
-        order: m.order,
-        status: m.status,
-        quiz: m.quiz || null
-      }))
+      data: modules.map((m) => {
+        let hlsUrl = m.props?.hlsUrl || (m.contentUrl && m.contentUrl.includes('.m3u8') ? m.contentUrl : null);
+        if (hlsUrl && hlsUrl.includes('.r2.cloudflarestorage.com/hls/') && !process.env.MEDIA_CDN_URL) {
+          const match = hlsUrl.match(/\/hls\/([a-zA-Z0-9_-]+)\/master\.m3u8/);
+          if (match && match[1]) {
+            hlsUrl = `http://localhost:3001/uploads/hls/${match[1]}/master.m3u8`;
+          }
+        }
+        return {
+          id: m.id,
+          courseId: m.courseId,
+          title: m.title,
+          contentType: m.contentType,
+          contentUrl: m.contentUrl,
+          hlsUrl,
+          order: m.order,
+          status: m.status,
+          quiz: m.quiz || null
+        };
+      })
     });
   });
 

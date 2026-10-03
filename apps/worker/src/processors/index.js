@@ -148,15 +148,25 @@ const PROCESSORS = {
       segmentDuration: 4
     });
 
-    let manifestUrl = `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8`;
+    const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+    let manifestUrl = `${apiBaseUrl}/uploads/hls/${mediaAssetId}/master.m3u8`;
 
     // 6. Upload HLS segments and playlists to Cloudflare R2
     if (r2) {
       try {
         console.log(`[video.transcode] Syncing HLS stream directory to Cloudflare R2 for asset ${mediaAssetId}...`);
         await uploadDirectoryToR2(r2, hlsOutputDir, `hls/${mediaAssetId}`);
-        manifestUrl = await r2.getDownloadUrl(`hls/${mediaAssetId}/master.m3u8`);
-        console.log(`[video.transcode] R2 Sync Complete! Manifest URL: ${manifestUrl}`);
+        
+        // In production with a custom CDN domain (e.g., https://media.yourdomain.com), use the public CDN URL.
+        // In development or when using private S3 API endpoints (*.r2.cloudflarestorage.com),
+        // route through the API streaming server so relative HLS sub-playlists resolve with CORS.
+        const cdnDomain = process.env.MEDIA_CDN_URL || (process.env.R2_PUBLIC_DOMAIN && !process.env.R2_PUBLIC_DOMAIN.includes('.r2.cloudflarestorage.com') ? process.env.R2_PUBLIC_DOMAIN : null);
+        if (cdnDomain) {
+          manifestUrl = `${cdnDomain.replace(/\/$/, '')}/hls/${mediaAssetId}/master.m3u8`;
+          console.log(`[video.transcode] R2 Sync Complete! Production CDN URL: ${manifestUrl}`);
+        } else {
+          console.log(`[video.transcode] R2 Sync Complete! Dev Streaming URL: ${manifestUrl}`);
+        }
       } catch (r2Err) {
         console.warn(`[video.transcode] Cloudflare R2 upload warning: ${r2Err.message}`);
       }

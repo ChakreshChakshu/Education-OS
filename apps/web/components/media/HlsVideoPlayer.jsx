@@ -18,9 +18,26 @@ import {
   X
 } from "@phosphor-icons/react";
 
+// Resolves video stream URL, normalizing private S3/R2 endpoints to the local API proxy in dev mode
+function normalizeStreamUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
+
+  // If URL points to Cloudflare R2 S3 API (which lacks browser CORS and breaks relative HLS chunks)
+  if (rawUrl.includes(".r2.cloudflarestorage.com/hls/")) {
+    const match = rawUrl.match(/\/hls\/([a-zA-Z0-9_-]+)\/master\.m3u8/);
+    if (match && match[1]) {
+      const assetId = match[1];
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      return `${apiBase}/uploads/hls/${assetId}/master.m3u8`;
+    }
+  }
+  return rawUrl;
+}
+
 const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
   {
     src,
+    fallbackUrl,
     poster,
     title = "Video Lesson",
     chapters = [],
@@ -116,12 +133,14 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     const video = videoRef.current;
     if (!video || !src) return;
 
+    const effectiveSrc = normalizeStreamUrl(src);
+
     // Reset states
     setCurrentTime(0);
     setIsBuffering(true);
     initialSeekDoneRef.current = false;
 
-    const isHlsSource = src.includes(".m3u8") || src.includes("/hls/");
+    const isHlsSource = effectiveSrc.includes(".m3u8") || effectiveSrc.includes("/hls/");
 
     if (isHlsSource && Hls.isSupported()) {
       if (hlsRef.current) {
@@ -135,7 +154,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
       });
       hlsRef.current = hls;
 
-      hls.loadSource(src);
+      hls.loadSource(effectiveSrc);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
@@ -179,6 +198,20 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.warn("[HlsPlayer] Fatal network error, recovering...", data);
+              // If failed on a remote R2 manifest, attempt fallback to local API uploads
+              if (data.details === "manifestLoadError" && src && src.includes(".r2.cloudflarestorage.com")) {
+                const normalized = normalizeStreamUrl(src);
+                if (normalized !== data.context?.url) {
+                  console.info("[HlsPlayer] Retrying via local API streaming proxy:", normalized);
+                  hls.loadSource(normalized);
+                  return;
+                }
+              }
+              if (fallbackUrl && hls.url !== fallbackUrl) {
+                console.info("[HlsPlayer] Falling back to secondary stream URL:", fallbackUrl);
+                hls.loadSource(fallbackUrl);
+                return;
+              }
               hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -194,7 +227,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Native HLS for Safari/iOS
-      video.src = src;
+      video.src = effectiveSrc;
       video.addEventListener("loadedmetadata", () => {
         setIsBuffering(false);
         performInitialSeek(video.duration);
@@ -202,7 +235,7 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
       });
     } else {
       // Direct MP4 playback fallback
-      video.src = src;
+      video.src = effectiveSrc;
       video.addEventListener("loadedmetadata", () => {
         setIsBuffering(false);
         performInitialSeek(video.duration);

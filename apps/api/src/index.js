@@ -43,12 +43,25 @@ async function start() {
     const subpath = request.params['*'] || '';
     const filePath = path.join(process.cwd(), 'uploads', subpath);
 
+    // Explicit CORS header for media streaming
+    reply.header('Access-Control-Allow-Origin', request.headers.origin || '*');
+    reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       try {
         const storageProvider = container.resolve('StorageProvider');
         if (storageProvider && typeof storageProvider.download === 'function') {
           const buffer = await storageProvider.download(subpath);
           if (buffer && buffer.length > 0) {
+            // Cache downloaded asset locally on disk for subsequent instant streaming
+            try {
+              const fileDir = path.dirname(filePath);
+              if (!fs.existsSync(fileDir)) fs.mkdirSync(fileDir, { recursive: true });
+              fs.writeFileSync(filePath, buffer);
+            } catch (cacheErr) {
+              // non-fatal disk write error
+            }
+
             if (subpath.endsWith('.m3u8')) reply.header('Content-Type', 'application/vnd.apple.mpegurl');
             else if (subpath.endsWith('.ts')) reply.header('Content-Type', 'video/mp2t');
             else if (subpath.endsWith('.jpg') || subpath.endsWith('.jpeg')) reply.header('Content-Type', 'image/jpeg');
