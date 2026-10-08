@@ -282,14 +282,14 @@ async function publicRoutes(fastify, options) {
         const tenantRepo = container.resolve('TenantRepository');
         const tenant = await tenantRepo.findById(decoded.tenantId);
         if (tenant) tenantName = tenant.name;
-      } catch (e) {}
+      } catch (e) { }
 
       let userName = '';
       try {
         const userRepo = container.resolve('UserRepository');
         const user = await userRepo.findById(decoded.userId);
         if (user) userName = user.name;
-      } catch (e) {}
+      } catch (e) { }
 
       return reply.send({
         success: true,
@@ -350,7 +350,7 @@ async function publicRoutes(fastify, options) {
             tenantId: decoded.tenantId,
             roleName: 'STUDENT'
           });
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const user = await userRepo.findById(decoded.userId);
