@@ -573,13 +573,12 @@ export default function RegisterOnboardingPage() {
                   }
                 }}
                 disabled={s.num > step || loading}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  step === s.num
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${step === s.num
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : s.num < step
-                    ? "bg-muted text-foreground hover:bg-muted/80 cursor-pointer"
-                    : "text-muted-foreground/50 cursor-not-allowed"
-                }`}
+                      ? "bg-muted text-foreground hover:bg-muted/80 cursor-pointer"
+                      : "text-muted-foreground/50 cursor-not-allowed"
+                  }`}
               >
                 <span>{s.num < step ? "✓" : s.num}</span>
                 <span>{s.label}</span>
@@ -702,15 +701,14 @@ export default function RegisterOnboardingPage() {
                     <div className="flex items-center gap-2 text-xs">
                       <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                         <div
-                          className={`h-full transition-all ${
-                            adminPassword.length >= 12
+                          className={`h-full transition-all ${adminPassword.length >= 12
                               ? "w-full bg-emerald-500"
                               : adminPassword.length >= 8
-                              ? "w-2/3 bg-amber-500"
-                              : adminPassword.length > 0
-                              ? "w-1/3 bg-red-500"
-                              : "w-0"
-                          }`}
+                                ? "w-2/3 bg-amber-500"
+                                : adminPassword.length > 0
+                                  ? "w-1/3 bg-red-500"
+                                  : "w-0"
+                            }`}
                         />
                       </div>
                       <span className="text-[11px] font-mono text-muted-foreground">
@@ -842,17 +840,15 @@ export default function RegisterOnboardingPage() {
                         <div
                           key={type.id}
                           onClick={() => setInstitutionType(type.id)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                            isSelected
+                          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${isSelected
                               ? "border-primary bg-primary/10 shadow-xs"
                               : "border-border bg-card hover:border-primary/40 hover:bg-muted/40"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                              }`}
+                              className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                                }`}
                             >
                               <IconComp size={18} weight="bold" />
                             </div>
@@ -957,11 +953,10 @@ export default function RegisterOnboardingPage() {
                           key={preset.id}
                           type="button"
                           onClick={() => selectPreset(preset)}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            isSelected
+                          className={`p-3 rounded-xl border text-left transition-all ${isSelected
                               ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
                               : "border-border bg-card hover:border-primary/40 hover:bg-muted/40"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <div className="h-5 w-5 rounded-full shadow-xs" style={{ backgroundColor: preset.primary }} />

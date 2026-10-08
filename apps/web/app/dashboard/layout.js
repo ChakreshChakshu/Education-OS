@@ -32,6 +32,7 @@ import {
   Check,
   Gear
 } from "@phosphor-icons/react";
+import { Award } from "lucide-react";
 
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
@@ -95,12 +96,14 @@ export default function DashboardLayout({ children }) {
   const navItems = portalMode === "STUDENT" ? [
     { name: "My Learning", href: "/dashboard", icon: GraduationCap },
     { name: "Course Catalog", href: "/dashboard/courses", icon: BookOpen },
+    { name: "Certificates", href: "/dashboard/certificates", icon: Award },
     { name: "Settings & Profile", href: "/dashboard/settings", icon: Gear }
   ] : [
     { name: "Overview", href: "/dashboard", icon: SquaresFour },
     { name: "Course Manager", href: "/dashboard/courses", icon: BookOpen },
     { name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings },
     { name: "Students & Cohorts", href: "/dashboard/students", icon: Users },
+    { name: "Certificates", href: "/dashboard/certificates", icon: Award },
     { name: "Settings & Config", href: "/dashboard/settings", icon: Gear }
   ];
 
@@ -138,6 +141,7 @@ export default function DashboardLayout({ children }) {
       courses: "Courses",
       tenants: "Institutions & Branches",
       students: "Students & Cohorts",
+      certificates: "Certificates",
       settings: "Settings & Config",
       overview: "Overview"
     };
