@@ -13,7 +13,7 @@ EOS is an enterprise-grade, multi-tenant Education Operating System designed wit
 - **Authentication:** JWT — httpOnly cookies for the web app, Bearer header for mobile/API clients
 - **Architecture Enforcement:** `dependency-cruiser`
 
----
+---    
 
 ## Monorepo Layout
 
