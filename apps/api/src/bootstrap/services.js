@@ -7,7 +7,8 @@ const {
   learningDomain,
   mediaDomain,
   infraDatabase,
-  infraStorage
+  infraStorage,
+  infraMail
 } = require('./domain-bridge');
 
 const {
@@ -123,6 +124,15 @@ function registerServices(container) {
       });
     }
     return new LocalStorageProvider({ uploadDir: './uploads' });
+  });
+
+  // Mail Provider: Resend Email Provider
+  container.register('MailProvider', () => {
+    const { ResendMailProvider } = infraMail || require('../../../../packages/infrastructure/mail/src');
+    return new ResendMailProvider({
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL || 'EducationOS <onboarding@resend.dev>'
+    });
   });
 
   // Identity Repositories

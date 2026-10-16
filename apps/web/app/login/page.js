@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/providers/auth-context";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
 
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,17 @@ function LoginContent() {
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  useEffect(() => {
+    const resetParam = searchParams.get("reset");
+    const emailParam = searchParams.get("email");
+    if (resetParam === "success") {
+      setSuccess("Your password has been successfully reset. Please sign in with your new password.");
+    }
+    if (emailParam) {
+      setLoginEmail(emailParam);
+    }
+  }, [searchParams]);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -101,7 +113,7 @@ function LoginContent() {
               <label className="text-xs font-semibold text-foreground/90 flex items-center gap-2">
                 <LockSimple size={15} className="text-muted-foreground" /> Password
               </label>
-              <a href="#" className="text-xs text-primary hover:underline font-medium">Forgot password?</a>
+              <Link href={loginEmail ? `/forgot-password?email=${encodeURIComponent(loginEmail)}` : "/forgot-password"} className="text-xs text-primary hover:underline font-medium">Forgot password?</Link>
             </div>
             <Input
               type="password"

@@ -278,6 +278,38 @@ const PROCESSORS = {
         </div>
       `;
       text = `Hello ${payload.name || 'Student'},\n\nYou have been enrolled in ${payload.courseTitle || 'your course'}.\n\nActivate your account: ${activationLink}\n\nTemporary Password: ${payload.temporaryPassword || 'N/A'}`;
+    } else if (template === 'password_reset') {
+      subject = subject || 'Reset Your EducationOS Password';
+      const resetLink = payload.resetUrl || (payload.token ? `${appUrl}/reset-password?token=${payload.token}` : `${appUrl}/forgot-password`);
+      html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 36px 24px; background-color: #ffffff; color: #1e293b; border-radius: 16px; border: 1px solid #e2e8f0;">
+          <div style="margin-bottom: 24px; text-align: center;">
+            <div style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 8px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">EDUCATION OS</div>
+          </div>
+          <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-align: center;">Password Reset Request</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+            Hello <strong>${payload.name || 'User'}</strong>,<br/><br/>
+            We received a request to reset the password for your EducationOS account. Click the button below to choose a new password:
+          </p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${resetLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; text-decoration: none; border-radius: 10px; box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.2);">
+              Reset Your Password
+            </a>
+          </div>
+          <p style="font-size: 13px; line-height: 1.6; color: #64748b; margin-bottom: 20px;">
+            If the button above does not work, copy and paste this link into your browser:
+          </p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 12px; word-break: break-all; color: #2563eb; font-family: monospace; margin-bottom: 28px;">
+            ${resetLink}
+          </div>
+          <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
+            <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; margin: 0;">
+              This link is valid for <strong>1 hour</strong>. If you did not request this password reset, please ignore this email and your password will remain unchanged.
+            </p>
+          </div>
+        </div>
+      `;
+      text = `Hello ${payload.name || 'User'},\n\nWe received a request to reset your password for EducationOS.\nPlease use the link below to set a new password:\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.\n\nEducationOS Team`;
     } else {
       subject = subject || 'Welcome to Education Operating System';
       html = `

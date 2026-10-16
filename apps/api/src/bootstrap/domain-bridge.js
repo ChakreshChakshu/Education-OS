@@ -1,4 +1,4 @@
-let identityDomain, academicsDomain, learningDomain, mediaDomain, infraDatabase, infraStorage;
+let identityDomain, academicsDomain, learningDomain, mediaDomain, infraDatabase, infraStorage, infraMail;
 
 try {
   identityDomain = require('@eos/domain-identity');
@@ -36,11 +36,18 @@ try {
   infraStorage = require('../../../../packages/infrastructure/storage/src');
 }
 
+try {
+  infraMail = require('@eos/infra-mail');
+} catch (e) {
+  infraMail = require('../../../../packages/infrastructure/mail/src');
+}
+
 module.exports = {
   identityDomain,
   academicsDomain,
   learningDomain,
   mediaDomain,
   infraDatabase,
-  infraStorage
+  infraStorage,
+  infraMail
 };

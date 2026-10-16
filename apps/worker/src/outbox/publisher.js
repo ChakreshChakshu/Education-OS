@@ -85,6 +85,19 @@ class OutboxPublisher {
           }
         };
 
+      case 'PasswordResetRequested':
+        return {
+          jobName: JOBS.EMAIL_SEND,
+          queueName: 'email',
+          payload: {
+            to: payload.email,
+            subject: 'Reset Your EducationOS Password',
+            template: 'password_reset',
+            name: payload.name || 'User',
+            resetUrl: payload.resetUrl
+          }
+        };
+
       default:
         // Generic job naming for unmapped domain events
         return {

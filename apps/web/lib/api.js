@@ -590,6 +590,47 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  static async forgotPassword(email) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/forgot-password`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async verifyResetToken(token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid or expired reset token');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async resetPassword({ token, password }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/auth/reset-password`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ token, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };
