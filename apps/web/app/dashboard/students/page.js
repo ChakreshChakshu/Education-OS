@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -27,7 +27,10 @@ import {
   ArrowSquareOut,
   Copy,
   Key,
-  LinkSimple
+  LinkSimple,
+  CaretDown,
+  CaretRight,
+  CaretUp
 } from "@phosphor-icons/react";
 
 export default function StudentsPage() {
@@ -244,8 +247,101 @@ export default function StudentsPage() {
     return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
   });
 
-  // Derived metrics
-  const activeCount = enrollments.filter((e) => e.status === "ACTIVE").length;
+  // Group filtered enrollments by unique student (eliminates duplicate student rows)
+  const groupedStudents = useMemo(() => {
+    const map = new Map();
+    for (const e of filteredEnrollments) {
+      const key = e.studentUserId || e.studentEmail || e.id;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          studentUserId: e.studentUserId,
+          studentName: e.studentName || "Student",
+          studentEmail: e.studentEmail || "",
+          enrollments: []
+        });
+      }
+      map.get(key).enrollments.push(e);
+    }
+
+    return Array.from(map.values()).map((student) => {
+      const totalProg = student.enrollments.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0);
+      const avgProg = student.enrollments.length > 0 ? Math.round(totalProg / student.enrollments.length) : 0;
+      const hasActive = student.enrollments.some((en) => en.status === "ACTIVE");
+      const allCompleted = student.enrollments.length > 0 && student.enrollments.every((en) => en.status === "COMPLETED");
+      const earliestEnrollment = student.enrollments.reduce((earliest, en) => {
+        if (!earliest) return en.enrolledAt;
+        if (!en.enrolledAt) return earliest;
+        return new Date(en.enrolledAt) < new Date(earliest) ? en.enrolledAt : earliest;
+      }, null);
+
+      return {
+        ...student,
+        avgProgress: avgProg,
+        hasActive,
+        allCompleted,
+        earliestEnrollment
+      };
+    });
+  }, [filteredEnrollments]);
+
+  // Expandable rows state
+  const [expandedStudentKeys, setExpandedStudentKeys] = useState(new Set());
+
+  const toggleStudentExpand = (key) => {
+    setExpandedStudentKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const allExpandableKeys = useMemo(() => {
+    return groupedStudents.filter((s) => s.enrollments.length > 1).map((s) => s.key);
+  }, [groupedStudents]);
+
+  const isAllExpanded = allExpandableKeys.length > 0 && allExpandableKeys.every((k) => expandedStudentKeys.has(k));
+
+  const toggleExpandAll = () => {
+    if (isAllExpanded) {
+      setExpandedStudentKeys(new Set());
+    } else {
+      setExpandedStudentKeys(new Set(allExpandableKeys));
+    }
+  };
+
+  // Helper to open enroll modal with pre-filled student information
+  const handleEnrollExistingStudent = (name, email) => {
+    setStudentName(name);
+    setStudentEmail(email);
+    setEnrollError("");
+    setEnrollSuccessResult(null);
+    setIsEnrollModalOpen(true);
+  };
+
+  // Derived metrics (accurately distinguishing unique students from enrollments)
+  const uniqueStudentsCount = useMemo(() => {
+    const set = new Set();
+    enrollments.forEach((e) => {
+      const key = e.studentUserId || e.studentEmail;
+      if (key) set.add(key);
+    });
+    return set.size;
+  }, [enrollments]);
+
+  const activeStudentsCount = useMemo(() => {
+    const set = new Set();
+    enrollments.filter((e) => e.status === "ACTIVE").forEach((e) => {
+      const key = e.studentUserId || e.studentEmail;
+      if (key) set.add(key);
+    });
+    return set.size;
+  }, [enrollments]);
+
   const completedCount = enrollments.filter((e) => e.status === "COMPLETED").length;
   const avgProgress =
     enrollments.length > 0
@@ -301,7 +397,13 @@ export default function StudentsPage() {
 
           <Button
             size="sm"
-            onClick={() => setIsEnrollModalOpen(true)}
+            onClick={() => {
+              setStudentName("");
+              setStudentEmail("");
+              setEnrollError("");
+              setEnrollSuccessResult(null);
+              setIsEnrollModalOpen(true);
+            }}
             className="h-10 px-4 font-bold gap-2 shadow-xs"
           >
             <UserPlus size={18} weight="bold" />
@@ -316,11 +418,16 @@ export default function StudentsPage() {
           <CardContent className="p-2 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Total Enrollments
+                Total Students
               </p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
-                {enrollments.length}
-              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
+                  {uniqueStudentsCount}
+                </p>
+                <span className="text-[11px] font-semibold text-muted-foreground font-mono">
+                  ({enrollments.length} {enrollments.length === 1 ? 'enrollment' : 'enrollments'})
+                </span>
+              </div>
             </div>
             <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Users size={24} weight="bold" />
@@ -335,7 +442,7 @@ export default function StudentsPage() {
                 Active Students
               </p>
               <p className="text-2xl sm:text-3xl font-extrabold text-emerald-500">
-                {activeCount}
+                {activeStudentsCount}
               </p>
             </div>
             <div className="h-11 w-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -393,7 +500,7 @@ export default function StudentsPage() {
           />
         </div>
 
-        {/* Filters */}
+        {/* Filters and Controls */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Course filter */}
           <select
@@ -430,6 +537,19 @@ export default function StudentsPage() {
               </button>
             ))}
           </div>
+
+          {/* Expand / Collapse All (if multi-course students exist) */}
+          {allExpandableKeys.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleExpandAll}
+              className="h-10 px-3 text-xs font-semibold gap-1.5"
+            >
+              {isAllExpanded ? <CaretUp size={14} weight="bold" /> : <CaretDown size={14} weight="bold" />}
+              <span>{isAllExpanded ? "Collapse All" : "Expand All"}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -439,7 +559,7 @@ export default function StudentsPage() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-muted-foreground font-semibold">Loading student roster from Neon DB...</p>
         </Card>
-      ) : filteredEnrollments.length === 0 ? (
+      ) : groupedStudents.length === 0 ? (
         <Card className="p-16 text-center flex flex-col items-center justify-center space-y-4 border-dashed border-2 border-border/80 rounded-2xl bg-card">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
             <Users size={32} weight="bold" />
@@ -456,7 +576,13 @@ export default function StudentsPage() {
           </div>
           {enrollments.length === 0 && (
             <Button
-              onClick={() => setIsEnrollModalOpen(true)}
+              onClick={() => {
+                setStudentName("");
+                setStudentEmail("");
+                setEnrollError("");
+                setEnrollSuccessResult(null);
+                setIsEnrollModalOpen(true);
+              }}
               size="sm"
               className="gap-2 font-bold mt-2"
             >
@@ -471,7 +597,7 @@ export default function StudentsPage() {
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
                 <tr>
                   <th className="p-4 pl-6">Student</th>
-                  <th className="p-4">Enrolled Course</th>
+                  <th className="p-4">Enrolled Course(s)</th>
                   <th className="p-4">Cohort / Batch</th>
                   <th className="p-4">Curriculum Progress</th>
                   <th className="p-4">Status</th>
@@ -480,118 +606,372 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {filteredEnrollments.map((e) => {
-                  const initial = (e.studentName || "S").charAt(0).toUpperCase();
-                  const pct = e.progressPercentage || 0;
+                {groupedStudents.map((student) => {
+                  const initial = (student.studentName || "S").charAt(0).toUpperCase();
+                  const hasMultiple = student.enrollments.length > 1;
+                  const isExpanded = expandedStudentKeys.has(student.key);
+                  const single = !hasMultiple ? student.enrollments[0] : null;
+                  const pct = !hasMultiple ? (single?.progressPercentage || 0) : student.avgProgress;
 
                   return (
-                    <tr key={e.id} className="hover:bg-muted/20 transition-colors">
-                      {/* Student Info */}
-                      <td className="p-4 pl-6">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                            {initial}
+                    <React.Fragment key={student.key}>
+                      <tr
+                        className={`transition-colors ${
+                          hasMultiple ? "cursor-pointer hover:bg-muted/30" : "hover:bg-muted/20"
+                        } ${isExpanded ? "bg-muted/20" : ""}`}
+                        onClick={(e) => {
+                          if (e.target.closest("select, button, a, input")) return;
+                          if (hasMultiple) toggleStudentExpand(student.key);
+                        }}
+                      >
+                        {/* Student Info */}
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-3">
+                            {hasMultiple ? (
+                              <button
+                                type="button"
+                                onClick={(evt) => {
+                                  evt.stopPropagation();
+                                  toggleStudentExpand(student.key);
+                                }}
+                                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                title={isExpanded ? "Collapse course details" : "Expand course details"}
+                              >
+                                {isExpanded ? (
+                                  <CaretDown size={16} weight="bold" className="text-primary" />
+                                ) : (
+                                  <CaretRight size={16} weight="bold" />
+                                )}
+                              </button>
+                            ) : (
+                              <div className="w-6 shrink-0" />
+                            )}
+                            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                              {initial}
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-foreground truncate">{student.studentName}</p>
+                                {hasMultiple && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                    {student.enrollments.length} courses
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground font-mono truncate">
+                                {student.studentEmail}
+                              </p>
+                            </div>
                           </div>
-                          <div className="space-y-0.5 min-w-0">
-                            <p className="font-bold text-foreground truncate">{e.studentName}</p>
-                            <p className="text-[11px] text-muted-foreground font-mono truncate">
-                              {e.studentEmail}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Course */}
-                      <td className="p-4">
-                        <div className="space-y-0.5">
-                          <p className="font-bold text-foreground line-clamp-1">{e.courseTitle}</p>
-                          {e.courseCode && (
-                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
-                              {e.courseCode}
-                            </span>
+                        {/* Course(s) */}
+                        <td className="p-4">
+                          {!hasMultiple ? (
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-foreground line-clamp-1">{single?.courseTitle}</p>
+                              {single?.courseCode && (
+                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
+                                  {single.courseCode}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-1.5 max-w-[260px]">
+                              {student.enrollments.map((en) => (
+                                <span
+                                  key={en.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-[11px] font-semibold truncate max-w-[200px]"
+                                  title={en.courseTitle}
+                                >
+                                  {en.courseCode ? `[${en.courseCode}] ` : ""}{en.courseTitle}
+                                </span>
+                              ))}
+                            </div>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Cohort / Batch */}
-                      <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-mono text-[11px] font-bold">
-                          <span>{e.batchName || "General Cohort"}</span>
-                        </span>
-                      </td>
+                        {/* Cohort / Batch */}
+                        <td className="p-4">
+                          {!hasMultiple ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-mono text-[11px] font-bold">
+                              <span>{single?.batchName || "General Cohort"}</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(evt) => {
+                                evt.stopPropagation();
+                                toggleStudentExpand(student.key);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/80 hover:bg-secondary text-secondary-foreground font-mono text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              <span>{student.enrollments.length} Cohorts</span>
+                              <CaretDown
+                                size={12}
+                                weight="bold"
+                                className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                              />
+                            </button>
+                          )}
+                        </td>
 
-                      {/* Progress Bar */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3 min-w-[140px] max-w-[200px]">
-                          <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                pct === 100
-                                  ? "bg-emerald-500"
-                                  : pct > 50
-                                  ? "bg-primary"
-                                  : "bg-primary/80"
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
+                        {/* Progress Bar */}
+                        <td className="p-4">
+                          <div className="flex items-center gap-3 min-w-[140px] max-w-[200px]">
+                            <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  pct === 100
+                                    ? "bg-emerald-500"
+                                    : pct > 50
+                                    ? "bg-primary"
+                                    : "bg-primary/80"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-mono font-bold text-foreground shrink-0">
+                              {pct}% {hasMultiple && <span className="text-[9px] text-muted-foreground font-normal">(avg)</span>}
+                            </span>
                           </div>
-                          <span className="text-[11px] font-mono font-bold text-foreground shrink-0">
-                            {pct}%
-                          </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Status */}
-                      <td className="p-4">
-                        <select
-                          value={e.status}
-                          onChange={(evt) => handleStatusChange(e.id, evt.target.value)}
-                          className={`text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors ${
-                            e.status === "COMPLETED"
-                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                              : e.status === "ACTIVE"
-                              ? "bg-primary/10 text-primary border-primary/30"
-                              : "bg-muted text-muted-foreground border-border"
-                          }`}
-                        >
-                          <option value="ACTIVE">ACTIVE</option>
-                          <option value="COMPLETED">COMPLETED</option>
-                          <option value="DROPPED">DROPPED</option>
-                        </select>
-                      </td>
+                        {/* Status */}
+                        <td className="p-4">
+                          {!hasMultiple ? (
+                            <select
+                              value={single?.status || "ACTIVE"}
+                              onChange={(evt) => handleStatusChange(single.id, evt.target.value)}
+                              className={`text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors ${
+                                single?.status === "COMPLETED"
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                  : single?.status === "ACTIVE"
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : "bg-muted text-muted-foreground border-border"
+                              }`}
+                            >
+                              <option value="ACTIVE">ACTIVE</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="DROPPED">DROPPED</option>
+                            </select>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              {student.allCompleted ? (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                                  ALL COMPLETED
+                                </span>
+                              ) : student.hasActive ? (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/30">
+                                  ACTIVE ({student.enrollments.filter((e) => e.status === "ACTIVE").length})
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-muted text-muted-foreground border border-border">
+                                  MIXED
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
 
-                      {/* Enrolled Date */}
-                      <td className="p-4 font-mono text-[11px] text-muted-foreground">
-                        {e.enrolledAt
-                          ? new Date(e.enrolledAt).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric"
-                            })
-                          : "—"}
-                      </td>
+                        {/* Enrolled Date */}
+                        <td className="p-4 font-mono text-[11px] text-muted-foreground">
+                          {(!hasMultiple ? single?.enrolledAt : student.earliestEnrollment)
+                            ? new Date(!hasMultiple ? single?.enrolledAt : student.earliestEnrollment).toLocaleDateString(undefined, {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric"
+                              })
+                            : "—"}
+                        </td>
 
-                      {/* Actions */}
-                      <td className="p-4 text-right pr-6">
-                        <div className="flex items-center justify-end gap-2">
-                          <a
-                            href={`/dashboard/courses/${e.courseId}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
-                          >
-                            <span>Course</span>
-                            <ArrowSquareOut size={13} weight="bold" />
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteEnrollment(e.id, e.studentName)}
-                            title="Remove student from cohort"
-                            className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                          >
-                            <Trash size={14} weight="bold" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        {/* Actions */}
+                        <td className="p-4 text-right pr-6">
+                          <div className="flex items-center justify-end gap-2">
+                            {!hasMultiple ? (
+                              <>
+                                <a
+                                  href={`/dashboard/courses/${single?.courseId}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
+                                >
+                                  <span>Course</span>
+                                  <ArrowSquareOut size={13} weight="bold" />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEnrollment(single?.id, student.studentName)}
+                                  title="Remove student from cohort"
+                                  className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash size={14} weight="bold" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(evt) => {
+                                    evt.stopPropagation();
+                                    toggleStudentExpand(student.key);
+                                  }}
+                                  className="h-8 text-[11px] font-bold gap-1 text-primary hover:bg-primary/10"
+                                >
+                                  <span>{isExpanded ? "Hide" : "Courses"}</span>
+                                  {isExpanded ? (
+                                    <CaretUp size={13} weight="bold" />
+                                  ) : (
+                                    <CaretDown size={13} weight="bold" />
+                                  )}
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={(evt) => {
+                                    evt.stopPropagation();
+                                    handleEnrollExistingStudent(student.studentName, student.studentEmail);
+                                  }}
+                                  title="Enroll in another course"
+                                  className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                >
+                                  <Plus size={14} weight="bold" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Course Breakdown Sub-table */}
+                      {hasMultiple && isExpanded && (
+                        <tr className="bg-muted/20 border-b border-border/80">
+                          <td colSpan={7} className="p-0">
+                            <div className="p-4 pl-14 pr-6 space-y-3 bg-muted/15 border-l-4 border-l-primary/60 my-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <BookOpen size={16} className="text-primary" weight="bold" />
+                                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                    {student.studentName}&apos;s Enrolled Courses & Cohorts ({student.enrollments.length})
+                                  </h4>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEnrollExistingStudent(student.studentName, student.studentEmail)}
+                                  className="h-7 text-[11px] font-bold gap-1 rounded-lg"
+                                >
+                                  <Plus size={12} weight="bold" />
+                                  <span>+ Enroll in Another Course</span>
+                                </Button>
+                              </div>
+
+                              <div className="border border-border/70 rounded-xl overflow-hidden bg-card shadow-xs">
+                                <table className="w-full text-left text-xs font-medium">
+                                  <thead className="bg-muted/50 border-b border-border/60 text-[10px] font-bold text-muted-foreground uppercase font-mono">
+                                    <tr>
+                                      <th className="py-2.5 px-4">Course</th>
+                                      <th className="py-2.5 px-4">Cohort / Batch</th>
+                                      <th className="py-2.5 px-4">Curriculum Progress</th>
+                                      <th className="py-2.5 px-4">Status</th>
+                                      <th className="py-2.5 px-4">Enrolled Date</th>
+                                      <th className="py-2.5 px-4 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-border/50">
+                                    {student.enrollments.map((en) => {
+                                      const enPct = en.progressPercentage || 0;
+                                      return (
+                                        <tr key={en.id} className="hover:bg-muted/30 transition-colors">
+                                          <td className="py-3 px-4">
+                                            <div className="space-y-0.5">
+                                              <p className="font-bold text-foreground">{en.courseTitle}</p>
+                                              {en.courseCode && (
+                                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
+                                                  {en.courseCode}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="py-3 px-4">
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-mono text-[11px] font-bold">
+                                              {en.batchName || "General Cohort"}
+                                            </span>
+                                          </td>
+                                          <td className="py-3 px-4">
+                                            <div className="flex items-center gap-2 min-w-[120px] max-w-[160px]">
+                                              <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                                                <div
+                                                  className={`h-full rounded-full transition-all duration-300 ${
+                                                    enPct === 100
+                                                      ? "bg-emerald-500"
+                                                      : enPct > 50
+                                                      ? "bg-primary"
+                                                      : "bg-primary/80"
+                                                  }`}
+                                                  style={{ width: `${enPct}%` }}
+                                                />
+                                              </div>
+                                              <span className="text-[11px] font-mono font-bold text-foreground">
+                                                {enPct}%
+                                              </span>
+                                            </div>
+                                          </td>
+                                          <td className="py-3 px-4">
+                                            <select
+                                              value={en.status}
+                                              onChange={(evt) => handleStatusChange(en.id, evt.target.value)}
+                                              className={`text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors ${
+                                                en.status === "COMPLETED"
+                                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                                  : en.status === "ACTIVE"
+                                                  ? "bg-primary/10 text-primary border-primary/30"
+                                                  : "bg-muted text-muted-foreground border-border"
+                                              }`}
+                                            >
+                                              <option value="ACTIVE">ACTIVE</option>
+                                              <option value="COMPLETED">COMPLETED</option>
+                                              <option value="DROPPED">DROPPED</option>
+                                            </select>
+                                          </td>
+                                          <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
+                                            {en.enrolledAt
+                                              ? new Date(en.enrolledAt).toLocaleDateString(undefined, {
+                                                  year: "numeric",
+                                                  month: "short",
+                                                  day: "numeric"
+                                                })
+                                              : "—"}
+                                          </td>
+                                          <td className="py-3 px-4 text-right">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              <a
+                                                href={`/dashboard/courses/${en.courseId}`}
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
+                                              >
+                                                <span>Course</span>
+                                                <ArrowSquareOut size={13} weight="bold" />
+                                              </a>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDeleteEnrollment(en.id, student.studentName)}
+                                                title="Remove student from cohort"
+                                                className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                              >
+                                                <Trash size={14} weight="bold" />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
