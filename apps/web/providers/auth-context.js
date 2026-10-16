@@ -8,6 +8,7 @@ const AuthContext = createContext({
   activeTenant: null,
   tenants: [],
   loading: true,
+  notEnrolledInSubdomain: null,
   login: async () => {},
   register: async () => {},
   switchTenant: () => {},
@@ -98,6 +99,7 @@ export function AuthProvider({ children }) {
   const [activeTenant, setActiveTenant] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notEnrolledInSubdomain, setNotEnrolledInSubdomain] = useState(null);
 
   const applyTenants = (realTenants, preferredId) => {
     // Deduplicate tenants by id so UI never receives multiple items with identical keys
@@ -109,8 +111,34 @@ export function AuthProvider({ children }) {
     });
 
     setTenants(uniqueTenants);
-    const preferred = preferredId && uniqueTenants.find((t) => t.id === preferredId);
-    const next = preferred || uniqueTenants[0] || null;
+
+    // Check if visiting a specific institution subdomain
+    let currentSub = null;
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname.toLowerCase();
+      const parts = host.split('.');
+      if (parts.length > 1 && parts[0] !== 'localhost' && parts[0] !== 'www' && !/^\d+$/.test(parts[0])) {
+        currentSub = parts[0];
+      }
+    }
+
+    let next = null;
+    if (currentSub) {
+      const match = uniqueTenants.find((t) => t.slug?.toLowerCase() === currentSub);
+      if (match) {
+        next = match;
+        setNotEnrolledInSubdomain(null);
+      } else {
+        // Enrolled in some other tenant, but NOT this subdomain's institution!
+        next = null;
+        setNotEnrolledInSubdomain(currentSub);
+      }
+    } else {
+      const preferred = preferredId && uniqueTenants.find((t) => t.id === preferredId);
+      next = preferred || uniqueTenants[0] || null;
+      setNotEnrolledInSubdomain(null);
+    }
+
     setActiveTenant(next);
     if (next) {
       localStorage.setItem('eos_tenant', JSON.stringify(next));
@@ -241,6 +269,7 @@ export function AuthProvider({ children }) {
         activeTenant,
         tenants,
         loading,
+        notEnrolledInSubdomain,
         login,
         register,
         switchTenant,

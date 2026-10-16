@@ -30,13 +30,14 @@ import {
   CaretUpDown,
   Plus,
   Check,
-  Gear
+  Gear,
+  LockSimple
 } from "@phosphor-icons/react";
 
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, activeTenant, tenants, switchTenant, loading, logout } = useAuth();
+  const { user, activeTenant, tenants, switchTenant, loading, notEnrolledInSubdomain, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDark, setIsDark] = useState(true);
   const [portalMode, setPortalMode] = useState("ADMIN");
@@ -69,6 +70,40 @@ export default function DashboardLayout({ children }) {
 
   if (loading || !user) {
     return null;
+  }
+
+  // If user is visiting an institution subdomain where they are not enrolled:
+  if (notEnrolledInSubdomain) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center p-6">
+        <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center space-y-6 shadow-2xl">
+          <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+            <LockSimple size={28} weight="bold" />
+          </div>
+          <div className="space-y-2">
+            <span className="text-xs font-mono uppercase text-amber-400">403 · Access Restricted</span>
+            <h2 className="text-2xl font-bold text-white">Enrollment Required</h2>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              You are signed in as <strong>{user.email}</strong>, but your account is not enrolled in <strong>{notEnrolledInSubdomain}</strong>.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col gap-2.5">
+            <Link
+              href="/"
+              className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow-md shadow-indigo-600/20"
+            >
+              Browse & Enroll in Courses
+            </Link>
+            <button
+              onClick={logout}
+              className="w-full py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition-colors"
+            >
+              Sign In with Different Account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const toggleTheme = () => {

@@ -631,6 +631,61 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  // Storefront Public APIs
+  static async getStorefront(slug) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/storefront/${encodeURIComponent(slug)}`, {
+        cache: 'no-store'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Institution storefront not found');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getStorefrontCourses(slug) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/storefront/${encodeURIComponent(slug)}/courses`, {
+        cache: 'no-store'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch courses');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getStorefrontCourse(slug, courseId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/storefront/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}`, {
+        cache: 'no-store'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Course not found');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async enrollStorefront(slug, { courseId, email, name }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/storefront/${encodeURIComponent(slug)}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId, email, name })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to enroll');
+      return data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 export { ApiClient };

@@ -644,6 +644,265 @@ async function publicRoutes(fastify, options) {
       });
     }
   );
+
+  // ---------------------------------------------------------------------------
+  // PUBLIC TENANT STOREFRONT ENDPOINTS
+  // ---------------------------------------------------------------------------
+
+  // 1. Get Tenant Public Storefront Profile
+  fastify.get(
+    '/storefront/:slug',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['slug'],
+          properties: {
+            slug: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const { slug } = request.params;
+      const tenantRepo = container.resolve('TenantRepository');
+      const tenant = await tenantRepo.findBySlug(slug);
+
+      if (!tenant || tenant.status === 'ARCHIVED' || tenant.status === 'SUSPENDED') {
+        return reply.status(404).send({
+          success: false,
+          error: 'Institution storefront not found.'
+        });
+      }
+
+      const settings = tenant.settingsJson || {};
+      return reply.status(200).send({
+        success: true,
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug?.value || tenant.slug,
+          status: tenant.status,
+          branding: {
+            tagline: settings.tagline || 'Excellence in Online Education',
+            description: settings.description || 'Explore industry-leading courses and certifications designed by our expert faculty.',
+            primaryColor: settings.primaryColor || '#6366f1',
+            accentColor: settings.accentColor || '#10b981',
+            logoUrl: settings.logoUrl || null,
+            bannerUrl: settings.bannerUrl || null,
+            socialProof: settings.socialProof || {
+              studentsCount: '10,000+',
+              coursesCount: '25+',
+              completionRate: '94%'
+            }
+          }
+        }
+      });
+    }
+  );
+
+  // 2. List Public Courses for Tenant Storefront
+  fastify.get(
+    '/storefront/:slug/courses',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['slug'],
+          properties: {
+            slug: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const { slug } = request.params;
+      const tenantRepo = container.resolve('TenantRepository');
+      const tenant = await tenantRepo.findBySlug(slug);
+
+      if (!tenant || tenant.status === 'ARCHIVED' || tenant.status === 'SUSPENDED') {
+        return reply.status(404).send({
+          success: false,
+          error: 'Institution storefront not found.'
+        });
+      }
+
+      const courseRepo = container.resolve('CourseRepository');
+      const courses = await courseRepo.findByTenantId(tenant.id);
+
+      const publicCourses = (courses || [])
+        .filter((c) => c && c.visibility !== 'PRIVATE')
+        .map((c) => {
+          const props = c.props || {};
+          return {
+            id: c.id,
+            title: c.title,
+            code: c.code?.value || c.code,
+            slug: c.slug || slugify(c.title),
+            shortDescription: c.shortDescription || '',
+            description: c.description || '',
+            level: c.level || 'ALL_LEVELS',
+            language: c.language || 'en',
+            credits: c.credits || 3,
+            thumbnailUrl: c.thumbnailUrl || null,
+            price: props.price !== undefined ? props.price : 4900,
+            currency: props.currency || 'USD'
+          };
+        });
+
+      return reply.status(200).send({
+        success: true,
+        count: publicCourses.length,
+        courses: publicCourses
+      });
+    }
+  );
+
+  // 3. Get Single Public Course with Modules Syllabus
+  fastify.get(
+    '/storefront/:slug/courses/:courseId',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['slug', 'courseId'],
+          properties: {
+            slug: { type: 'string' },
+            courseId: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const { slug, courseId } = request.params;
+      const tenantRepo = container.resolve('TenantRepository');
+      const tenant = await tenantRepo.findBySlug(slug);
+
+      if (!tenant || tenant.status === 'ARCHIVED' || tenant.status === 'SUSPENDED') {
+        return reply.status(404).send({
+          success: false,
+          error: 'Institution storefront not found.'
+        });
+      }
+
+      const courseRepo = container.resolve('CourseRepository');
+      let course = await courseRepo.findById(courseId);
+      if (!course) {
+        course = await courseRepo.findByCode(tenant.id, courseId);
+      }
+
+      if (!course || course.tenantId !== tenant.id || course.visibility === 'PRIVATE') {
+        return reply.status(404).send({
+          success: false,
+          error: 'Course not found in this institution.'
+        });
+      }
+
+      const moduleRepo = container.resolve('LessonModuleRepository');
+      const modules = await moduleRepo.findByCourseId(course.id);
+
+      const publicModules = (modules || []).map((m, idx) => {
+        const isPreview = idx === 0 || Boolean(m.props?.isPreview);
+        return {
+          id: m.id,
+          title: m.title,
+          contentType: m.contentType || 'VIDEO',
+          order: m.order || idx + 1,
+          isPreview,
+          contentUrl: isPreview ? m.contentUrl : null
+        };
+      });
+
+      const props = course.props || {};
+      return reply.status(200).send({
+        success: true,
+        course: {
+          id: course.id,
+          title: course.title,
+          code: course.code?.value || course.code,
+          slug: course.slug || slugify(course.title),
+          shortDescription: course.shortDescription || '',
+          description: course.description || '',
+          level: course.level || 'ALL_LEVELS',
+          language: course.language || 'en',
+          credits: course.credits || 3,
+          thumbnailUrl: course.thumbnailUrl || null,
+          price: props.price !== undefined ? props.price : 4900,
+          currency: props.currency || 'USD',
+          modulesCount: publicModules.length,
+          modules: publicModules
+        }
+      });
+    }
+  );
+
+  // 4. Enroll Student into Course (Storefront direct enrollment / checkout webhook target)
+  fastify.post(
+    '/storefront/:slug/enroll',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['slug'],
+          properties: {
+            slug: { type: 'string' }
+          }
+        },
+        body: {
+          type: 'object',
+          required: ['courseId', 'email'],
+          properties: {
+            courseId: { type: 'string' },
+            email: { type: 'string' },
+            name: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const { slug } = request.params;
+      const { courseId, email, name } = request.body;
+
+      const tenantRepo = container.resolve('TenantRepository');
+      const tenant = await tenantRepo.findBySlug(slug);
+      if (!tenant || tenant.status === 'ARCHIVED' || tenant.status === 'SUSPENDED') {
+        return reply.status(404).send({
+          success: false,
+          error: 'Institution storefront not found.'
+        });
+      }
+
+      const courseRepo = container.resolve('CourseRepository');
+      const course = await courseRepo.findById(courseId);
+      if (!course || course.tenantId !== tenant.id) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Course not found in this institution.'
+        });
+      }
+
+      const enrollUseCase = container.resolve('EnrollStudentUseCase');
+      const enrollRes = await enrollUseCase.execute({
+        tenantId: tenant.id,
+        courseId: course.id,
+        studentEmail: email,
+        studentName: name || email.split('@')[0]
+      });
+
+      if (enrollRes.isFailure) {
+        return reply.status(400).send({
+          success: false,
+          error: enrollRes.error
+        });
+      }
+
+      return reply.status(201).send({
+        success: true,
+        message: 'Successfully enrolled. Please check your email for access instructions.',
+        enrollment: enrollRes.getValue()
+      });
+    }
+  );
 }
 
 module.exports = publicRoutes;
