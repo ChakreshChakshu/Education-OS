@@ -47,6 +47,10 @@ export default function Home() {
             </Link>
 
             <nav className="hidden md:flex items-center gap-6 text-xs sm:text-sm font-semibold text-muted-foreground">
+              <Link href="/courses" className="text-foreground hover:text-primary transition-colors flex items-center gap-1 font-bold">
+                <BookOpen size={15} className="text-primary" weight="bold" />
+                <span>Course Catalog</span>
+              </Link>
               <a href="#overview" className="hover:text-foreground transition-colors">Overview</a>
               <a href="#features" className="hover:text-foreground transition-colors">Pillars</a>
               <a href="#architecture" className="hover:text-foreground transition-colors">Architecture</a>
@@ -82,14 +86,20 @@ export default function Home() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
-            <Link href="/dashboard" className="w-full sm:w-auto">
+            <Link href="/courses" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl gap-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all cursor-pointer">
-                <span>Explore Live Campus Demo</span>
-                <ArrowRight size={18} weight="bold" />
+                <BookOpen size={18} weight="bold" />
+                <span>Browse Course Catalog</span>
+                <ArrowRight size={16} weight="bold" />
+              </Button>
+            </Link>
+            <Link href="/dashboard" className="w-full sm:w-auto">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl bg-card/80 backdrop-blur-sm border-border hover:bg-muted transition-all cursor-pointer">
+                Live Campus Demo
               </Button>
             </Link>
             <Link href="/register" className="w-full sm:w-auto">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl bg-card/80 backdrop-blur-sm border-border hover:bg-muted transition-all cursor-pointer">
+              <Button variant="ghost" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl border border-border/60 hover:bg-muted transition-all cursor-pointer">
                 Register Institution
               </Button>
             </Link>

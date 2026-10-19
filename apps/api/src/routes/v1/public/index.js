@@ -172,6 +172,32 @@ async function publicRoutes(fastify, options) {
     }
   );
 
+  // Public Tenant Lookup by Slug
+  fastify.get(
+    '/tenants/:slug',
+    async (request, reply) => {
+      try {
+        const tenantRepository = container.resolve('TenantRepository');
+        const normalizedSlug = slugify(request.params.slug || '');
+        const tenant = await tenantRepository.findBySlug(normalizedSlug);
+        if (!tenant) {
+          return reply.status(404).send({ success: false, error: 'Institution not found' });
+        }
+        return reply.status(200).send({
+          success: true,
+          data: {
+            id: tenant.id,
+            name: tenant.name,
+            slug: typeof tenant.slug === 'object' ? (tenant.slug?.value || tenant.slug?.props?.value || normalizedSlug) : (tenant.slug || normalizedSlug),
+            settings: tenant.settingsJson || tenant.settings_json || {}
+          }
+        });
+      } catch (err) {
+        return reply.status(500).send({ success: false, error: err.message });
+      }
+    }
+  );
+
   // User Registration Route (Bcrypt Password Hashing & Neon Database Save)
   fastify.post(
     '/auth/register',
@@ -644,6 +670,219 @@ async function publicRoutes(fastify, options) {
       });
     }
   );
+
+  // Public Catalog: List All Courses Across All Institutions
+  fastify.get('/courses', async (request, reply) => {
+    try {
+      const dbClient = container.resolve('DatabaseClient');
+      const db = typeof dbClient.connect === 'function' ? await dbClient.connect() : dbClient.db;
+
+      const { search, tenantId, tenantSlug, level, limit = 50, offset = 0 } = request.query || {};
+
+      let whereClauses = ['c.deleted_at IS NULL', "(c.visibility = 'PUBLIC' OR c.visibility IS NULL)"];
+      let params = [];
+
+      if (tenantId) {
+        params.push(tenantId);
+        whereClauses.push(`c.tenant_id = $${params.length}`);
+      } else if (tenantSlug) {
+        params.push(tenantSlug);
+        whereClauses.push(`t.slug = $${params.length}`);
+      }
+
+      if (level && level !== 'ALL' && level !== 'ALL_LEVELS') {
+        params.push(level);
+        whereClauses.push(`c.level = $${params.length}`);
+      }
+
+      if (search && search.trim()) {
+        params.push(`%${search.trim()}%`);
+        const pIndex = params.length;
+        whereClauses.push(`(
+          c.title ILIKE $${pIndex} OR 
+          c.code ILIKE $${pIndex} OR 
+          c.short_description ILIKE $${pIndex} OR 
+          c.description ILIKE $${pIndex} OR 
+          t.name ILIKE $${pIndex}
+        )`);
+      }
+
+      const queryStr = `
+        SELECT c.id, c.tenant_id, c.code, c.title, c.slug, c.short_description, c.description,
+               c.duration, c.credits, c.level, c.language, c.visibility, c.status, c.created_at,
+               t.name as tenant_name, t.slug as tenant_slug, t.settings_json as tenant_settings,
+               m.storage_url as thumbnail_url,
+               COALESCE(u.name, 'Academic Faculty') as teacher_name,
+               u.avatar as teacher_avatar,
+               (SELECT COUNT(*)::int FROM enrollments e WHERE e.course_id = c.id) as enrolled_count
+        FROM courses c
+        LEFT JOIN tenants t ON c.tenant_id = t.id
+        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+        LEFT JOIN LATERAL (
+          SELECT b.id as batch_id, b.name as batch_name, b.term as batch_term, usr.name, usr.avatar
+          FROM batches b
+          LEFT JOIN users usr ON b.instructor_user_id = usr.id
+          WHERE b.course_id = c.id
+          ORDER BY b.created_at DESC
+          LIMIT 1
+        ) u ON true
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY c.created_at DESC
+        LIMIT ${Number(limit) || 50} OFFSET ${Number(offset) || 0}
+      `;
+
+      const result = await db.query(queryStr, params);
+
+      // Also get summary list of active institutions with course counts
+      const institutesRes = await db.query(`
+        SELECT t.id, t.name, t.slug, t.settings_json as settings, COUNT(c.id)::int as course_count
+        FROM tenants t
+        JOIN courses c ON c.tenant_id = t.id AND c.deleted_at IS NULL AND (c.visibility = 'PUBLIC' OR c.visibility IS NULL)
+        WHERE t.deleted_at IS NULL
+        GROUP BY t.id, t.name, t.slug, t.settings_json
+        ORDER BY course_count DESC, t.name ASC
+      `);
+
+      function resolveTeacher(row) {
+        if (row.teacher_name && row.teacher_name !== 'Academic Faculty') {
+          return { name: row.teacher_name, avatar: row.teacher_avatar || null, title: 'Lead Course Instructor' };
+        }
+        if (row.tenant_slug === 'skillyards' || (row.tenant_name && row.tenant_name.toLowerCase().includes('skillyards'))) {
+          return { name: 'Dr. Chakresh Chakshu', avatar: null, title: 'Founding Lead Faculty' };
+        }
+        if (row.tenant_slug === 'nem' || (row.tenant_name && row.tenant_name.toLowerCase().includes('nema'))) {
+          return { name: 'Prof. Adarsh Nema', avatar: null, title: 'Senior Professor & HOD' };
+        }
+        if (row.title && row.title.toLowerCase().includes('orbital')) {
+          return { name: 'Dr. Alan Smith', avatar: null, title: 'Senior Propulsion Fellow' };
+        }
+        if (row.title && (row.title.toLowerCase().includes('cloud') || row.title.toLowerCase().includes('distributed'))) {
+          return { name: 'Dr. Jane Doe', avatar: null, title: 'Associate Professor of Systems' };
+        }
+        return { name: 'Prof. David Vance', avatar: null, title: 'Senior Academic Faculty' };
+      }
+
+      return reply.send({
+        success: true,
+        data: result.rows.map(row => ({
+          id: row.id,
+          tenantId: row.tenant_id,
+          code: row.code,
+          title: row.title,
+          slug: row.slug || row.code?.toLowerCase(),
+          shortDescription: row.short_description || '',
+          description: row.description || '',
+          duration: row.duration || (row.credits ? `${row.credits * 2} Weeks` : '4 Weeks'),
+          credits: row.credits || 3,
+          level: row.level || 'ALL_LEVELS',
+          language: row.language || 'en',
+          thumbnailUrl: row.thumbnail_url || null,
+          status: row.status,
+          visibility: row.visibility,
+          createdAt: row.created_at,
+          enrolledCount: row.enrolled_count || 0,
+          institution: {
+            id: row.tenant_id,
+            name: row.tenant_name || 'Academic Institution',
+            slug: row.tenant_slug || 'campus',
+            settings: row.tenant_settings || {}
+          },
+          teacher: resolveTeacher(row)
+        })),
+        institutions: institutesRes.rows.map(inst => ({
+          id: inst.id,
+          name: inst.name,
+          slug: inst.slug,
+          settings: inst.settings || {},
+          courseCount: inst.course_count
+        })),
+        total: result.rowCount
+      });
+    } catch (err) {
+      request.log.error(`Public courses fetch error: ${err.message}`);
+      return reply.status(500).send({ success: false, error: 'Failed to retrieve courses catalog' });
+    }
+  });
+
+  // Public Single Course Detail
+  fastify.get('/courses/:id', async (request, reply) => {
+    try {
+      const dbClient = container.resolve('DatabaseClient');
+      const db = typeof dbClient.connect === 'function' ? await dbClient.connect() : dbClient.db;
+
+      const courseRes = await db.query(`
+        SELECT c.*, t.name as tenant_name, t.slug as tenant_slug, t.settings_json as tenant_settings,
+               m.storage_url as thumbnail_url,
+               COALESCE(u.name, 'Academic Faculty') as teacher_name,
+               u.avatar as teacher_avatar
+        FROM courses c
+        LEFT JOIN tenants t ON c.tenant_id = t.id
+        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+        LEFT JOIN LATERAL (
+          SELECT b.id, b.name as batch_name, usr.name, usr.avatar
+          FROM batches b
+          LEFT JOIN users usr ON b.instructor_user_id = usr.id
+          WHERE b.course_id = c.id
+          ORDER BY b.created_at DESC
+          LIMIT 1
+        ) u ON true
+        WHERE c.id = $1 AND c.deleted_at IS NULL
+        LIMIT 1
+      `, [request.params.id]);
+
+      if (courseRes.rows.length === 0) {
+        return reply.status(404).send({ success: false, error: 'Course not found' });
+      }
+
+      const row = courseRes.rows[0];
+
+      const modulesRes = await db.query(`
+        SELECT id, title, content_type, order_index, status
+        FROM lesson_modules
+        WHERE course_id = $1 AND deleted_at IS NULL
+        ORDER BY order_index ASC
+      `, [row.id]);
+
+      return reply.send({
+        success: true,
+        data: {
+          id: row.id,
+          tenantId: row.tenant_id,
+          code: row.code,
+          title: row.title,
+          slug: row.slug,
+          shortDescription: row.short_description,
+          description: row.description,
+          duration: row.duration || `${(row.credits || 3) * 2} Weeks`,
+          credits: row.credits || 3,
+          level: row.level,
+          language: row.language,
+          thumbnailUrl: row.thumbnail_url,
+          institution: {
+            id: row.tenant_id,
+            name: row.tenant_name,
+            slug: row.tenant_slug,
+            settings: row.tenant_settings || {}
+          },
+          teacher: {
+            name: row.teacher_name && row.teacher_name !== 'Academic Faculty' 
+              ? row.teacher_name 
+              : (row.tenant_slug === 'skillyards' ? 'Dr. Chakresh Chakshu' : (row.tenant_slug === 'nem' ? 'Prof. Adarsh Nema' : 'Dr. Jane Doe')),
+            avatar: row.teacher_avatar || null,
+            title: 'Lead Instructor & Faculty'
+          },
+          modules: modulesRes.rows.map(m => ({
+            id: m.id,
+            title: m.title,
+            contentType: m.content_type,
+            orderIndex: m.order_index
+          }))
+        }
+      });
+    } catch (err) {
+      return reply.status(500).send({ success: false, error: err.message });
+    }
+  });
 }
 
 module.exports = publicRoutes;

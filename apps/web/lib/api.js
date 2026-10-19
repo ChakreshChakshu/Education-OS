@@ -80,6 +80,17 @@ class ApiClient {
     }
   }
 
+  static async getPublicTenantBySlug(slug) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/tenants/${encodeURIComponent(slug)}`);
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('API getPublicTenantBySlug Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
   static async registerUser(payload) {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/register`, {
@@ -161,6 +172,40 @@ class ApiClient {
       return data;
     } catch (err) {
       console.error('API createTenant Error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  static async getPublicCourses(params = {}) {
+    try {
+      const searchParams = new URLSearchParams();
+      if (params.search) searchParams.set('search', params.search);
+      if (params.tenantId) searchParams.set('tenantId', params.tenantId);
+      if (params.tenantSlug) searchParams.set('tenantSlug', params.tenantSlug);
+      if (params.level && params.level !== 'ALL' && params.level !== 'ALL_LEVELS') searchParams.set('level', params.level);
+      if (params.limit) searchParams.set('limit', params.limit);
+      if (params.offset) searchParams.set('offset', params.offset);
+
+      const qs = searchParams.toString();
+      const url = `${API_BASE_URL}/public/courses${qs ? `?${qs}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch public courses');
+      return data;
+    } catch (err) {
+      console.error('API getPublicCourses Error:', err.message);
+      return { success: false, data: [], institutions: [], error: err.message };
+    }
+  }
+
+  static async getPublicCourseById(courseId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/courses/${courseId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch public course');
+      return data;
+    } catch (err) {
+      console.error('API getPublicCourseById Error:', err.message);
       return { success: false, error: err.message };
     }
   }

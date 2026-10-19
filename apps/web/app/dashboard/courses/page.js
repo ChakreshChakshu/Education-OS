@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { FALLBACK_COURSES } from "@/lib/catalog-data";
 import { 
   BookOpen, 
   Plus, 
@@ -38,10 +39,14 @@ const LEVEL_CONFIG = {
   ADVANCED: { label: "Advanced", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" }
 };
 
-export default function CoursesPage() {
+function CoursesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const newlyEnrolledParam = searchParams ? searchParams.get("enrolled") : null;
   const { user, activeTenant } = useAuth();
   const [search, setSearch] = useState("");
+  const [highlightCourseId, setHighlightCourseId] = useState(null);
+  const [enrollmentBanner, setEnrollmentBanner] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -91,6 +96,22 @@ export default function CoursesPage() {
   }, [user, activeTenant]);
 
   useEffect(() => {
+    if (newlyEnrolledParam) {
+      setActiveTab("ENROLLED");
+      setHighlightCourseId(newlyEnrolledParam);
+      setEnrollmentBanner(true);
+      setEnrolledMap((prev) => ({
+        ...prev,
+        [newlyEnrolledParam]: {
+          isEnrolled: true,
+          progressPercent: 0,
+          batchName: "Standard"
+        }
+      }));
+    }
+  }, [newlyEnrolledParam]);
+
+  useEffect(() => {
     async function loadData() {
       const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
       const [res, enrollRes] = await Promise.all([
@@ -98,7 +119,7 @@ export default function CoursesPage() {
         ApiClient.getEnrollments({ studentUserId: studentId })
       ]);
 
-      if (res.success && Array.isArray(res.data)) {
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setCourses(res.data.map(c => ({
           ...c,
           enrolled: c.enrolled || 0,
@@ -107,10 +128,27 @@ export default function CoursesPage() {
           level: c.level || "ALL_LEVELS",
           slug: c.slug || c.code?.toLowerCase() || ""
         })));
+      } else {
+        setCourses(FALLBACK_COURSES.map(c => ({
+          ...c,
+          instructor: c.teacher?.name || "Academic Faculty"
+        })));
       }
 
+      const map = {};
+      // Also pick up any local storage enrollments from the public storefront
+      try {
+        const localEnrolled = JSON.parse(localStorage.getItem("eos_enrolled_courses") || "[]");
+        localEnrolled.forEach((cid) => {
+          map[cid] = {
+            isEnrolled: true,
+            progressPercent: 0,
+            batchName: "Standard"
+          };
+        });
+      } catch (e) {}
+
       if (enrollRes?.success && Array.isArray(enrollRes.data)) {
-        const map = {};
         for (const enr of enrollRes.data) {
           map[enr.courseId] = {
             isEnrolled: true,
@@ -119,11 +157,20 @@ export default function CoursesPage() {
             enrollmentId: enr.id
           };
         }
-        setEnrolledMap(map);
       }
+
+      if (newlyEnrolledParam) {
+        map[newlyEnrolledParam] = {
+          isEnrolled: true,
+          progressPercent: 0,
+          batchName: "Standard"
+        };
+      }
+
+      setEnrolledMap(map);
     }
     loadData();
-  }, [activeTenant, user]);
+  }, [activeTenant, user, newlyEnrolledParam]);
 
   const handleEnrollCourse = async (courseId) => {
     setEnrollingId(courseId);
@@ -343,6 +390,24 @@ export default function CoursesPage() {
         </div>
       </div>
 
+      {/* Newly Enrolled Notification Banner */}
+      {enrollmentBanner && (
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <Sparkle size={20} weight="fill" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Course Enrollment Confirmed!</h4>
+              <p className="text-xs text-muted-foreground">Your course has been added to your enrolled curriculum below. Start learning right away!</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" className="cursor-pointer text-xs font-bold" onClick={() => setEnrollmentBanner(false)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Course Grid / Empty State */}
       {filteredCourses.length === 0 ? (
         <Card className="p-16 text-center flex flex-col items-center justify-center space-y-5 border-dashed border-2 border-border/80 rounded-2xl">
@@ -379,7 +444,9 @@ export default function CoursesPage() {
             return (
               <Card 
                 key={course.id} 
-                className="overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-lg transition-all duration-200 border-border group bg-card"
+                className={`overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-lg transition-all duration-200 border-border group bg-card ${
+                  course.id === highlightCourseId ? "ring-2 ring-emerald-500 shadow-xl shadow-emerald-500/20 border-emerald-500/60" : ""
+                }`}
               >
                 <div>
                   {/* Thumbnail Banner */}
@@ -737,5 +804,13 @@ export default function CoursesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-muted-foreground text-sm font-semibold">Loading courses...</div>}>
+      <CoursesContent />
+    </Suspense>
   );
 }

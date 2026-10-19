@@ -212,9 +212,10 @@ export default function StudentsPage() {
     }
   };
 
-  // Remove enrollment from cohort
-  const handleDeleteEnrollment = async (enrollmentId, studentName) => {
-    if (!confirm(`Are you sure you want to remove ${studentName || "this student"} from the course cohort?`)) {
+  // Remove single enrollment from cohort
+  const handleDeleteEnrollment = async (enrollmentId, studentName, courseTitle = "") => {
+    const courseText = courseTitle ? ` from "${courseTitle}"` : " from the course cohort";
+    if (!confirm(`Are you sure you want to remove ${studentName || "this student"}${courseText}?`)) {
       return;
     }
     try {
@@ -222,6 +223,28 @@ export default function StudentsPage() {
       await ApiClient.deleteEnrollment(enrollmentId);
     } catch (err) {
       console.error("Failed to delete enrollment:", err);
+      fetchData(true);
+    }
+  };
+
+  // Remove all enrollments for a student
+  const handleDeleteAllStudentEnrollments = async (student) => {
+    const count = student.enrollments.length;
+    const confirmMsg =
+      count > 1
+        ? `Are you sure you want to remove ${student.studentName || "this student"} from ALL ${count} courses?\n\nThis will unenroll the student from all current course cohorts.`
+        : `Are you sure you want to remove ${student.studentName || "this student"} from the course cohort?`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      const ids = student.enrollments.map((en) => en.id);
+      setEnrollments((prev) => prev.filter((e) => !ids.includes(e.id)));
+      await Promise.all(ids.map((id) => ApiClient.deleteEnrollment(id)));
+    } catch (err) {
+      console.error("Failed to delete student enrollments:", err);
       fetchData(true);
     }
   };
@@ -487,7 +510,7 @@ export default function StudentsPage() {
       {/* Filter and Search Action Toolbar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
           <MagnifyingGlass
             size={18}
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -591,18 +614,17 @@ export default function StudentsPage() {
           )}
         </Card>
       ) : (
-        <Card className="overflow-hidden border-border bg-card p-0 rounded-2xl shadow-xs">
-          <div className="overflow-x-auto">
+        <Card className="overflow-hidden border-border bg-card p-0 rounded-2xl shadow-xs w-full">
+          <div className="w-full">
             <table className="w-full text-left text-xs font-medium">
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
                 <tr>
-                  <th className="p-4 pl-6">Student</th>
-                  <th className="p-4">Enrolled Course(s)</th>
-                  <th className="p-4">Cohort / Batch</th>
-                  <th className="p-4">Curriculum Progress</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Enrolled Date</th>
-                  <th className="p-4 text-right pr-6">Manage</th>
+                  <th className="py-3 px-3 sm:px-4 sm:pl-6">Student</th>
+                  <th className="py-3 px-3 sm:px-4 hidden sm:table-cell">Course & Cohort</th>
+                  <th className="py-3 px-3 sm:px-4 hidden md:table-cell">Curriculum Progress</th>
+                  <th className="py-3 px-3 sm:px-4">Status</th>
+                  <th className="py-3 px-3 sm:px-4 hidden xl:table-cell">Enrolled Date</th>
+                  <th className="py-3 px-3 sm:px-4 text-right pr-3 sm:pr-6">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -625,8 +647,8 @@ export default function StudentsPage() {
                         }}
                       >
                         {/* Student Info */}
-                        <td className="p-4 pl-6">
-                          <div className="flex items-center gap-3">
+                        <td className="py-3 px-3 sm:px-4 sm:pl-6">
+                          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                             {hasMultiple ? (
                               <button
                                 type="button"
@@ -638,87 +660,112 @@ export default function StudentsPage() {
                                 title={isExpanded ? "Collapse course details" : "Expand course details"}
                               >
                                 {isExpanded ? (
-                                  <CaretDown size={16} weight="bold" className="text-primary" />
+                                  <CaretDown size={15} weight="bold" className="text-primary" />
                                 ) : (
-                                  <CaretRight size={16} weight="bold" />
+                                  <CaretRight size={15} weight="bold" />
                                 )}
                               </button>
                             ) : (
-                              <div className="w-6 shrink-0" />
+                              <div className="w-5 shrink-0" />
                             )}
-                            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                               {initial}
                             </div>
-                            <div className="space-y-0.5 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-bold text-foreground truncate">{student.studentName}</p>
+                            <div className="space-y-0.5 min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-bold text-foreground truncate max-w-[150px] sm:max-w-none text-xs">
+                                  {student.studentName}
+                                </p>
                                 {hasMultiple && (
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                  <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 shrink-0">
                                     {student.enrollments.length} courses
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-muted-foreground font-mono truncate">
+                              <p className="text-[11px] text-muted-foreground font-mono truncate max-w-[160px] sm:max-w-none">
                                 {student.studentEmail}
                               </p>
+
+                              {/* Mobile Only: Inline Course & Progress summary (< sm screens) */}
+                              <div className="sm:hidden pt-1 space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                                  <span className="font-semibold text-foreground truncate max-w-[130px]">
+                                    {!hasMultiple ? single?.courseTitle : `${student.enrollments.length} Enrolled Courses`}
+                                  </span>
+                                  <span className="px-1.5 py-0.2 rounded bg-secondary text-secondary-foreground font-mono text-[9px] font-bold">
+                                    {!hasMultiple ? (single?.batchName || "General Cohort") : `${pct}% avg`}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden max-w-[100px]">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        pct === 100 ? "bg-emerald-500" : pct > 50 ? "bg-primary" : "bg-primary/80"
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold text-muted-foreground">{pct}%</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Course(s) */}
-                        <td className="p-4">
+                        {/* Course & Cohort (Desktop & Tablet) */}
+                        <td className="py-3 px-3 sm:px-4 hidden sm:table-cell">
                           {!hasMultiple ? (
-                            <div className="space-y-0.5">
-                              <p className="font-bold text-foreground line-clamp-1">{single?.courseTitle}</p>
-                              {single?.courseCode && (
-                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
-                                  {single.courseCode}
+                            <div className="space-y-1 max-w-[200px] lg:max-w-[260px]">
+                              <p className="font-bold text-foreground line-clamp-1" title={single?.courseTitle}>
+                                {single?.courseTitle}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {single?.courseCode && (
+                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
+                                    {single.courseCode}
+                                  </span>
+                                )}
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground font-mono text-[10px] font-bold">
+                                  {single?.batchName || "General Cohort"}
                                 </span>
-                              )}
+                              </div>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap items-center gap-1.5 max-w-[260px]">
-                              {student.enrollments.map((en) => (
-                                <span
-                                  key={en.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-[11px] font-semibold truncate max-w-[200px]"
-                                  title={en.courseTitle}
-                                >
-                                  {en.courseCode ? `[${en.courseCode}] ` : ""}{en.courseTitle}
-                                </span>
-                              ))}
+                            <div className="space-y-1 max-w-[220px] lg:max-w-[280px]">
+                              <div className="flex flex-wrap items-center gap-1">
+                                {student.enrollments.slice(0, 2).map((en) => (
+                                  <span
+                                    key={en.id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-[10px] font-semibold truncate max-w-[130px]"
+                                    title={`${en.courseTitle} • ${en.batchName || "General Cohort"}`}
+                                  >
+                                    {en.courseCode ? `[${en.courseCode}] ` : ""}{en.courseTitle}
+                                  </span>
+                                ))}
+                                {student.enrollments.length > 2 && (
+                                  <span className="text-[10px] font-bold text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
+                                    +{student.enrollments.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(evt) => {
+                                  evt.stopPropagation();
+                                  toggleStudentExpand(student.key);
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] font-mono text-primary hover:underline font-bold"
+                              >
+                                <span>{student.enrollments.length} Cohorts</span>
+                                <CaretDown size={10} weight="bold" className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                              </button>
                             </div>
                           )}
                         </td>
 
-                        {/* Cohort / Batch */}
-                        <td className="p-4">
-                          {!hasMultiple ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-mono text-[11px] font-bold">
-                              <span>{single?.batchName || "General Cohort"}</span>
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(evt) => {
-                                evt.stopPropagation();
-                                toggleStudentExpand(student.key);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/80 hover:bg-secondary text-secondary-foreground font-mono text-[11px] font-bold transition-colors cursor-pointer"
-                            >
-                              <span>{student.enrollments.length} Cohorts</span>
-                              <CaretDown
-                                size={12}
-                                weight="bold"
-                                className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                              />
-                            </button>
-                          )}
-                        </td>
-
-                        {/* Progress Bar */}
-                        <td className="p-4">
-                          <div className="flex items-center gap-3 min-w-[140px] max-w-[200px]">
+                        {/* Curriculum Progress (Desktop & Tablet) */}
+                        <td className="py-3 px-3 sm:px-4 hidden md:table-cell">
+                          <div className="flex items-center gap-2 max-w-[140px]">
                             <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-300 ${
@@ -738,12 +785,12 @@ export default function StudentsPage() {
                         </td>
 
                         {/* Status */}
-                        <td className="p-4">
+                        <td className="py-3 px-3 sm:px-4">
                           {!hasMultiple ? (
                             <select
                               value={single?.status || "ACTIVE"}
                               onChange={(evt) => handleStatusChange(single.id, evt.target.value)}
-                              className={`text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors ${
+                              className={`text-[10px] sm:text-[11px] font-bold font-mono px-1.5 sm:px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors max-w-[95px] sm:max-w-[110px] ${
                                 single?.status === "COMPLETED"
                                   ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
                                   : single?.status === "ACTIVE"
@@ -758,15 +805,15 @@ export default function StudentsPage() {
                           ) : (
                             <div className="flex items-center gap-1">
                               {student.allCompleted ? (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                                  ALL COMPLETED
+                                <span className="px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                                  COMPLETED
                                 </span>
                               ) : student.hasActive ? (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/30">
+                                <span className="px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/30">
                                   ACTIVE ({student.enrollments.filter((e) => e.status === "ACTIVE").length})
                                 </span>
                               ) : (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-muted text-muted-foreground border border-border">
+                                <span className="px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-muted text-muted-foreground border border-border">
                                   MIXED
                                 </span>
                               )}
@@ -774,8 +821,8 @@ export default function StudentsPage() {
                           )}
                         </td>
 
-                        {/* Enrolled Date */}
-                        <td className="p-4 font-mono text-[11px] text-muted-foreground">
+                        {/* Enrolled Date (Large Screens only) */}
+                        <td className="py-3 px-3 sm:px-4 font-mono text-[11px] text-muted-foreground hidden xl:table-cell">
                           {(!hasMultiple ? single?.enrolledAt : student.earliestEnrollment)
                             ? new Date(!hasMultiple ? single?.enrolledAt : student.earliestEnrollment).toLocaleDateString(undefined, {
                                 year: "numeric",
@@ -786,22 +833,36 @@ export default function StudentsPage() {
                         </td>
 
                         {/* Actions */}
-                        <td className="p-4 text-right pr-6">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="py-3 px-3 sm:px-4 text-right pr-3 sm:pr-6">
+                          <div className="flex items-center justify-end gap-1">
                             {!hasMultiple ? (
                               <>
                                 <a
                                   href={`/dashboard/courses/${single?.courseId}`}
-                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline p-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                                  title="View Course"
                                 >
-                                  <span>Course</span>
-                                  <ArrowSquareOut size={13} weight="bold" />
+                                  <ArrowSquareOut size={14} weight="bold" />
                                 </a>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteEnrollment(single?.id, student.studentName)}
+                                  onClick={(evt) => {
+                                    evt.stopPropagation();
+                                    handleEnrollExistingStudent(student.studentName, student.studentEmail);
+                                  }}
+                                  title="Enroll student in another course"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                >
+                                  <Plus size={14} weight="bold" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(evt) => {
+                                    evt.stopPropagation();
+                                    handleDeleteEnrollment(single?.id, student.studentName, single?.courseTitle);
+                                  }}
                                   title="Remove student from cohort"
-                                  className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                                 >
                                   <Trash size={14} weight="bold" />
                                 </button>
@@ -816,13 +877,13 @@ export default function StudentsPage() {
                                     evt.stopPropagation();
                                     toggleStudentExpand(student.key);
                                   }}
-                                  className="h-8 text-[11px] font-bold gap-1 text-primary hover:bg-primary/10"
+                                  className="h-7 px-2 text-[11px] font-bold gap-1 text-primary hover:bg-primary/10 rounded-lg"
                                 >
-                                  <span>{isExpanded ? "Hide" : "Courses"}</span>
+                                  <span className="hidden sm:inline">{isExpanded ? "Hide" : "Courses"}</span>
                                   {isExpanded ? (
-                                    <CaretUp size={13} weight="bold" />
+                                    <CaretUp size={12} weight="bold" />
                                   ) : (
-                                    <CaretDown size={13} weight="bold" />
+                                    <CaretDown size={12} weight="bold" />
                                   )}
                                 </Button>
                                 <button
@@ -831,10 +892,21 @@ export default function StudentsPage() {
                                     evt.stopPropagation();
                                     handleEnrollExistingStudent(student.studentName, student.studentEmail);
                                   }}
-                                  title="Enroll in another course"
-                                  className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                  title="Enroll student in another course"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                                 >
                                   <Plus size={14} weight="bold" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(evt) => {
+                                    evt.stopPropagation();
+                                    handleDeleteAllStudentEnrollments(student);
+                                  }}
+                                  title={`Remove student from all ${student.enrollments.length} courses`}
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash size={14} weight="bold" />
                                 </button>
                               </>
                             )}
@@ -842,14 +914,14 @@ export default function StudentsPage() {
                         </td>
                       </tr>
 
-                      {/* Expanded Course Breakdown Sub-table */}
+                      {/* Expanded Course Breakdown Sub-Panel (100% Fluid, Zero Horizontal Scroll) */}
                       {hasMultiple && isExpanded && (
-                        <tr className="bg-muted/20 border-b border-border/80">
-                          <td colSpan={7} className="p-0">
-                            <div className="p-4 pl-14 pr-6 space-y-3 bg-muted/15 border-l-4 border-l-primary/60 my-1">
-                              <div className="flex items-center justify-between">
+                        <tr className="bg-muted/15 border-b border-border/80">
+                          <td colSpan={6} className="p-0">
+                            <div className="p-3 sm:p-4 sm:pl-10 pr-3 sm:pr-6 space-y-3 border-l-4 border-l-primary/60">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
                                 <div className="flex items-center gap-2">
-                                  <BookOpen size={16} className="text-primary" weight="bold" />
+                                  <BookOpen size={16} className="text-primary shrink-0" weight="bold" />
                                   <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
                                     {student.studentName}&apos;s Enrolled Courses & Cohorts ({student.enrollments.length})
                                   </h4>
@@ -861,111 +933,110 @@ export default function StudentsPage() {
                                   className="h-7 text-[11px] font-bold gap-1 rounded-lg"
                                 >
                                   <Plus size={12} weight="bold" />
-                                  <span>+ Enroll in Another Course</span>
+                                  <span>Enroll in Another Course</span>
                                 </Button>
                               </div>
 
-                              <div className="border border-border/70 rounded-xl overflow-hidden bg-card shadow-xs">
-                                <table className="w-full text-left text-xs font-medium">
-                                  <thead className="bg-muted/50 border-b border-border/60 text-[10px] font-bold text-muted-foreground uppercase font-mono">
-                                    <tr>
-                                      <th className="py-2.5 px-4">Course</th>
-                                      <th className="py-2.5 px-4">Cohort / Batch</th>
-                                      <th className="py-2.5 px-4">Curriculum Progress</th>
-                                      <th className="py-2.5 px-4">Status</th>
-                                      <th className="py-2.5 px-4">Enrolled Date</th>
-                                      <th className="py-2.5 px-4 text-right">Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-border/50">
-                                    {student.enrollments.map((en) => {
-                                      const enPct = en.progressPercentage || 0;
-                                      return (
-                                        <tr key={en.id} className="hover:bg-muted/30 transition-colors">
-                                          <td className="py-3 px-4">
-                                            <div className="space-y-0.5">
-                                              <p className="font-bold text-foreground">{en.courseTitle}</p>
-                                              {en.courseCode && (
-                                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
-                                                  {en.courseCode}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </td>
-                                          <td className="py-3 px-4">
-                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-mono text-[11px] font-bold">
-                                              {en.batchName || "General Cohort"}
+                              <div className="space-y-2">
+                                {student.enrollments.map((en) => {
+                                  const enPct = en.progressPercentage || 0;
+                                  return (
+                                    <div
+                                      key={en.id}
+                                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border/80 bg-card shadow-2xs hover:border-border transition-colors"
+                                    >
+                                      {/* Course & Cohort Details */}
+                                      <div className="space-y-1 min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="font-bold text-foreground text-xs">{en.courseTitle}</p>
+                                          {en.courseCode && (
+                                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-bold">
+                                              {en.courseCode}
                                             </span>
-                                          </td>
-                                          <td className="py-3 px-4">
-                                            <div className="flex items-center gap-2 min-w-[120px] max-w-[160px]">
-                                              <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
-                                                <div
-                                                  className={`h-full rounded-full transition-all duration-300 ${
-                                                    enPct === 100
-                                                      ? "bg-emerald-500"
-                                                      : enPct > 50
-                                                      ? "bg-primary"
-                                                      : "bg-primary/80"
-                                                  }`}
-                                                  style={{ width: `${enPct}%` }}
-                                                />
-                                              </div>
-                                              <span className="text-[11px] font-mono font-bold text-foreground">
-                                                {enPct}%
-                                              </span>
-                                            </div>
-                                          </td>
-                                          <td className="py-3 px-4">
-                                            <select
-                                              value={en.status}
-                                              onChange={(evt) => handleStatusChange(en.id, evt.target.value)}
-                                              className={`text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors ${
-                                                en.status === "COMPLETED"
-                                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                                                  : en.status === "ACTIVE"
-                                                  ? "bg-primary/10 text-primary border-primary/30"
-                                                  : "bg-muted text-muted-foreground border-border"
-                                              }`}
-                                            >
-                                              <option value="ACTIVE">ACTIVE</option>
-                                              <option value="COMPLETED">COMPLETED</option>
-                                              <option value="DROPPED">DROPPED</option>
-                                            </select>
-                                          </td>
-                                          <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
-                                            {en.enrolledAt
-                                              ? new Date(en.enrolledAt).toLocaleDateString(undefined, {
-                                                  year: "numeric",
-                                                  month: "short",
-                                                  day: "numeric"
-                                                })
-                                              : "—"}
-                                          </td>
-                                          <td className="py-3 px-4 text-right">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                              <a
-                                                href={`/dashboard/courses/${en.courseId}`}
-                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5 transition-colors"
-                                              >
-                                                <span>Course</span>
-                                                <ArrowSquareOut size={13} weight="bold" />
-                                              </a>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleDeleteEnrollment(en.id, student.studentName)}
-                                                title="Remove student from cohort"
-                                                className="p-1.5 rounded text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                              >
-                                                <Trash size={14} weight="bold" />
-                                              </button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono flex-wrap">
+                                          <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-bold">
+                                            {en.batchName || "General Cohort"}
+                                          </span>
+                                          {en.enrolledAt && (
+                                            <span>
+                                              Enrolled {new Date(en.enrolledAt).toLocaleDateString(undefined, {
+                                                month: "short",
+                                                day: "numeric",
+                                                year: "numeric"
+                                              })}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Progress Bar */}
+                                      <div className="flex items-center gap-2 min-w-[120px] max-w-[160px]">
+                                        <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full transition-all duration-300 ${
+                                              enPct === 100
+                                                ? "bg-emerald-500"
+                                                : enPct > 50
+                                                ? "bg-primary"
+                                                : "bg-primary/80"
+                                            }`}
+                                            style={{ width: `${enPct}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-[11px] font-mono font-bold text-foreground shrink-0">
+                                          {enPct}%
+                                        </span>
+                                      </div>
+
+                                      {/* Status & Actions */}
+                                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                                        <select
+                                          value={en.status}
+                                          onChange={(evt) => handleStatusChange(en.id, evt.target.value)}
+                                          className={`text-[10px] sm:text-[11px] font-bold font-mono px-2 py-1 rounded-lg border focus:outline-none cursor-pointer transition-colors max-w-[100px] ${
+                                            en.status === "COMPLETED"
+                                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                              : en.status === "ACTIVE"
+                                              ? "bg-primary/10 text-primary border-primary/30"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          <option value="ACTIVE">ACTIVE</option>
+                                          <option value="COMPLETED">COMPLETED</option>
+                                          <option value="DROPPED">DROPPED</option>
+                                        </select>
+
+                                        <div className="flex items-center gap-1">
+                                          <a
+                                            href={`/dashboard/courses/${en.courseId}`}
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline p-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                                            title="View Course"
+                                          >
+                                            <ArrowSquareOut size={13} weight="bold" />
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEnrollExistingStudent(student.studentName, student.studentEmail)}
+                                            title="Enroll student in another course"
+                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                          >
+                                            <Plus size={13} weight="bold" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteEnrollment(en.id, student.studentName, en.courseTitle)}
+                                            title={`Remove student from ${en.courseTitle || "cohort"}`}
+                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                          >
+                                            <Trash size={13} weight="bold" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </td>
