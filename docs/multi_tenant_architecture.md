@@ -354,6 +354,34 @@ Maintain a single **Global User Identity** record per person across EOS, while s
 
 ---
 
+# Subdomain & White-Label Storefront Routing
+
+EOS provides native multi-tenant subdomain resolution, enabling each institution to sell courses under their own white-label URL (`mit.educationos.com` or local `mit.localhost:3000`).
+
+```
+Student Browser (e.g. mit.educationos.com)
+            │
+            ▼
+Next.js 16 Proxy Layer (apps/web/proxy.js)
+  ├─ Reads Host header → extracts slug "mit"
+  ├─ Injects x-tenant-slug header
+  └─ Rewrites request → /org/mit/...
+            │
+            ├───────────────────────────────┬───────────────────────────────┐
+            ▼                               ▼                               ▼
+    Public Storefront               Course Syllabus & Buy           Student Classroom
+  (apps/web/app/org/[slug])   (apps/web/app/org/[slug]/courses)    (/dashboard, /learn)
+  • Verified tenant profile   • Interactive syllabus modules      • Gated by Tenant Role
+  • Public course catalog     • HLS video stream preview          • 403 Forbidden if not
+  • 404 if tenant unlisted    • Direct student enrollment           enrolled in tenant
+```
+
+### Access Isolation Rules:
+1. **Public Storefront (`/`)**: Open to any prospective student. If the requested tenant slug does not exist in the database, Next.js immediately renders `404 Not Found`.
+2. **Classroom & Video Lectures (`/dashboard`, `/learn`)**: Protected by student authentication and tenant membership. If an authenticated user enters a subdomain where they are not enrolled, the system renders a **`403 Access Restricted`** barrier, preventing cross-tenant lecture access.
+
+---
+
 # Guiding Principle
 
 > **Every record must be traceable to exactly one tenant, either directly or through ownership relationships. Tenant isolation is enforced by architecture, not by developer discipline.**

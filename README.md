@@ -80,6 +80,20 @@ education-os/
   - `POST /api/v1/internal/media/upload` (Direct media file upload)
   - `POST /api/v1/internal/media/presign` (Generates presigned upload URL for direct S3/R2 upload)
 
+### 5. Public Storefront & White-Label Subdomains
+- **Subdomain Proxy:** Next.js 16 Proxy (`apps/web/proxy.js`) maps `{tenant}.localhost:3000` / `{tenant}.educationos.com` directly to `/org/{tenant}`.
+- **Storefront Pages:**
+  - `apps/web/app/org/[slug]/page.js` - Institution landing page with searchable course catalog & social proof metrics.
+  - `apps/web/app/org/[slug]/courses/[courseId]/page.js` - Course curriculum breakdown, HLS video stream preview, and direct student checkout.
+- **Access Gating:**
+  - Unknown/unregistered tenant subdomains return `404 Not Found`.
+  - Student classroom access (`/dashboard`, `/learn`) returns `403 Access Restricted` if the student is not enrolled in that institution.
+- **Storefront Endpoints:**
+  - `GET /api/v1/public/storefront/:slug` (Tenant branding & profile)
+  - `GET /api/v1/public/storefront/:slug/courses` (Active public course catalog with pricing)
+  - `GET /api/v1/public/storefront/:slug/courses/:courseId` (Course syllabus & preview video modules)
+  - `POST /api/v1/public/storefront/:slug/enroll` (Auto-provisions student identity & course enrollment)
+
 ---
 
 ## Neon Cloud PostgreSQL & Data Layer
@@ -95,5 +109,5 @@ education-os/
 To execute the full workspace unit & integration test suite (`42 / 42 passing` with `DATABASE_URL` configured against a reachable Postgres instance):
 
 ```bash
-node --test packages/infrastructure/storage/test/storage.test.js packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js packages/infrastructure/database/test/seed.test.js apps/api/test/api.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js packages/domains/media/test/media.test.js
+node --test packages/infrastructure/storage/test/storage.test.js packages/domains/identity/test/identity.test.js packages/infrastructure/database/test/database.test.js packages/infrastructure/database/test/seed.test.js apps/api/test/api.test.js apps/api/test/storefront.test.js packages/domains/academics/test/academics.test.js packages/domains/learning/test/learning.test.js packages/domains/media/test/media.test.js
 ```

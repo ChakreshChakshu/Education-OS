@@ -909,4 +909,153 @@ See [auth_and_authorization.md](auth_and_authorization.md) for the full cookie/C
   }
   ```
 
+---
+
+### 31. Public Storefront - Get Institution Profile
+* **Endpoint:** `GET /api/v1/public/storefront/:slug`
+* **Scope:** Public
+* **Purpose:** Returns public branding, tagline, description, theme tokens, and social proof metrics for an institution's public storefront.
+* **URL Parameters:**
+  * `slug` (string, required) - Tenant unique slug identifier (e.g., `skillyards-versatilitty`).
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "tenant": {
+      "id": "00458190-8dba-4444-b8f9-f0ea7a991fa5",
+      "name": "Skillyards Versatility",
+      "slug": "skillyards-versatilitty",
+      "status": "ACTIVE",
+      "branding": {
+        "tagline": "Industry-grade professional courses & certifications",
+        "description": "Explore industry-leading courses designed by our expert faculty.",
+        "primaryColor": "#6366f1",
+        "accentColor": "#10b981",
+        "logoUrl": null,
+        "bannerUrl": null,
+        "socialProof": {
+          "studentsCount": "10,000+",
+          "coursesCount": "25+",
+          "completionRate": "94%"
+        }
+      }
+    }
+  }
+  ```
+* **Error Response (404 Not Found):**
+  ```json
+  {
+    "success": false,
+    "error": "Institution storefront not found."
+  }
+  ```
+
+---
+
+### 32. Public Storefront - List Courses
+* **Endpoint:** `GET /api/v1/public/storefront/:slug/courses`
+* **Scope:** Public
+* **Purpose:** Returns all publicly published courses offered by the institution, including price in cents, credit count, difficulty level, and thumbnail.
+* **URL Parameters:**
+  * `slug` (string, required) - Tenant unique slug identifier.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "count": 1,
+    "courses": [
+      {
+        "id": "c1a2b3c4-0000-0000-0000-000000000001",
+        "title": "Modern Full-Stack Cloud Architecture",
+        "code": "CS-401",
+        "slug": "modern-full-stack-cloud-architecture",
+        "shortDescription": "Design, build, and deploy resilient distributed microservices.",
+        "description": "Comprehensive module syllabus covering fundamental theory and hands-on laboratory application.",
+        "level": "ADVANCED",
+        "language": "en",
+        "credits": 4,
+        "thumbnailUrl": "https://cdn.educationos.dev/thumbnails/cs401.jpg",
+        "price": 9900,
+        "currency": "USD"
+      }
+    ]
+  }
+  ```
+
+---
+
+### 33. Public Storefront - Get Course Details & Syllabus
+* **Endpoint:** `GET /api/v1/public/storefront/:slug/courses/:courseId`
+* **Scope:** Public
+* **Purpose:** Returns complete course syllabus breakdown. Lesson modules marked as public previews include streamable HLS video URLs; non-preview modules are flagged with `isPreview: false` and URLs omitted.
+* **URL Parameters:**
+  * `slug` (string, required) - Tenant slug.
+  * `courseId` (string, required) - Course UUID or unique course code.
+* **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "course": {
+      "id": "c1a2b3c4-0000-0000-0000-000000000001",
+      "title": "Modern Full-Stack Cloud Architecture",
+      "code": "CS-401",
+      "slug": "modern-full-stack-cloud-architecture",
+      "shortDescription": "Design, build, and deploy resilient distributed microservices.",
+      "level": "ADVANCED",
+      "credits": 4,
+      "price": 9900,
+      "currency": "USD",
+      "modulesCount": 3,
+      "modules": [
+        {
+          "id": "m1a2b3c4-0000-0000-0000-000000000001",
+          "title": "Module 1: Foundations, Tooling & Setup",
+          "contentType": "VIDEO",
+          "order": 1,
+          "isPreview": true,
+          "contentUrl": "https://cdn.educationos.dev/preview/m1.m3u8"
+        },
+        {
+          "id": "m1a2b3c4-0000-0000-0000-000000000002",
+          "title": "Module 2: Core Domain Modeling & Use Case Design",
+          "contentType": "VIDEO",
+          "order": 2,
+          "isPreview": false,
+          "contentUrl": null
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### 34. Public Storefront - Student Course Enrollment
+* **Endpoint:** `POST /api/v1/public/storefront/:slug/enroll`
+* **Scope:** Public (Checkout fulfillment / Direct Enrollment)
+* **Purpose:** Provisions a student user account (if new), assigns the `STUDENT` role scoped strictly to the tenant, and registers the student enrollment record.
+* **Request Body:**
+  ```json
+  {
+    "courseId": "c1a2b3c4-0000-0000-0000-000000000001",
+    "email": "jane.student@gmail.com",
+    "name": "Jane Student"
+  }
+  ```
+* **Success Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "message": "Successfully enrolled. Please check your email for access instructions.",
+    "enrollment": {
+      "id": "enr_018f92ab-5678",
+      "tenantId": "00458190-8dba-4444-b8f9-f0ea7a991fa5",
+      "studentUserId": "usr_018f92ab-1234",
+      "courseId": "c1a2b3c4-0000-0000-0000-000000000001",
+      "status": "ACTIVE"
+    }
+  }
+  ```
+
+
 
