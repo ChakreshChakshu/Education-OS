@@ -42,10 +42,10 @@ import {
 } from "@phosphor-icons/react";
 
 const LEVEL_CONFIG = {
-  ALL_LEVELS: { label: "All Levels", color: "bg-slate-500/10 text-slate-300 border-slate-500/30" },
-  BEGINNER: { label: "Beginner", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
-  INTERMEDIATE: { label: "Intermediate", color: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
-  ADVANCED: { label: "Advanced", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" }
+  ALL_LEVELS: { label: "All Levels", color: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
+  BEGINNER: { label: "Beginner", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  INTERMEDIATE: { label: "Intermediate", color: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30" },
+  ADVANCED: { label: "Advanced", color: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30" }
 };
 
 const ENROLL_LOADER_STATES = [
@@ -87,6 +87,13 @@ export default function CourseDetailPage({ params }) {
   const [switchStudentAccount, setSwitchStudentAccount] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+
+  // Enforce light theme on course detail page
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   // Fetch course details
   useEffect(() => {

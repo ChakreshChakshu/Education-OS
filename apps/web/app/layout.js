@@ -1,6 +1,7 @@
 import { Inter, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-context";
+import { ThemeRouteSync } from "@/components/theme-route-sync";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,8 +29,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full antialiased dark`}>
+    <html lang="en" className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans text-base">
+        <ThemeRouteSync />
         <AuthProvider>
           {children}
         </AuthProvider>

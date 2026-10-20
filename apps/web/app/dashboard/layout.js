@@ -45,8 +45,14 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const isDarkMode = document.documentElement.classList.contains("dark");
-      setIsDark(isDarkMode);
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "light") {
+        document.documentElement.classList.remove("dark");
+        setIsDark(false);
+      } else {
+        document.documentElement.classList.add("dark");
+        setIsDark(true);
+      }
 
       const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
       if (isStudentRole) {

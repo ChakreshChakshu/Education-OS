@@ -99,7 +99,7 @@ export function ParallaxComponent({
                 src={images.layer1}
                 loading="eager"
                 alt="University Architecture"
-                className="w-full h-full object-cover filter brightness-75 contrast-125"
+                className="w-full h-full object-cover filter contrast-110 opacity-30 dark:brightness-75 dark:contrast-125 dark:opacity-40"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/40 to-background" />
             </div>
@@ -121,7 +121,7 @@ export function ParallaxComponent({
 
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-heading max-w-5xl leading-[1.08] text-foreground drop-shadow-md">
                 {title}{" "}
-                <span className="bg-gradient-to-r from-electric-indigo-400 via-medium-slate-blue-300 to-lavender-mist-300 bg-clip-text text-transparent block sm:inline">
+                <span className="bg-gradient-to-r from-electric-indigo-600 via-medium-slate-blue-600 to-purple-600 dark:from-electric-indigo-400 dark:via-medium-slate-blue-300 dark:to-lavender-mist-300 bg-clip-text text-transparent block sm:inline">
                   {subtitle}
                 </span>
               </h1>
@@ -136,7 +136,7 @@ export function ParallaxComponent({
                 <div className="text-sm font-bold text-foreground mt-0.5">100% Protected Campus Records</div>
               </div>
               <div className="p-4 rounded-2xl bg-card/85 backdrop-blur-xl border border-electric-indigo-500/40 shadow-2xl transform translate-y-3">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-electric-indigo-300">Smooth Classroom Streaming</div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-electric-indigo-600 dark:text-electric-indigo-300">Smooth Classroom Streaming</div>
                 <div className="text-sm font-bold text-foreground mt-0.5">Buffer-Free HD Video Lectures</div>
               </div>
               <div className="p-4 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/80 shadow-2xl transform rotate-1 hover:rotate-0 transition-transform">

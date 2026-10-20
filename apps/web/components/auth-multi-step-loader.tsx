@@ -25,18 +25,36 @@ interface AuthMultiStepLoaderProps {
   mode?: "register" | "login";
   customStates?: { text: string }[];
   duration?: number;
+  title?: string;
+  subtitle?: string;
+  onClose?: () => void;
 }
 
 export function AuthMultiStepLoader({
   loading,
   mode = "register",
   customStates,
-  duration
+  duration,
+  title,
+  subtitle,
+  onClose
 }: AuthMultiStepLoaderProps) {
   const defaultStates = mode === "login" ? LOGIN_LOADING_STATES : REGISTRATION_LOADING_STATES;
   const states = customStates || defaultStates;
   // Login is swift (500ms), registration has more initialization depth (700ms)
   const defaultDuration = mode === "login" ? 550 : 750;
+
+  const defaultTitle = customStates
+    ? "Enrolling in Course Program"
+    : mode === "login"
+    ? "Authenticating Campus Access"
+    : "Initializing Campus Institution";
+
+  const defaultSubtitle = customStates
+    ? "Verifying student profile & provisioning curriculum streams..."
+    : mode === "login"
+    ? "Verifying encrypted credentials & loading workspace..."
+    : "Configuring schema isolation & campus administrative policies...";
 
   return (
     <MultiStepLoader
@@ -44,6 +62,9 @@ export function AuthMultiStepLoader({
       loadingStates={states}
       duration={duration || defaultDuration}
       loop={false}
+      title={title || defaultTitle}
+      subtitle={subtitle || defaultSubtitle}
+      onClose={onClose}
     />
   );
 }

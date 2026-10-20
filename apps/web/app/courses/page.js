@@ -36,10 +36,10 @@ import {
 } from "@phosphor-icons/react";
 
 const LEVEL_CONFIG = {
-  ALL_LEVELS: { label: "All Levels", color: "bg-slate-500/10 text-slate-300 border-slate-500/30" },
-  BEGINNER: { label: "Beginner", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
-  INTERMEDIATE: { label: "Intermediate", color: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
-  ADVANCED: { label: "Advanced", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" }
+  ALL_LEVELS: { label: "All Levels", color: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
+  BEGINNER: { label: "Beginner", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  INTERMEDIATE: { label: "Intermediate", color: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30" },
+  ADVANCED: { label: "Advanced", color: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30" }
 };
 
 const DOMAIN_CATEGORIES = [
@@ -78,6 +78,13 @@ function CoursesCatalogContent() {
   const [quickAuthLoading, setQuickAuthLoading] = useState(false);
   const [quickAuthError, setQuickAuthError] = useState("");
   const [quickAuthSuccess, setQuickAuthSuccess] = useState("");
+
+  // Enforce light theme on courses catalog page
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   // Initial Data Fetch
   useEffect(() => {
@@ -376,7 +383,7 @@ function CoursesCatalogContent() {
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-foreground max-w-4xl mx-auto leading-tight">
               One Unified Marketplace. <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-indigo-400 to-sky-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-indigo-600 to-sky-600 dark:via-indigo-400 dark:to-sky-400">
                 Courses Offered Across All Institutions.
               </span>
             </h1>

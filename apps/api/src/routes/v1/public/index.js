@@ -929,6 +929,226 @@ async function publicRoutes(fastify, options) {
       });
     }
   );
+
+  // ---------------------------------------------------------------------------
+  // GLOBAL PUBLIC CATALOG COURSES
+  // ---------------------------------------------------------------------------
+
+  // 5. Global Public Courses Catalog
+  fastify.get(
+    '/courses',
+    async (request, reply) => {
+      try {
+        const { search, tenantId, tenantSlug, level, limit = 50, offset = 0 } = request.query || {};
+        const courseRepo = container.resolve('CourseRepository');
+        const tenantRepo = container.resolve('TenantRepository');
+
+        let targetTenantId = tenantId;
+        if (!targetTenantId && tenantSlug) {
+          const tenant = await tenantRepo.findBySlug(tenantSlug);
+          if (tenant) targetTenantId = tenant.id;
+        }
+
+        const rawCourses = await courseRepo.findByTenantId(targetTenantId || null);
+
+        // Map and filter public courses
+        const tenantCache = new Map();
+        const formatted = [];
+
+        for (const c of rawCourses || []) {
+          if (!c || c.visibility === 'PRIVATE' || c.status === 'ARCHIVED') continue;
+
+          // Level filter
+          if (level && level !== 'ALL' && level !== 'ALL_LEVELS') {
+            if (c.level !== level) continue;
+          }
+
+          // Search filter
+          if (search) {
+            const q = search.toLowerCase();
+            const titleMatch = (c.title || '').toLowerCase().includes(q);
+            const codeMatch = (c.code?.value || c.code || '').toLowerCase().includes(q);
+            const descMatch = (c.shortDescription || c.description || '').toLowerCase().includes(q);
+            if (!titleMatch && !codeMatch && !descMatch) continue;
+          }
+
+          // Resolve tenant info
+          let tenantInfo = null;
+          if (c.tenantId) {
+            if (tenantCache.has(c.tenantId)) {
+              tenantInfo = tenantCache.get(c.tenantId);
+            } else {
+              try {
+                const t = await tenantRepo.findById(c.tenantId);
+                if (t) {
+                  tenantInfo = {
+                    id: t.id,
+                    name: t.name,
+                    slug: t.slug?.value || t.slug
+                  };
+                }
+              } catch (e) {}
+              tenantCache.set(c.tenantId, tenantInfo);
+            }
+          }
+
+          const props = c.props || {};
+          formatted.push({
+            id: c.id,
+            tenantId: c.tenantId,
+            title: c.title,
+            code: c.code?.value || c.code,
+            slug: c.slug || slugify(c.title),
+            shortDescription: c.shortDescription || '',
+            description: c.description || '',
+            thumbnailUrl: c.thumbnailUrl || null,
+            level: c.level || 'ALL_LEVELS',
+            language: c.language || 'en',
+            credits: c.credits !== undefined ? c.credits : 3,
+            status: c.status,
+            price: props.price !== undefined ? props.price : 4900,
+            currency: props.currency || 'USD',
+            institution: tenantInfo || {
+              id: c.tenantId || 'apex-sys',
+              name: 'Autonomous Campus Branch',
+              slug: 'campus'
+            },
+            teacher: {
+              name: 'Academic Faculty',
+              title: 'Lead Instructor'
+            }
+          });
+        }
+
+        // Aggregate unique institutions with course count
+        const instMap = new Map();
+        for (const c of formatted) {
+          const inst = c.institution;
+          if (inst && inst.id) {
+            if (!instMap.has(inst.id)) {
+              instMap.set(inst.id, {
+                id: inst.id,
+                name: inst.name,
+                slug: inst.slug,
+                courseCount: 1
+              });
+            } else {
+              instMap.get(inst.id).courseCount += 1;
+            }
+          }
+        }
+
+        return reply.status(200).send({
+          success: true,
+          count: formatted.length,
+          data: formatted.slice(Number(offset), Number(offset) + Number(limit)),
+          institutions: Array.from(instMap.values())
+        });
+      } catch (err) {
+        request.log.error(`Public courses fetch error: ${err.message}`);
+        return reply.status(500).send({
+          success: false,
+          error: err.message,
+          data: [],
+          institutions: []
+        });
+      }
+    }
+  );
+
+  // 6. Get Single Public Course by ID
+  fastify.get(
+    '/courses/:courseId',
+    async (request, reply) => {
+      try {
+        const { courseId } = request.params;
+        const courseRepo = container.resolve('CourseRepository');
+        const tenantRepo = container.resolve('TenantRepository');
+        const moduleRepo = container.resolve('LessonModuleRepository');
+
+        let course = await courseRepo.findById(courseId);
+        if (!course) {
+          // Try lookup across tenants by code
+          const allCourses = await courseRepo.findByTenantId(null);
+          course = (allCourses || []).find(
+            (c) => c && (c.id === courseId || (c.code?.value || c.code) === courseId || c.slug === courseId)
+          );
+        }
+
+        if (!course || course.visibility === 'PRIVATE' || course.status === 'ARCHIVED') {
+          return reply.status(404).send({
+            success: false,
+            error: 'Course not found'
+          });
+        }
+
+        let tenantInfo = null;
+        if (course.tenantId) {
+          try {
+            const t = await tenantRepo.findById(course.tenantId);
+            if (t) {
+              tenantInfo = {
+                id: t.id,
+                name: t.name,
+                slug: t.slug?.value || t.slug
+              };
+            }
+          } catch (e) {}
+        }
+
+        let modules = [];
+        try {
+          if (moduleRepo && typeof moduleRepo.findByCourseId === 'function') {
+            const rawModules = await moduleRepo.findByCourseId(course.id);
+            modules = (rawModules || []).map((m, idx) => ({
+              id: m.id,
+              title: m.title,
+              contentType: m.contentType || 'VIDEO',
+              order: m.order || idx + 1,
+              isPreview: idx === 0 || Boolean(m.props?.isPreview)
+            }));
+          }
+        } catch (mErr) {}
+
+        const props = course.props || {};
+        return reply.status(200).send({
+          success: true,
+          data: {
+            id: course.id,
+            tenantId: course.tenantId,
+            title: course.title,
+            code: course.code?.value || course.code,
+            slug: course.slug || slugify(course.title),
+            shortDescription: course.shortDescription || '',
+            description: course.description || '',
+            thumbnailUrl: course.thumbnailUrl || null,
+            level: course.level || 'ALL_LEVELS',
+            language: course.language || 'en',
+            credits: course.credits !== undefined ? course.credits : 3,
+            status: course.status,
+            price: props.price !== undefined ? props.price : 4900,
+            currency: props.currency || 'USD',
+            institution: tenantInfo || {
+              id: course.tenantId || 'apex-sys',
+              name: 'Autonomous Campus Branch',
+              slug: 'campus'
+            },
+            teacher: {
+              name: 'Academic Faculty',
+              title: 'Lead Instructor'
+            },
+            modules
+          }
+        });
+      } catch (err) {
+        request.log.error(`Public course detail error: ${err.message}`);
+        return reply.status(500).send({
+          success: false,
+          error: err.message
+        });
+      }
+    }
+  );
 }
 
 module.exports = publicRoutes;
