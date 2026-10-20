@@ -53,8 +53,30 @@ function LoginContent() {
     try {
       const res = await login(loginEmail, loginPassword);
       if (res.success) {
+        const autoEnrollId = searchParams.get("autoEnroll");
+        const tenantIdParam = searchParams.get("tenantId");
+        const redirectParam = searchParams.get("redirect");
+
+        if (autoEnrollId) {
+          setSuccess("Login verified! Enrolling in your course...");
+          try {
+            const studentId = res.user?.id || res.user?.userId;
+            await ApiClient.enrollStudent({
+              courseId: autoEnrollId,
+              tenantId: tenantIdParam,
+              studentUserId: studentId,
+              studentEmail: res.user?.email || loginEmail,
+              studentName: res.user?.name || "Student"
+            });
+          } catch (enrollErr) {
+            console.warn("Auto-enroll error:", enrollErr);
+          }
+          setTimeout(() => router.push(`/dashboard/courses?enrolled=${autoEnrollId}`), 1600);
+          return;
+        }
+
         setSuccess("Login verified! Entering dashboard...");
-        setTimeout(() => router.push("/dashboard"), 1800);
+        setTimeout(() => router.push(redirectParam || "/dashboard"), 1600);
       } else {
         setError(res.error || "Invalid email or password.");
         setLoading(false);
@@ -81,6 +103,13 @@ function LoginContent() {
           <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
             <WarningCircle size={18} weight="bold" className="shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {searchParams.get("autoEnroll") && !success && (
+          <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+            <GraduationCap size={18} weight="bold" className="shrink-0" />
+            <span>Sign in to complete your course enrollment & launch the LMS platform.</span>
           </div>
         )}
 

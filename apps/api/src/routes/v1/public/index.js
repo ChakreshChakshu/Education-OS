@@ -172,6 +172,32 @@ async function publicRoutes(fastify, options) {
     }
   );
 
+  // Public Tenant Lookup by Slug
+  fastify.get(
+    '/tenants/:slug',
+    async (request, reply) => {
+      try {
+        const tenantRepository = container.resolve('TenantRepository');
+        const normalizedSlug = slugify(request.params.slug || '');
+        const tenant = await tenantRepository.findBySlug(normalizedSlug);
+        if (!tenant) {
+          return reply.status(404).send({ success: false, error: 'Institution not found' });
+        }
+        return reply.status(200).send({
+          success: true,
+          data: {
+            id: tenant.id,
+            name: tenant.name,
+            slug: typeof tenant.slug === 'object' ? (tenant.slug?.value || tenant.slug?.props?.value || normalizedSlug) : (tenant.slug || normalizedSlug),
+            settings: tenant.settingsJson || tenant.settings_json || {}
+          }
+        });
+      } catch (err) {
+        return reply.status(500).send({ success: false, error: err.message });
+      }
+    }
+  );
+
   // User Registration Route (Bcrypt Password Hashing & Neon Database Save)
   fastify.post(
     '/auth/register',

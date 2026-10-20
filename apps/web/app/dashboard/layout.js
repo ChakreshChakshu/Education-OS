@@ -29,9 +29,10 @@ import {
   Sidebar as SidebarIcon,
   CaretUpDown,
   Plus,
-  Check,
   Gear,
-  LockSimple
+  ArrowUpRight,
+  Globe,
+  Check
 } from "@phosphor-icons/react";
 
 export default function DashboardLayout({ children }) {
@@ -392,6 +393,19 @@ export default function DashboardLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Direct Link to Tenant's Public Course Website */}
+            <Link
+              href={`/t/${activeTenant?.slug || 'apex-main'}/courses`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors shadow-2xs"
+              title="Preview this institution's public course website"
+            >
+              <Buildings size={14} className="text-primary" weight="bold" />
+              <span>Public Portal</span>
+              <ArrowUpRight size={13} weight="bold" />
+            </Link>
+
             {/* Student Portal / Admin Mode Switcher - Only available to instructors & administrators */}
             {!(user?.role === "STUDENT" || activeTenant?.role === "STUDENT") && (
               <Button
