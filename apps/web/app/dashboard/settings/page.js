@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   User,
   ShieldCheck,
@@ -42,12 +43,13 @@ const BRAND_PALETTES = [
 ];
 
 export default function SettingsPage() {
-  const { user, activeTenant, updateCurrentUser, updateActiveTenant } = useAuth();
+  const { user, activeTenant, updateCurrentUser, updateActiveTenant, loading: authLoading } = useAuth();
 
   // Role detection: Students must never access campus branding or system diagnostics
   const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
   const [portalMode, setPortalMode] = useState(isStudentRole ? "STUDENT" : "ADMIN");
   const [activeTab, setActiveTab] = useState("profile");
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -105,6 +107,7 @@ export default function SettingsPage() {
 
   // Initialize form states from auth context & API
   useEffect(() => {
+    let isMounted = true;
     if (user) {
       setProfileForm((prev) => ({
         ...prev,
@@ -117,48 +120,55 @@ export default function SettingsPage() {
       }));
     }
 
-    // Fetch fresh user profile details
-    ApiClient.getUserProfile().then((res) => {
-      if (res?.success && res?.data) {
-        setProfileForm((prev) => ({
-          ...prev,
-          name: res.data.name || prev.name,
-          email: res.data.email || prev.email,
-          phone: res.data.phone || "",
-          timezone: res.data.timezone || prev.timezone,
-          language: res.data.language || "en",
-          avatar: res.data.avatar || ""
-        }));
-      }
+    Promise.allSettled([
+      ApiClient.getUserProfile().then((res) => {
+        if (!isMounted) return;
+        if (res?.success && res?.data) {
+          setProfileForm((prev) => ({
+            ...prev,
+            name: res.data.name || prev.name,
+            email: res.data.email || prev.email,
+            phone: res.data.phone || "",
+            timezone: res.data.timezone || prev.timezone,
+            language: res.data.language || "en",
+            avatar: res.data.avatar || ""
+          }));
+        }
+      }),
+      ApiClient.getTenantSettings().then((res) => {
+        if (!isMounted) return;
+        if (res?.success && res?.data) {
+          const settings = res.data.settingsJson || {};
+          const branding = settings.branding || {};
+          const campus = settings.campus || {};
+          const color = branding.primaryColor || settings.primaryColor || "#5b12ed";
+          setBrandingForm({
+            name: res.data.name || activeTenant?.name || "Institution Workspace",
+            slug: res.data.slug || activeTenant?.slug || "academy",
+            branchName: campus.branchName || settings.branch || activeTenant?.branch || "Main Campus",
+            address: campus.address || "",
+            academicTerm: campus.academicTerm || "Spring 2026",
+            primaryColor: color,
+            tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
+            supportEmail: branding.supportEmail || settings.supportEmail || "support@institution.edu",
+            logoUrl: branding.logoUrl || settings.logoUrl || ""
+          });
+        } else if (activeTenant) {
+          setBrandingForm((prev) => ({
+            ...prev,
+            name: activeTenant.name || prev.name,
+            slug: activeTenant.slug || prev.slug,
+            branchName: activeTenant.branch || prev.branchName
+          }));
+        }
+      })
+    ]).finally(() => {
+      if (isMounted) setDataLoading(false);
     });
 
-    // Fetch tenant settings & campus parameters
-    ApiClient.getTenantSettings().then((res) => {
-      if (res?.success && res?.data) {
-        const settings = res.data.settingsJson || {};
-        const branding = settings.branding || {};
-        const campus = settings.campus || {};
-        const color = branding.primaryColor || settings.primaryColor || "#5b12ed";
-        setBrandingForm({
-          name: res.data.name || activeTenant?.name || "Institution Workspace",
-          slug: res.data.slug || activeTenant?.slug || "academy",
-          branchName: campus.branchName || settings.branch || activeTenant?.branch || "Main Campus",
-          address: campus.address || "",
-          academicTerm: campus.academicTerm || "Spring 2026",
-          primaryColor: color,
-          tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
-          supportEmail: branding.supportEmail || settings.supportEmail || "support@institution.edu",
-          logoUrl: branding.logoUrl || settings.logoUrl || ""
-        });
-      } else if (activeTenant) {
-        setBrandingForm((prev) => ({
-          ...prev,
-          name: activeTenant.name || prev.name,
-          slug: activeTenant.slug || prev.slug,
-          branchName: activeTenant.branch || prev.branchName
-        }));
-      }
-    });
+    return () => {
+      isMounted = false;
+    };
   }, [user, activeTenant]);
 
   const showNotification = (msg, isError = false) => {
@@ -297,6 +307,59 @@ export default function SettingsPage() {
       setSavingBranding(false);
     }
   };
+
+  if (dataLoading && !user) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-56 rounded-lg" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-96 rounded" />
+          </div>
+        </div>
+
+        <div className="w-full p-1.5 bg-muted/50 rounded-2xl border border-border grid grid-cols-2 md:grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-10 rounded-xl" />
+          ))}
+        </div>
+
+        <Card className="border-border">
+          <CardHeader className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5 rounded-md" />
+              <Skeleton className="h-6 w-36 rounded-md" />
+            </div>
+            <Skeleton className="h-4 w-64 rounded" />
+          </CardHeader>
+          <CardContent className="space-y-6 pt-2">
+            <div className="flex items-center gap-5">
+              <Skeleton className="h-20 w-20 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-32 rounded-xl" />
+                <Skeleton className="h-3 w-44 rounded" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-24 rounded" />
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end gap-3 border-t border-border pt-4">
+            <Skeleton className="h-10 w-24 rounded-xl" />
+            <Skeleton className="h-10 w-32 rounded-xl" />
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FALLBACK_COURSES } from "@/lib/catalog-data";
 import { 
   BookOpen, 
@@ -48,6 +49,7 @@ function CoursesContent() {
   const [highlightCourseId, setHighlightCourseId] = useState(null);
   const [enrollmentBanner, setEnrollmentBanner] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -113,61 +115,68 @@ function CoursesContent() {
 
   useEffect(() => {
     async function loadData() {
-      const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
-      const [res, enrollRes] = await Promise.all([
-        ApiClient.getCourses(),
-        ApiClient.getEnrollments({ studentUserId: studentId })
-      ]);
-
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        setCourses(res.data.map(c => ({
-          ...c,
-          enrolled: c.enrolled || 0,
-          instructor: c.instructor || "Academic Faculty",
-          duration: c.duration || (c.credits ? `${c.credits * 2} Weeks` : "4 Weeks"),
-          level: c.level || "ALL_LEVELS",
-          slug: c.slug || c.code?.toLowerCase() || ""
-        })));
-      } else {
-        setCourses(FALLBACK_COURSES.map(c => ({
-          ...c,
-          instructor: c.teacher?.name || "Academic Faculty"
-        })));
-      }
-
-      const map = {};
-      // Also pick up any local storage enrollments from the public storefront
+      setDataLoading(true);
       try {
-        const localEnrolled = JSON.parse(localStorage.getItem("eos_enrolled_courses") || "[]");
-        localEnrolled.forEach((cid) => {
-          map[cid] = {
+        const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+        const [res, enrollRes] = await Promise.all([
+          ApiClient.getCourses(),
+          ApiClient.getEnrollments({ studentUserId: studentId })
+        ]);
+
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setCourses(res.data.map(c => ({
+            ...c,
+            enrolled: c.enrolled || 0,
+            instructor: c.instructor || "Academic Faculty",
+            duration: c.duration || (c.credits ? `${c.credits * 2} Weeks` : "4 Weeks"),
+            level: c.level || "ALL_LEVELS",
+            slug: c.slug || c.code?.toLowerCase() || ""
+          })));
+        } else {
+          setCourses(FALLBACK_COURSES.map(c => ({
+            ...c,
+            instructor: c.teacher?.name || "Academic Faculty"
+          })));
+        }
+
+        const map = {};
+        // Also pick up any local storage enrollments from the public storefront
+        try {
+          const localEnrolled = JSON.parse(localStorage.getItem("eos_enrolled_courses") || "[]");
+          localEnrolled.forEach((cid) => {
+            map[cid] = {
+              isEnrolled: true,
+              progressPercent: 0,
+              batchName: "Standard"
+            };
+          });
+        } catch (e) {}
+
+        if (enrollRes?.success && Array.isArray(enrollRes.data)) {
+          for (const enr of enrollRes.data) {
+            map[enr.courseId] = {
+              isEnrolled: true,
+              progressPercent: enr.progressPercentage || 0,
+              batchName: enr.batchName || "Standard",
+              enrollmentId: enr.id
+            };
+          }
+        }
+
+        if (newlyEnrolledParam) {
+          map[newlyEnrolledParam] = {
             isEnrolled: true,
             progressPercent: 0,
             batchName: "Standard"
           };
-        });
-      } catch (e) {}
-
-      if (enrollRes?.success && Array.isArray(enrollRes.data)) {
-        for (const enr of enrollRes.data) {
-          map[enr.courseId] = {
-            isEnrolled: true,
-            progressPercent: enr.progressPercentage || 0,
-            batchName: enr.batchName || "Standard",
-            enrollmentId: enr.id
-          };
         }
-      }
 
-      if (newlyEnrolledParam) {
-        map[newlyEnrolledParam] = {
-          isEnrolled: true,
-          progressPercent: 0,
-          batchName: "Standard"
-        };
+        setEnrolledMap(map);
+      } catch (err) {
+        console.error("Failed to load courses:", err);
+      } finally {
+        setDataLoading(false);
       }
-
-      setEnrolledMap(map);
     }
     loadData();
   }, [activeTenant, user, newlyEnrolledParam]);
@@ -408,8 +417,52 @@ function CoursesContent() {
         </div>
       )}
 
-      {/* Course Grid / Empty State */}
-      {filteredCourses.length === 0 ? (
+      {/* Course Grid / Skeleton Loading / Empty State */}
+      {dataLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="overflow-hidden flex flex-col justify-between border-border bg-card rounded-2xl shadow-xs">
+              <div>
+                {/* Thumbnail Skeleton */}
+                <Skeleton className="h-44 w-full rounded-none" />
+
+                <div className="p-5 space-y-4">
+                  {/* Badges Skeleton */}
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-20 rounded-md" />
+                    <Skeleton className="h-5 w-24 rounded-full" />
+                  </div>
+
+                  {/* Title & Short Description Skeleton */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-4/5 rounded-lg" />
+                    <Skeleton className="h-3.5 w-full rounded" />
+                    <Skeleton className="h-3.5 w-2/3 rounded" />
+                  </div>
+
+                  {/* Spec Strip Skeleton */}
+                  <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/50 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-28 rounded" />
+                      <Skeleton className="h-4 w-20 rounded" />
+                    </div>
+                    <div className="pt-2 border-t border-border/40 flex items-center gap-2.5">
+                      <Skeleton className="h-6 w-6 rounded-full" />
+                      <Skeleton className="h-4 w-32 rounded" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Footer Skeleton */}
+              <div className="p-5 pt-0 border-t border-border/50 flex items-center justify-between mt-2">
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-8 w-28 rounded-lg" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : filteredCourses.length === 0 ? (
         <Card className="p-16 text-center flex flex-col items-center justify-center space-y-5 border-dashed border-2 border-border/80 rounded-2xl">
           <div className="h-20 w-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
             <BookBookmark size={44} weight="bold" />

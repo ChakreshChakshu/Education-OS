@@ -8,6 +8,7 @@ import { ApiClient } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Users, 
   UserPlus,
@@ -158,6 +159,7 @@ export default function DashboardOverviewPage() {
   // Load Admin metrics & data
   useEffect(() => {
     async function loadAdminData() {
+      setLoading(true);
       try {
         const [courseRes, enrollRes, batchRes] = await Promise.all([
           ApiClient.getCourses(),
@@ -177,6 +179,8 @@ export default function DashboardOverviewPage() {
         }
       } catch (err) {
         console.error("Failed to load admin dashboard data:", err);
+      } finally {
+        setLoading(false);
       }
     }
     loadAdminData();
@@ -341,6 +345,101 @@ export default function DashboardOverviewPage() {
       c.code?.toLowerCase().includes(query)
     );
   }, [adminMetrics.courseStats, courseSearch]);
+
+  // ==========================================
+  // SKELETON LOADING STATE
+  // ==========================================
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-200">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs">
+          <div className="space-y-3 w-full max-w-xl">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-28 rounded-md" />
+              <Skeleton className="h-5 w-36 rounded-md" />
+            </div>
+            <Skeleton className="h-8 w-72 rounded-lg" />
+            <Skeleton className="h-4 w-full rounded" />
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Skeleton className="h-10 w-32 rounded-xl" />
+            <Skeleton className="h-10 w-32 rounded-xl" />
+          </div>
+        </div>
+
+        {/* Hero Banner Skeleton */}
+        <Card className="border-border bg-card p-6 md:p-7 rounded-2xl shadow-xs">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-6 w-64 rounded-lg" />
+                <Skeleton className="h-3.5 w-48 rounded" />
+              </div>
+            </div>
+            <div className="w-full lg:w-72 space-y-2">
+              <div className="flex justify-between">
+                <Skeleton className="h-3.5 w-24 rounded" />
+                <Skeleton className="h-3.5 w-12 rounded" />
+              </div>
+              <Skeleton className="h-2.5 w-full rounded-full" />
+              <Skeleton className="h-9.5 w-full rounded-xl mt-2" />
+            </div>
+          </div>
+        </Card>
+
+        {/* 4 Stats Cards Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-5 border-border bg-card rounded-2xl shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-9 w-9 rounded-xl" />
+              </div>
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-3 w-32 rounded" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Content Section Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Card className="lg:col-span-8 p-6 border-border bg-card rounded-2xl space-y-4 shadow-xs">
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-6 w-44 rounded-lg" />
+              <Skeleton className="h-4 w-20 rounded" />
+            </div>
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 rounded-xl border border-border/60 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-40 rounded" />
+                      <Skeleton className="h-3 w-28 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-8 w-24 rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="lg:col-span-4 p-6 border-border bg-card rounded-2xl space-y-4 shadow-xs">
+            <Skeleton className="h-6 w-36 rounded-lg" />
+            <Skeleton className="h-3.5 w-full rounded" />
+            <div className="space-y-3 pt-2">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   // ==========================================
   // STUDENT LEARNING PORTAL VIEW

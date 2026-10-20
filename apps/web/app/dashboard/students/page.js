@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Users, 
   UserPlus, 
@@ -444,12 +445,18 @@ export default function StudentsPage() {
                 Total Students
               </p>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
-                  {uniqueStudentsCount}
-                </p>
-                <span className="text-[11px] font-semibold text-muted-foreground font-mono">
-                  ({enrollments.length} {enrollments.length === 1 ? 'enrollment' : 'enrollments'})
-                </span>
+                {loading ? (
+                  <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+                ) : (
+                  <>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
+                      {uniqueStudentsCount}
+                    </p>
+                    <span className="text-[11px] font-semibold text-muted-foreground font-mono">
+                      ({enrollments.length} {enrollments.length === 1 ? 'enrollment' : 'enrollments'})
+                    </span>
+                  </>
+                )}
               </div>
             </div>
             <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -464,9 +471,13 @@ export default function StudentsPage() {
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Active Students
               </p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-500">
-                {activeStudentsCount}
-              </p>
+              {loading ? (
+                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+              ) : (
+                <p className="text-2xl sm:text-3xl font-extrabold text-emerald-500">
+                  {activeStudentsCount}
+                </p>
+              )}
             </div>
             <div className="h-11 w-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <GraduationCap size={24} weight="bold" />
@@ -480,9 +491,13 @@ export default function StudentsPage() {
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Course Completions
               </p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-blue-400">
-                {completedCount}
-              </p>
+              {loading ? (
+                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+              ) : (
+                <p className="text-2xl sm:text-3xl font-extrabold text-blue-400">
+                  {completedCount}
+                </p>
+              )}
             </div>
             <div className="h-11 w-11 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
               <CheckCircle size={24} weight="bold" />
@@ -496,9 +511,13 @@ export default function StudentsPage() {
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Average Progress
               </p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">
-                {avgProgress}%
-              </p>
+              {loading ? (
+                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+              ) : (
+                <p className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">
+                  {avgProgress}%
+                </p>
+              )}
             </div>
             <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
               <Trophy size={24} weight="bold" />
@@ -578,9 +597,63 @@ export default function StudentsPage() {
 
       {/* Roster Table */}
       {loading ? (
-        <Card className="p-16 text-center border-border bg-card rounded-2xl flex flex-col items-center justify-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-muted-foreground font-semibold">Loading student roster from Neon DB...</p>
+        <Card className="overflow-hidden border-border bg-card p-0 rounded-2xl shadow-xs w-full">
+          <div className="w-full">
+            <table className="w-full text-left text-xs font-medium">
+              <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
+                <tr>
+                  <th className="py-3 px-3 sm:px-4 sm:pl-6">Student</th>
+                  <th className="py-3 px-3 sm:px-4 hidden sm:table-cell">Course & Cohort</th>
+                  <th className="py-3 px-3 sm:px-4 hidden md:table-cell">Curriculum Progress</th>
+                  <th className="py-3 px-3 sm:px-4">Status</th>
+                  <th className="py-3 px-3 sm:px-4 hidden xl:table-cell">Enrolled Date</th>
+                  <th className="py-3 px-3 sm:px-4 text-right pr-3 sm:pr-6">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <tr key={i} className="hover:bg-muted/20">
+                    <td className="py-3.5 px-3 sm:px-4 sm:pl-6">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-28 rounded" />
+                          <Skeleton className="h-2.5 w-36 rounded" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 hidden sm:table-cell">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-32 rounded" />
+                        <Skeleton className="h-2.5 w-20 rounded" />
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 hidden md:table-cell">
+                      <div className="w-36 space-y-1.5">
+                        <div className="flex justify-between">
+                          <Skeleton className="h-2.5 w-10 rounded" />
+                          <Skeleton className="h-2.5 w-8 rounded" />
+                        </div>
+                        <Skeleton className="h-1.5 w-full rounded-full" />
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 hidden xl:table-cell">
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 text-right pr-3 sm:pr-6">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <Skeleton className="h-7 w-20 rounded-lg" />
+                        <Skeleton className="h-7 w-7 rounded-lg" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       ) : groupedStudents.length === 0 ? (
         <Card className="p-16 text-center flex flex-col items-center justify-center space-y-4 border-dashed border-2 border-border/80 rounded-2xl bg-card">

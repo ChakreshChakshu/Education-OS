@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Buildings, 
   Plus, 
@@ -36,7 +37,7 @@ const BRAND_PRESETS = [
 ];
 
 export default function TenantsPage() {
-  const { activeTenant, tenants, switchTenant, addTenant } = useAuth();
+  const { activeTenant, tenants, switchTenant, addTenant, loading: authLoading } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -149,7 +150,22 @@ export default function TenantsPage() {
       </div>
 
       {/* Active Context Banner */}
-      {activeTenant && (
+      {authLoading && !activeTenant ? (
+        <Card className="p-6 md:p-7 border-border bg-card rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xs">
+          <div className="flex items-center gap-5 w-full">
+            <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-36 rounded" />
+                <Skeleton className="h-5 w-20 rounded" />
+              </div>
+              <Skeleton className="h-7 w-48 rounded-lg" />
+              <Skeleton className="h-4 w-64 rounded" />
+            </div>
+          </div>
+          <Skeleton className="h-11 w-48 rounded-xl shrink-0" />
+        </Card>
+      ) : activeTenant && (
         <Card className="p-6 md:p-7 border-primary/50 bg-primary/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xs">
           <div className="flex items-center gap-5">
             <div 
@@ -204,12 +220,35 @@ export default function TenantsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg sm:text-xl font-bold text-foreground">
-            Registered Institutions & Branches ({uniqueTenants.length})
+            Registered Institutions & Branches {authLoading && !uniqueTenants.length ? "" : `(${uniqueTenants.length})`}
           </h3>
           <span className="text-xs font-mono text-muted-foreground">Tenant Isolated Cloud Storage</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {authLoading && !uniqueTenants.length ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-4 rounded-2xl border-border bg-card shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-16 rounded" />
+                </div>
+                <div className="flex items-center gap-3.5">
+                  <Skeleton className="h-11 w-11 rounded-xl shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-40 rounded" />
+                    <Skeleton className="h-3.5 w-28 rounded" />
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-border flex justify-between items-center">
+                  <Skeleton className="h-3 w-32 rounded" />
+                  <Skeleton className="h-8 w-24 rounded-lg" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {uniqueTenants.map((t) => {
             const isActive = activeTenant?.id === t.id;
             const tenantColor = t.settings?.branding?.primaryColor || t.settings?.primaryColor || "#5b12ed";
@@ -300,7 +339,8 @@ export default function TenantsPage() {
             );
           })}
         </div>
-      </div>
+      )}
+    </div>
 
       {/* Provision Modal */}
       {isModalOpen && (

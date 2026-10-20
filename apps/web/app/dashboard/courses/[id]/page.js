@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import { 
   ArrowLeft, 
@@ -201,7 +202,86 @@ export default function CourseDetailPage({ params: paramsPromise }) {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground font-medium">Loading Course Builder...</div>;
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        {/* Top Navigation & Course Header Skeleton */}
+        <div className="space-y-4">
+          <Skeleton className="h-5 w-32 rounded-md" />
+
+          <Card className="p-6 md:p-8 rounded-2xl border border-border shadow-xs bg-card">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-start gap-5 w-full">
+                <Skeleton className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl shrink-0" />
+                <div className="space-y-3 flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Skeleton className="h-5 w-16 rounded" />
+                    <Skeleton className="h-5 w-24 rounded" />
+                    <Skeleton className="h-5 w-16 rounded" />
+                    <Skeleton className="h-5 w-20 rounded" />
+                  </div>
+                  <Skeleton className="h-8 w-3/4 max-w-lg rounded-lg" />
+                  <Skeleton className="h-4 w-full max-w-md rounded" />
+                  <div className="flex items-center gap-3 pt-1">
+                    <Skeleton className="h-4 w-28 rounded" />
+                    <Skeleton className="h-4 w-20 rounded" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+                <Skeleton className="h-10 w-28 rounded-xl" />
+                <Skeleton className="h-10 w-32 rounded-xl" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Navigation Tabs Skeleton */}
+        <div className="flex border-b border-border pb-px gap-6">
+          <Skeleton className="h-8 w-32 rounded-lg" />
+          <Skeleton className="h-8 w-28 rounded-lg" />
+        </div>
+
+        {/* Modules Skeleton Cards */}
+        <div className="space-y-6">
+          {[1, 2, 3].map((mod) => (
+            <Card key={mod} className="border-border bg-card rounded-2xl overflow-hidden shadow-xs">
+              <CardHeader className="p-5 border-b border-border/60 bg-muted/20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-7 w-20 rounded-md" />
+                    <Skeleton className="h-6 w-48 rounded-md" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-24 rounded-lg" />
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 space-y-3">
+                {[1, 2].map((lesson) => (
+                  <div
+                    key={lesson}
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-background/50 gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-44 rounded" />
+                        <Skeleton className="h-3 w-24 rounded" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Skeleton className="h-7 w-16 rounded-md" />
+                      <Skeleton className="h-7 w-7 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
