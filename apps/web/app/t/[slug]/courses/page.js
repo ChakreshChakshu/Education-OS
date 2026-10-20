@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { TenantLogo } from "@/components/ui/tenant-logo";
 import {
   GraduationCap,
   Buildings,
@@ -473,12 +474,7 @@ export default function TenantCourseWebsitePage({ params }) {
           
           {/* Institutional Identity */}
           <div className="flex items-center gap-3">
-            <div
-              className="h-10 w-10 rounded-xl text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0"
-              style={{ backgroundColor: brandColor }}
-            >
-              <Buildings size={22} weight="bold" />
-            </div>
+            <TenantLogo tenant={tenant} size="md" showBadge />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-extrabold text-sm sm:text-base tracking-tight text-foreground line-clamp-1">
@@ -730,12 +726,7 @@ export default function TenantCourseWebsitePage({ params }) {
                       {/* 1. Offering Institution */}
                       <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="h-6 w-6 rounded-md text-white flex items-center justify-center font-bold text-xs shrink-0"
-                            style={{ backgroundColor: brandColor }}
-                          >
-                            <Buildings size={13} weight="bold" />
-                          </div>
+                          <TenantLogo tenant={course.institution || tenant} size="xs" />
                           <span className="text-xs font-bold text-foreground truncate">
                             {course.institution?.name || tenantName}
                           </span>
@@ -834,16 +825,19 @@ export default function TenantCourseWebsitePage({ params }) {
             
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
-              <div>
-                <Badge variant="outline" className="text-[10px] font-mono font-bold text-primary border-primary/30 mb-1">
-                  {purchaseCourse.code} • {purchaseCourse.credits || 3} Academic Credits
-                </Badge>
-                <h3 className="text-lg font-black text-foreground">
-                  Enroll in {purchaseCourse.title}
-                </h3>
-                <p className="text-xs text-muted-foreground font-semibold">
-                  Offered by {purchaseCourse.institution?.name || tenantName}
-                </p>
+              <div className="flex items-center gap-3">
+                <TenantLogo tenant={purchaseCourse.institution || tenant} size="md" />
+                <div>
+                  <Badge variant="outline" className="text-[10px] font-mono font-bold text-primary border-primary/30 mb-1">
+                    {purchaseCourse.code} • {purchaseCourse.credits || 3} Academic Credits
+                  </Badge>
+                  <h3 className="text-lg font-black text-foreground">
+                    Enroll in {purchaseCourse.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    Offered by {purchaseCourse.institution?.name || tenantName}
+                  </p>
+                </div>
               </div>
 
               <button
@@ -1025,12 +1019,7 @@ export default function TenantCourseWebsitePage({ params }) {
       <footer className="border-t border-border bg-background py-8 px-6 mt-16">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
           <div className="flex items-center gap-2.5">
-            <div
-              className="h-7 w-7 rounded-lg text-white flex items-center justify-center font-bold"
-              style={{ backgroundColor: brandColor }}
-            >
-              <Buildings size={16} weight="bold" />
-            </div>
+            <TenantLogo tenant={tenant} size="sm" />
             <span className="font-bold text-foreground">{tenantName}</span>
             <span>• Powered by Education-OS Multi-Tenant Architecture</span>
           </div>

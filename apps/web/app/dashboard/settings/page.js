@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TenantLogo } from "@/components/ui/tenant-logo";
 import {
   User,
   ShieldCheck,
@@ -720,23 +721,14 @@ export default function SettingsPage() {
                         <div className="space-y-1.5">
                           <label className="text-xs sm:text-sm font-bold text-foreground">Campus Logo Image URL</label>
                           <div className="flex items-center gap-3">
-                            <div 
-                              className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border border-border overflow-hidden shadow-xs"
-                              style={{ backgroundColor: `${brandingForm.primaryColor}15` }}
-                            >
-                              {brandingForm.logoUrl ? (
-                                <img
-                                  src={brandingForm.logoUrl}
-                                  alt="Campus Logo"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                />
-                              ) : (
-                                <span className="font-extrabold text-base" style={{ color: brandingForm.primaryColor }}>
-                                  {brandingForm.name ? brandingForm.name.charAt(0).toUpperCase() : "E"}
-                                </span>
-                              )}
-                            </div>
+                            <TenantLogo 
+                              tenant={{ 
+                                name: brandingForm.name, 
+                                logoUrl: brandingForm.logoUrl, 
+                                primaryColor: brandingForm.primaryColor 
+                              }} 
+                              size="lg" 
+                            />
                             <Input
                               type="url"
                               placeholder="https://example.com/logo.png"
@@ -901,16 +893,14 @@ export default function SettingsPage() {
                           Navigation Header
                         </span>
                         <div className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border">
-                          <div
-                            className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-extrabold text-xs shadow-xs shrink-0 overflow-hidden"
-                            style={{ backgroundColor: brandingForm.primaryColor }}
-                          >
-                            {brandingForm.logoUrl ? (
-                              <img src={brandingForm.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                            ) : (
-                              <span>{brandingForm.name.charAt(0) || "E"}</span>
-                            )}
-                          </div>
+                          <TenantLogo 
+                            tenant={{ 
+                              name: brandingForm.name, 
+                              logoUrl: brandingForm.logoUrl, 
+                              primaryColor: brandingForm.primaryColor 
+                            }} 
+                            size="md" 
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs sm:text-sm font-bold truncate text-foreground">
                               {brandingForm.name || "Institution Name"}

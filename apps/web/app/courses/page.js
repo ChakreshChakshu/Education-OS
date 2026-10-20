@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AuthMultiStepLoader } from "@/components/auth-multi-step-loader";
 import { FALLBACK_COURSES, FALLBACK_INSTITUTIONS } from "@/lib/catalog-data";
+import { TenantLogo } from "@/components/ui/tenant-logo";
 import {
   GraduationCap,
   Buildings,
@@ -511,12 +512,13 @@ function CoursesCatalogContent() {
                   <button
                     key={inst.id}
                     onClick={() => setSelectedInstitution(inst.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 flex items-center gap-2 transition-all cursor-pointer ${
                       isActive
                         ? "bg-foreground text-background shadow-xs"
                         : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
+                    <TenantLogo tenant={inst} size="xs" />
                     <span>{inst.name}</span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-background/20 font-mono">
                       {inst.courseCount || 1}
@@ -648,12 +650,13 @@ function CoursesCatalogContent() {
                         <div className="flex items-center justify-between gap-2 pb-1 border-b border-border/50">
                           <button
                             onClick={() => setSelectedInstitution(course.institution?.id || course.tenantId)}
-                            className="flex items-center gap-2 group/inst text-left cursor-pointer"
+                            className="flex items-center gap-2 group/inst text-left cursor-pointer min-w-0"
                             title={`Filter courses by ${course.institution?.name || "Institution"}`}
                           >
-                            <div className="h-6 w-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                              <Buildings size={14} weight="bold" />
-                            </div>
+                            <TenantLogo 
+                              tenant={course.institution || { name: course.institution?.name, slug: course.institution?.slug }} 
+                              size="xs" 
+                            />
                             <span className="text-xs font-extrabold text-foreground group-hover/inst:text-primary transition-colors line-clamp-1">
                               {course.institution?.name || "Academic Institution"}
                             </span>

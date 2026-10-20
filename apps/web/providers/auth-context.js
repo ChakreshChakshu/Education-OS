@@ -64,8 +64,9 @@ function toUiTenant(apiTenant) {
   const settings = apiTenant.settings || apiTenant.settingsJson || apiTenant.settings_json || {};
   const branding = settings.branding || {};
   const campus = settings.campus || {};
-  const primaryColor = branding.primaryColor || settings.primaryColor || '#5b12ed';
+  const primaryColor = branding.primaryColor || settings.primaryColor || apiTenant.primaryColor || '#5b12ed';
   const branchName = campus.branchName || settings.branch || apiTenant.branch || 'Main Campus';
+  const logoUrl = branding.logoUrl || settings.logoUrl || apiTenant.logoUrl || '';
 
   return {
     id: apiTenant.tenantId || apiTenant.id,
@@ -73,6 +74,8 @@ function toUiTenant(apiTenant) {
     slug: apiTenant.slug,
     role: apiTenant.role,
     branch: branchName,
+    logoUrl,
+    primaryColor,
     settings: {
       ...settings,
       primaryColor,
@@ -82,7 +85,7 @@ function toUiTenant(apiTenant) {
         secondaryColor: branding.secondaryColor || '#efe7fd',
         tagline: branding.tagline || settings.tagline || 'Empowering institutional academic excellence',
         supportEmail: branding.supportEmail || settings.supportEmail || 'support@institution.edu',
-        logoUrl: branding.logoUrl || settings.logoUrl || ''
+        logoUrl
       },
       campus: {
         branchName,

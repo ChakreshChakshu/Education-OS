@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TenantLogo } from "@/components/ui/tenant-logo";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -212,14 +213,14 @@ export default function DashboardLayout({ children }) {
         {/* Sidebar Header Branding */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-xs">
-              <GraduationCap size={24} weight="bold" />
-            </div>
+            <TenantLogo tenant={activeTenant} size="md" />
             {sidebarOpen && (
-              <div className="flex flex-col">
-                <span className="font-extrabold text-base tracking-tight truncate">Education OS</span>
+              <div className="flex flex-col min-w-0">
+                <span className="font-extrabold text-sm tracking-tight truncate text-foreground">
+                  {activeTenant?.name || "Education OS"}
+                </span>
                 <span className="text-[10px] text-muted-foreground font-mono truncate font-bold uppercase tracking-wider">
-                  Enterprise LMS
+                  {activeTenant?.branch || "Enterprise LMS"}
                 </span>
               </div>
             )}
@@ -227,85 +228,85 @@ export default function DashboardLayout({ children }) {
 
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-accent"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-accent shrink-0"
           >
-            <SidebarIcon size={20} />
+            <SidebarIcon size={18} />
           </button>
         </div>
 
         {/* Institution Switcher with shadcn DropdownMenu */}
-        {sidebarOpen && (
-          <div className="p-3 border-b border-border">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+        <div className={`p-3 border-b border-border ${sidebarOpen ? "" : "flex justify-center"}`}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              {sidebarOpen ? (
                 <button
                   type="button"
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl border border-border bg-background hover:border-primary/40 hover:bg-accent/40 transition-all text-left cursor-pointer group"
+                  className="w-full flex items-center justify-between p-2 rounded-xl border border-border bg-background hover:border-primary/40 hover:bg-accent/40 transition-all text-left cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div 
-                      className="h-8 w-8 rounded-lg text-primary-foreground flex items-center justify-center text-xs font-black shrink-0 shadow-xs overflow-hidden border border-border/40"
-                      style={activeTenant?.settings?.branding?.primaryColor ? { backgroundColor: activeTenant.settings.branding.primaryColor } : { backgroundColor: "var(--primary)" }}
-                    >
-                      {activeTenant?.settings?.branding?.logoUrl ? (
-                        <img 
-                          src={activeTenant.settings.branding.logoUrl} 
-                          alt={activeTenant.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        <span>{activeTenant?.name ? activeTenant.name.charAt(0) : "E"}</span>
-                      )}
-                    </div>
+                    <TenantLogo tenant={activeTenant} size="sm" showBadge />
                     <div className="min-w-0 pr-1">
-                      <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">
-                        {activeTenant?.name || "My Academy"}
+                      <p className="text-xs font-bold truncate group-hover:text-primary transition-colors text-foreground">
+                        {activeTenant?.name || "Institution Workspace"}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate font-mono">
+                      <p className="text-[11px] text-muted-foreground truncate font-mono">
                         {activeTenant?.branch || "Main Campus"}
                       </p>
                     </div>
                   </div>
                   <CaretUpDown size={14} className="text-muted-foreground shrink-0" />
                 </button>
-              </DropdownMenuTrigger>
+              ) : (
+                <button
+                  type="button"
+                  title={activeTenant?.name || "Switch Institution"}
+                  className="p-1 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer"
+                >
+                  <TenantLogo tenant={activeTenant} size="sm" showBadge />
+                </button>
+              )}
+            </DropdownMenuTrigger>
 
-              <DropdownMenuContent className="w-64" align="start">
-                <DropdownMenuLabel>Institutional Workspaces</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  {tenants && tenants.length > 0 ? (
-                    tenants.map((t) => {
-                      const isActive = activeTenant?.id === t.id;
-                      return (
-                        <DropdownMenuItem
-                          key={t.id}
-                          onClick={() => switchTenant(t)}
-                          className="flex items-center justify-between gap-2 py-2"
-                        >
+            <DropdownMenuContent className="w-64" align={sidebarOpen ? "start" : "center"}>
+              <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Institutional Workspaces
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {tenants && tenants.length > 0 ? (
+                  tenants.map((t) => {
+                    const isActive = activeTenant?.id === t.id;
+                    return (
+                      <DropdownMenuItem
+                        key={t.id}
+                        onClick={() => switchTenant(t)}
+                        className="flex items-center justify-between gap-2.5 py-2 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <TenantLogo tenant={t} size="xs" />
                           <div className="truncate">
-                            <p className="font-bold text-sm truncate">{t.name}</p>
-                            <span className="text-xs text-muted-foreground font-mono">{t.branch || "Campus"}</span>
+                            <p className="font-bold text-xs truncate text-foreground">{t.name}</p>
+                            <span className="text-[10px] text-muted-foreground font-mono">{t.branch || "Campus"}</span>
                           </div>
-                          {isActive && <Check size={14} weight="bold" className="text-primary shrink-0" />}
-                        </DropdownMenuItem>
-                      );
-                    })
-                  ) : (
-                    <div className="p-2 text-xs text-muted-foreground">Default Workspace Active</div>
-                  )}
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-sm font-bold text-primary">
-                    <Plus size={14} weight="bold" />
-                    <span>Provision New Branch</span>
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+                        </div>
+                        {isActive && <Check size={14} weight="bold" className="text-primary shrink-0" />}
+                      </DropdownMenuItem>
+                    );
+                  })
+                ) : (
+                  <div className="p-2 text-xs text-muted-foreground">Default Workspace Active</div>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-xs font-bold text-primary cursor-pointer">
+                  <Plus size={14} weight="bold" />
+                  <span>Manage Institutions</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Navigation Links */}
         <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
@@ -369,33 +370,45 @@ export default function DashboardLayout({ children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navbar */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
-          <div className="flex items-center gap-2 text-xs">
-            <Link
-              href="/dashboard"
-              className="text-xs text-muted-foreground font-mono font-bold tracking-wider hover:text-foreground transition-colors"
-            >
-              EOS
-            </Link>
-            {breadcrumbs.map((crumb, idx) => {
-              const isLast = idx === breadcrumbs.length - 1;
-              return (
-                <React.Fragment key={crumb.href + idx}>
-                  <span className="text-muted-foreground/40 font-mono">/</span>
-                  {isLast ? (
-                    <span className="text-sm font-extrabold capitalize text-foreground tracking-tight">
-                      {crumb.label}
-                    </span>
-                  ) : (
-                    <Link
-                      href={crumb.href}
-                      className="font-medium text-muted-foreground hover:text-foreground capitalize transition-colors"
-                    >
-                      {crumb.label}
-                    </Link>
-                  )}
-                </React.Fragment>
-              );
-            })}
+          <div className="flex items-center gap-3 text-xs">
+            {/* Active Institution Logo Pill */}
+            <div className="flex items-center gap-2 py-1 px-2.5 rounded-xl bg-background border border-border shadow-2xs">
+              <TenantLogo tenant={activeTenant} size="xs" />
+              <span className="font-bold text-xs text-foreground truncate max-w-[140px] sm:max-w-[200px]">
+                {activeTenant?.name || "Education OS"}
+              </span>
+            </div>
+
+            <span className="text-muted-foreground/40 font-mono hidden sm:inline">|</span>
+
+            <div className="hidden sm:flex items-center gap-2">
+              <Link
+                href="/dashboard"
+                className="text-xs text-muted-foreground font-mono font-bold tracking-wider hover:text-foreground transition-colors"
+              >
+                EOS
+              </Link>
+              {breadcrumbs.map((crumb, idx) => {
+                const isLast = idx === breadcrumbs.length - 1;
+                return (
+                  <React.Fragment key={crumb.href + idx}>
+                    <span className="text-muted-foreground/40 font-mono">/</span>
+                    {isLast ? (
+                      <span className="text-xs font-extrabold capitalize text-foreground tracking-tight">
+                        {crumb.label}
+                      </span>
+                    ) : (
+                      <Link
+                        href={crumb.href}
+                        className="font-medium text-muted-foreground hover:text-foreground capitalize transition-colors"
+                      >
+                        {crumb.label}
+                      </Link>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

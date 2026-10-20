@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TenantLogo } from "@/components/ui/tenant-logo";
 import { 
   Buildings, 
   Plus, 
@@ -168,16 +169,7 @@ export default function TenantsPage() {
       ) : activeTenant && (
         <Card className="p-6 md:p-7 border-primary/50 bg-primary/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xs">
           <div className="flex items-center gap-5">
-            <div 
-              className="h-16 w-16 rounded-2xl text-white flex items-center justify-center font-extrabold text-2xl shrink-0 shadow-sm overflow-hidden"
-              style={{ backgroundColor: activeColor }}
-            >
-              {activeTenant.settings?.branding?.logoUrl ? (
-                <img src={activeTenant.settings.branding.logoUrl} alt={activeTenant.name} className="w-full h-full object-cover" />
-              ) : (
-                <span>{activeTenant.name.charAt(0)}</span>
-              )}
-            </div>
+            <TenantLogo tenant={activeTenant} size="xl" showBadge />
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="success" className="text-xs font-bold px-2.5 py-0.5">
@@ -278,16 +270,7 @@ export default function TenantsPage() {
                   </div>
 
                   <div className="flex items-center gap-3.5 mt-3">
-                    <div 
-                      className="h-11 w-11 rounded-xl text-white flex items-center justify-center font-extrabold text-lg shrink-0 shadow-xs overflow-hidden"
-                      style={{ backgroundColor: tenantColor }}
-                    >
-                      {t.settings?.branding?.logoUrl ? (
-                        <img src={t.settings.branding.logoUrl} alt={t.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span>{t.name ? t.name.charAt(0) : "E"}</span>
-                      )}
-                    </div>
+                    <TenantLogo tenant={t} size="md" />
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-lg sm:text-xl font-bold truncate text-foreground">
                         {t.name}
