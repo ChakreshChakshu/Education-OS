@@ -378,21 +378,20 @@ export default function StudentsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-7 rounded-2xl border border-border shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold font-mono text-primary uppercase tracking-wider">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
               {activeTenant?.name || "Institution"}
-            </span>
-            <span className="text-muted-foreground/40">•</span>
-            <Badge variant="outline" className="font-mono text-[11px] font-bold">
+            </Badge>
+            <Badge variant="secondary" className="text-[10px] font-semibold">
               Neon PostgreSQL Sync
             </Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Students & Cohort Roster
           </h1>
-          <p className="text-sm text-muted-foreground font-medium">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium">
             Manage course enrollments, cohort batches, and real-time student curriculum progression.
           </p>
         </div>
@@ -403,9 +402,9 @@ export default function StudentsPage() {
             size="sm"
             onClick={() => fetchData(true)}
             disabled={refreshing}
-            className="h-10 px-3 font-semibold gap-1.5"
+            className="h-9 px-3.5 font-bold text-xs gap-1.5 rounded-xl border-border/80 cursor-pointer"
           >
-            <ArrowsClockwise size={16} className={refreshing ? "animate-spin" : ""} />
+            <ArrowsClockwise size={15} className={refreshing ? "animate-spin" : ""} />
             <span>Refresh</span>
           </Button>
 
@@ -413,9 +412,9 @@ export default function StudentsPage() {
             variant="outline"
             size="sm"
             onClick={() => setIsBatchModalOpen(true)}
-            className="h-10 px-3 font-semibold gap-1.5"
+            className="h-9 px-3.5 font-bold text-xs gap-1.5 rounded-xl border-border/80 cursor-pointer"
           >
-            <FolderPlus size={16} weight="bold" />
+            <FolderPlus size={15} weight="bold" />
             <span>+ New Cohort</span>
           </Button>
 
@@ -428,115 +427,109 @@ export default function StudentsPage() {
               setEnrollSuccessResult(null);
               setIsEnrollModalOpen(true);
             }}
-            className="h-10 px-4 font-bold gap-2 shadow-xs"
+            className="h-9 px-4 font-bold text-xs gap-2 rounded-xl shadow-xs cursor-pointer"
           >
-            <UserPlus size={18} weight="bold" />
+            <UserPlus size={16} weight="bold" />
             <span>Enroll Student</span>
           </Button>
         </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* Metrics Row (4 Bento Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 border-border bg-card">
-          <CardContent className="p-2 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Total Students
-              </p>
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Students</span>
+            <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <Users size={18} weight="bold" />
+            </div>
+          </div>
+          <div className="mt-3">
+            {loading ? (
+              <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+            ) : (
               <div className="flex items-baseline gap-2">
-                {loading ? (
-                  <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
-                ) : (
-                  <>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
-                      {uniqueStudentsCount}
-                    </p>
-                    <span className="text-[11px] font-semibold text-muted-foreground font-mono">
-                      ({enrollments.length} {enrollments.length === 1 ? 'enrollment' : 'enrollments'})
-                    </span>
-                  </>
-                )}
+                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">
+                  {uniqueStudentsCount}
+                </span>
+                <span className="text-[11px] font-semibold text-muted-foreground font-mono">
+                  ({enrollments.length} {enrollments.length === 1 ? 'enrollment' : 'enrollments'})
+                </span>
               </div>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Users size={24} weight="bold" />
-            </div>
-          </CardContent>
+            )}
+            <p className="text-xs text-muted-foreground font-medium mt-1">Verified unique identities</p>
+          </div>
         </Card>
 
-        <Card className="p-4 border-border bg-card">
-          <CardContent className="p-2 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Active Students
-              </p>
-              {loading ? (
-                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
-              ) : (
-                <p className="text-2xl sm:text-3xl font-extrabold text-emerald-500">
-                  {activeStudentsCount}
-                </p>
-              )}
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Students</span>
+            <div className="h-9 w-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+              <GraduationCap size={18} weight="bold" />
             </div>
-            <div className="h-11 w-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-              <GraduationCap size={24} weight="bold" />
-            </div>
-          </CardContent>
+          </div>
+          <div className="mt-3">
+            {loading ? (
+              <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+            ) : (
+              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-500">
+                {activeStudentsCount}
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground font-medium mt-1">Engaged in curriculum</p>
+          </div>
         </Card>
 
-        <Card className="p-4 border-border bg-card">
-          <CardContent className="p-2 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Course Completions
-              </p>
-              {loading ? (
-                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
-              ) : (
-                <p className="text-2xl sm:text-3xl font-extrabold text-blue-400">
-                  {completedCount}
-                </p>
-              )}
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Completions</span>
+            <div className="h-9 w-9 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center">
+              <CheckCircle size={18} weight="bold" />
             </div>
-            <div className="h-11 w-11 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <CheckCircle size={24} weight="bold" />
-            </div>
-          </CardContent>
+          </div>
+          <div className="mt-3">
+            {loading ? (
+              <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+            ) : (
+              <span className="text-2xl sm:text-3xl font-extrabold text-sky-400">
+                {completedCount}
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground font-medium mt-1">Graduated syllabuses</p>
+          </div>
         </Card>
 
-        <Card className="p-4 border-border bg-card">
-          <CardContent className="p-2 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Average Progress
-              </p>
-              {loading ? (
-                <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
-              ) : (
-                <p className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">
-                  {avgProgress}%
-                </p>
-              )}
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Average Progress</span>
+            <div className="h-9 w-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+              <Trophy size={18} weight="bold" />
             </div>
-            <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-              <Trophy size={24} weight="bold" />
-            </div>
-          </CardContent>
+          </div>
+          <div className="mt-3">
+            {loading ? (
+              <Skeleton className="h-8 w-16 my-0.5 rounded-lg" />
+            ) : (
+              <span className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">
+                {avgProgress}%
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground font-medium mt-1">Across all cohorts</p>
+          </div>
         </Card>
       </div>
 
       {/* Filter and Search Action Toolbar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border/80 shadow-2xs">
         {/* Search Input */}
         <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
           <MagnifyingGlass
-            size={18}
+            size={16}
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             placeholder="Search by student name, email, course, or cohort..."
-            className="pl-10 h-10 text-xs rounded-xl bg-background"
+            className="pl-9 h-9 text-xs rounded-xl bg-background border-border/80"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -548,7 +541,7 @@ export default function StudentsPage() {
           <select
             value={selectedCourseFilter}
             onChange={(e) => setSelectedCourseFilter(e.target.value)}
-            className="h-10 px-3 text-xs rounded-xl border border-input bg-background font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="h-9 px-3 text-xs rounded-xl border border-border/80 bg-background font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
           >
             <option value="ALL">All Courses ({courses.length})</option>
             {courses.map((c) => (
@@ -559,7 +552,7 @@ export default function StudentsPage() {
           </select>
 
           {/* Status Segmented Pills */}
-          <div className="flex items-center bg-muted/50 p-1 rounded-xl border border-border">
+          <div className="flex items-center bg-muted/50 p-0.5 rounded-xl border border-border/80">
             {[
               { key: "ALL", label: "All" },
               { key: "ACTIVE", label: "Active" },
@@ -569,9 +562,9 @@ export default function StudentsPage() {
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   statusFilter === tab.key
-                    ? "bg-card text-foreground shadow-xs border border-border/80"
+                    ? "bg-card text-foreground shadow-2xs border border-border/80"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -586,7 +579,7 @@ export default function StudentsPage() {
               variant="outline"
               size="sm"
               onClick={toggleExpandAll}
-              className="h-10 px-3 text-xs font-semibold gap-1.5"
+              className="h-9 px-3 text-xs font-semibold gap-1.5 rounded-xl border-border/80 cursor-pointer"
             >
               {isAllExpanded ? <CaretUp size={14} weight="bold" /> : <CaretDown size={14} weight="bold" />}
               <span>{isAllExpanded ? "Collapse All" : "Expand All"}</span>
@@ -597,7 +590,7 @@ export default function StudentsPage() {
 
       {/* Roster Table */}
       {loading ? (
-        <Card className="overflow-hidden border-border bg-card p-0 rounded-2xl shadow-xs w-full">
+        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-3xl shadow-xs w-full">
           <div className="w-full">
             <table className="w-full text-left text-xs font-medium">
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
@@ -687,7 +680,7 @@ export default function StudentsPage() {
           )}
         </Card>
       ) : (
-        <Card className="overflow-hidden border-border bg-card p-0 rounded-2xl shadow-xs w-full">
+        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-3xl shadow-xs w-full">
           <div className="w-full">
             <table className="w-full text-left text-xs font-medium">
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">

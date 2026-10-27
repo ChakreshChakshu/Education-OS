@@ -342,47 +342,53 @@ function CoursesContent() {
   const enrolledCount = Object.keys(enrolledMap).length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border border-border shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary uppercase tracking-wider">
-              {portalMode === "STUDENT" ? "Student Learning" : "Academics"}
-            </span>
-            <span className="text-xs text-muted-foreground">• Centralized Curriculum</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
+              {portalMode === "STUDENT" ? "Student Learning" : "Academic Operations"}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px] font-semibold">
+              Centralized Curriculum
+            </Badge>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             {portalMode === "STUDENT" ? "Course Catalog & Curriculums" : "Course Catalog"}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Structured courses, syllabus modules, and media assets for <strong className="text-foreground">{activeTenant?.name || "Institution"}</strong>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
+            Structured courses, syllabus modules, and video streams for <strong className="text-foreground">{activeTenant?.name || "Institution"}</strong>
           </p>
         </div>
         {portalMode !== "STUDENT" && (
-          <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold px-6 shadow-sm">
-            <Plus size={18} weight="bold" /> Create Course
+          <Button 
+            onClick={() => setIsModalOpen(true)} 
+            size="sm" 
+            className="gap-2 font-bold text-xs h-9.5 px-4 rounded-xl shadow-xs cursor-pointer"
+          >
+            <Plus size={16} weight="bold" /> Create Course
           </Button>
         )}
       </div>
 
       {/* Search Bar & Filter Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="relative max-w-lg flex-1">
-          <MagnifyingGlass size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative max-w-md flex-1">
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by course code, title, or level..."
-            className="pl-11 h-12 text-base rounded-xl bg-card border-border shadow-2xs"
+            placeholder="Search by code, title, or level..."
+            className="pl-10 h-10 text-xs sm:text-sm rounded-xl bg-card border border-border/80 shadow-2xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         {/* Catalog Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border shrink-0">
+        <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-2xl border border-border/80 shrink-0">
           <button
             onClick={() => setActiveTab("ALL")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === "ALL"
                 ? "bg-card text-foreground shadow-2xs"
                 : "text-muted-foreground hover:text-foreground"
@@ -392,7 +398,7 @@ function CoursesContent() {
           </button>
           <button
             onClick={() => setActiveTab("ENROLLED")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === "ENROLLED"
                 ? "bg-card text-foreground shadow-2xs"
                 : "text-muted-foreground hover:text-foreground"
@@ -405,17 +411,17 @@ function CoursesContent() {
 
       {/* Newly Enrolled Notification Banner */}
       {enrollmentBanner && (
-        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-between gap-4 animate-in fade-in">
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-between gap-4 animate-in fade-in">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <Sparkle size={20} weight="fill" />
+              <Sparkle size={18} weight="fill" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-foreground">Course Enrollment Confirmed!</h4>
-              <p className="text-xs text-muted-foreground">Your course has been added to your enrolled curriculum below. Start learning right away!</p>
+              <h4 className="text-xs sm:text-sm font-bold text-foreground">Course Enrollment Confirmed!</h4>
+              <p className="text-[11px] text-muted-foreground">Your course has been added to your enrolled curriculum. Start learning right away!</p>
             </div>
           </div>
-          <Button size="sm" variant="outline" className="cursor-pointer text-xs font-bold" onClick={() => setEnrollmentBanner(false)}>
+          <Button size="sm" variant="outline" className="cursor-pointer text-xs font-bold h-8 rounded-xl" onClick={() => setEnrollmentBanner(false)}>
             Dismiss
           </Button>
         </div>
@@ -423,76 +429,60 @@ function CoursesContent() {
 
       {/* Course Grid / Skeleton Loading / Empty State */}
       {dataLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="overflow-hidden flex flex-col justify-between border-border bg-card rounded-2xl shadow-xs">
+            <Card key={i} className="overflow-hidden flex flex-col justify-between border border-border/80 bg-card rounded-3xl shadow-xs">
               <div>
-                {/* Thumbnail Skeleton */}
-                <Skeleton className="h-44 w-full rounded-none" />
-
+                <Skeleton className="h-40 w-full rounded-none" />
                 <div className="p-5 space-y-4">
-                  {/* Badges Skeleton */}
                   <div className="flex items-center justify-between">
                     <Skeleton className="h-5 w-20 rounded-md" />
                     <Skeleton className="h-5 w-24 rounded-full" />
                   </div>
-
-                  {/* Title & Short Description Skeleton */}
                   <div className="space-y-2">
                     <Skeleton className="h-6 w-4/5 rounded-lg" />
                     <Skeleton className="h-3.5 w-full rounded" />
-                    <Skeleton className="h-3.5 w-2/3 rounded" />
                   </div>
-
-                  {/* Spec Strip Skeleton */}
-                  <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/50 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="h-4 w-28 rounded" />
-                      <Skeleton className="h-4 w-20 rounded" />
-                    </div>
-                    <div className="pt-2 border-t border-border/40 flex items-center gap-2.5">
-                      <Skeleton className="h-6 w-6 rounded-full" />
-                      <Skeleton className="h-4 w-32 rounded" />
-                    </div>
+                  <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/50 space-y-2">
+                    <Skeleton className="h-4 w-28 rounded" />
+                    <Skeleton className="h-4 w-20 rounded" />
                   </div>
                 </div>
               </div>
-
-              {/* Card Footer Skeleton */}
               <div className="p-5 pt-0 border-t border-border/50 flex items-center justify-between mt-2">
                 <Skeleton className="h-4 w-20 rounded" />
-                <Skeleton className="h-8 w-28 rounded-lg" />
+                <Skeleton className="h-8 w-28 rounded-xl" />
               </div>
             </Card>
           ))}
         </div>
       ) : filteredCourses.length === 0 ? (
-        <Card className="p-16 text-center flex flex-col items-center justify-center space-y-5 border-dashed border-2 border-border/80 rounded-2xl">
-          <div className="h-20 w-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-            <BookBookmark size={44} weight="bold" />
+        <Card className="p-16 text-center flex flex-col items-center justify-center space-y-4 border-dashed border-2 border-border/80 rounded-3xl bg-card/40">
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <BookBookmark size={36} weight="bold" />
           </div>
-          <div className="space-y-2 max-w-md">
-            <h3 className="text-2xl font-bold">
+          <div className="space-y-1.5 max-w-md">
+            <h3 className="text-xl font-bold">
               {activeTab === "ENROLLED" ? "No Enrolled Courses" : "No Courses Found"}
             </h3>
-            <p className="text-sm text-muted-foreground font-medium">
+            <p className="text-xs text-muted-foreground font-medium">
               {activeTab === "ENROLLED"
                 ? "You haven't enrolled in any courses yet. Switch to 'All Courses' to explore and enroll in your first curriculum."
                 : `Academic catalog for ${activeTenant?.name || "Institution"} has no matching courses.`}
             </p>
           </div>
           {activeTab === "ENROLLED" ? (
-            <Button onClick={() => setActiveTab("ALL")} size="lg" className="gap-2 font-bold mt-2">
+            <Button onClick={() => setActiveTab("ALL")} size="sm" className="gap-2 font-bold text-xs h-9 px-4 rounded-xl mt-2">
               Browse All Courses
             </Button>
           ) : portalMode !== "STUDENT" ? (
-            <Button onClick={() => setIsModalOpen(true)} size="lg" className="gap-2 font-bold mt-2">
-              <Plus size={18} weight="bold" /> Create Course
+            <Button onClick={() => setIsModalOpen(true)} size="sm" className="gap-2 font-bold text-xs h-9 px-4 rounded-xl mt-2">
+              <Plus size={16} weight="bold" /> Create Course
             </Button>
           ) : null}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredCourses.map((course) => {
             const levelInfo = LEVEL_CONFIG[course.level] || LEVEL_CONFIG.ALL_LEVELS;
             const enrollment = enrolledMap[course.id];
@@ -501,13 +491,13 @@ function CoursesContent() {
             return (
               <Card 
                 key={course.id} 
-                className={`overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-lg transition-all duration-200 border-border group bg-card ${
+                className={`overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-md transition-all duration-200 border border-border/80 group bg-card rounded-3xl ${
                   course.id === highlightCourseId ? "ring-2 ring-emerald-500 shadow-xl shadow-emerald-500/20 border-emerald-500/60" : ""
                 }`}
               >
                 <div>
                   {/* Thumbnail Banner */}
-                  <div className="relative h-44 w-full overflow-hidden bg-muted/60 border-b border-border/70">
+                  <div className="relative h-40 w-full overflow-hidden bg-muted/60 border-b border-border/70">
                     {course.thumbnailUrl ? (
                       <img 
                         src={course.thumbnailUrl} 
@@ -516,13 +506,13 @@ function CoursesContent() {
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/15 via-background to-secondary/30 relative">
-                        <div className="absolute right-3 bottom-2 font-black text-6xl text-foreground/5 select-none pointer-events-none">
+                        <div className="absolute right-3 bottom-2 font-black text-6xl text-foreground/5 select-none pointer-events-none font-mono">
                           {course.code}
                         </div>
-                        <div className="p-3.5 rounded-2xl bg-card/80 border border-border/60 shadow-xs text-primary mb-1">
-                          <BookOpen size={30} weight="duotone" />
+                        <div className="p-3 rounded-2xl bg-card/80 border border-border/60 shadow-xs text-primary mb-1">
+                          <BookOpen size={26} weight="duotone" />
                         </div>
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest font-mono">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest font-mono">
                           {course.code}
                         </span>
                       </div>
@@ -530,7 +520,7 @@ function CoursesContent() {
 
                     {/* Level Pill */}
                     <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md ${levelInfo.color}`}>
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md ${levelInfo.color}`}>
                         {levelInfo.label}
                       </span>
                     </div>
@@ -538,46 +528,46 @@ function CoursesContent() {
                     {/* Status / Enrolled Pill */}
                     <div className="absolute top-3 right-3 flex items-center gap-1.5">
                       {isEnrolled ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/90 text-white backdrop-blur-xs shadow-xs">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/90 text-white backdrop-blur-xs shadow-xs">
                           <CheckCircle size={13} weight="bold" />
                           <span>Enrolled • {enrollment.progressPercent}%</span>
                         </span>
                       ) : (
-                        <Badge variant={course.status === "ACTIVE" || course.status === "PUBLISHED" ? "success" : "secondary"} className="text-xs font-semibold px-2 py-0.5 shadow-xs backdrop-blur-md">
+                        <Badge variant={course.status === "ACTIVE" || course.status === "PUBLISHED" ? "success" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5 shadow-xs backdrop-blur-md">
                           {course.status || "ACTIVE"}
                         </Badge>
                       )}
                     </div>
                   </div>
 
-                  <CardHeader className="pb-3 pt-4">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 text-muted-foreground border-border">
+                  <CardHeader className="pb-3 pt-4 px-5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold px-2 py-0 text-muted-foreground border-border">
                         {course.code}
                       </Badge>
                       {course.credits && (
-                        <span className="text-xs text-muted-foreground font-medium">
+                        <span className="text-[11px] text-muted-foreground font-medium">
                           {course.credits} Credits
                         </span>
                       )}
                     </div>
-                    <CardTitle className="text-xl font-bold leading-tight group-hover:text-primary transition-colors line-clamp-1">
+                    <CardTitle className="text-base font-bold leading-tight group-hover:text-primary transition-colors line-clamp-1">
                       {course.title}
                     </CardTitle>
-                    <CardDescription className="line-clamp-2 text-sm mt-1.5 font-medium leading-relaxed">
+                    <CardDescription className="line-clamp-2 text-xs mt-1 font-medium leading-relaxed">
                       {course.shortDescription || course.description || "Academic course curriculum module."}
                     </CardDescription>
                   </CardHeader>
                 </div>
 
-                <CardContent className="pt-0 text-sm space-y-3.5">
-                  <div className="flex items-center justify-between text-muted-foreground pt-3 border-t border-border/60 font-medium">
-                    <span className="flex items-center gap-2 text-xs">
-                      <GraduationCap size={16} className="text-primary/70" /> 
+                <CardContent className="pt-0 px-5 pb-5 text-sm space-y-3">
+                  <div className="flex items-center justify-between text-muted-foreground pt-3 border-t border-border/60 font-medium text-xs">
+                    <span className="flex items-center gap-1.5 text-[11px]">
+                      <GraduationCap size={15} className="text-primary/70" /> 
                       {course.instructor || "Academic Faculty"}
                     </span>
-                    <span className="font-bold text-foreground text-xs flex items-center gap-1.5">
-                      <Hourglass size={15} className="text-primary/70" /> 
+                    <span className="font-bold text-foreground text-[11px] flex items-center gap-1">
+                      <Hourglass size={14} className="text-primary/70" /> 
                       {course.duration || `${(course.credits || 3) * 2} Weeks`}
                     </span>
                   </div>
@@ -586,34 +576,35 @@ function CoursesContent() {
                   <div className="pt-1">
                     {isEnrolled ? (
                       <Link href={`/dashboard/courses/${course.id}/lesson/${enrollment.firstLessonId || 'first'}`} className="block">
-                        <Button className="w-full gap-2 font-bold justify-between shadow-2xs">
+                        <Button size="sm" className="w-full gap-2 font-bold text-xs h-9 rounded-xl justify-between shadow-2xs cursor-pointer">
                           <span className="flex items-center gap-1.5">
                             <PlayCircle size={16} weight="bold" /> Enter Classroom
                           </span>
-                          <ArrowRight size={16} weight="bold" />
+                          <ArrowRight size={14} weight="bold" />
                         </Button>
                       </Link>
                     ) : portalMode === "STUDENT" ? (
                       <Button 
                         onClick={() => handleEnrollCourse(course.id)}
                         disabled={enrollingId === course.id}
-                        className="w-full gap-2 font-bold justify-center shadow-2xs"
+                        size="sm"
+                        className="w-full gap-2 font-bold text-xs h-9 rounded-xl justify-center shadow-2xs cursor-pointer"
                       >
                         {enrollingId === course.id ? (
                           <>
-                            <ArrowsClockwise size={15} className="animate-spin" /> Enrolling...
+                            <ArrowsClockwise size={14} className="animate-spin" /> Enrolling...
                           </>
                         ) : (
                           <>
-                            <Plus size={15} weight="bold" /> 1-Click Enroll & Start
+                            <Plus size={14} weight="bold" /> 1-Click Enroll & Start
                           </>
                         )}
                       </Button>
                     ) : (
                       <Link href={`/dashboard/courses/${course.id}`} className="block">
-                        <Button variant="secondary" className="w-full gap-2 font-bold justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs">
+                        <Button variant="secondary" size="sm" className="w-full gap-2 font-bold text-xs h-9 rounded-xl justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs cursor-pointer">
                           <span>Curriculum Builder</span>
-                          <ArrowRight size={16} weight="bold" />
+                          <ArrowRight size={14} weight="bold" />
                         </Button>
                       </Link>
                     )}

@@ -40,7 +40,12 @@ import {
   ChartBar,
   ChartLineUp,
   Pulse,
-  MagnifyingGlass
+  MagnifyingGlass,
+  Buildings,
+  Globe,
+  CalendarCheck,
+  ArrowUpRight,
+  Gear
 } from "@phosphor-icons/react";
 
 export default function DashboardOverviewPage() {
@@ -566,30 +571,38 @@ export default function DashboardOverviewPage() {
   }
 
   // ==========================================
-  // ADMIN EXECUTIVE OVERVIEW VIEW (CLEAN & MINIMAL)
+  // ADMIN EXECUTIVE OVERVIEW VIEW (EDUCAME BENTO DESIGN)
   // ==========================================
+  const activeColor = activeTenant?.settings?.branding?.primaryColor || "#5b12ed";
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Clean Minimal Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-5">
-        <div className="flex items-center gap-3.5">
-          <TenantLogo tenant={activeTenant} size="lg" showBadge />
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                Dashboard
-              </h1>
-              <Badge variant="outline" className="text-xs font-mono font-bold text-primary">
-                {activeTenant?.name || "Academic Hub"}
+      {/* Executive Welcome & Campus Context Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-card p-6 md:p-7 rounded-3xl border border-border/80 shadow-xs">
+        <div className="flex items-center gap-4 min-w-0">
+          <TenantLogo tenant={activeTenant} size="xl" showBadge />
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
+                Academic Administration
               </Badge>
+              <Badge variant="secondary" className="text-[10px] font-semibold">
+                {activeTenant?.settings?.campus?.branchName || activeTenant?.branch || "Main Campus"}
+              </Badge>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                <Globe size={12} /> https://{activeTenant?.slug || "portal"}.education-os.edu
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {activeTenant?.branch || "Main Campus"} • Academic orchestration & syllabus progress.
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground truncate">
+              {activeTenant?.name || "Institution Operations"}
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+              Academic orchestration, curriculum health, and cohort syllabus synchronization.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full lg:w-auto pt-2 lg:pt-0">
           <Button
             variant="outline"
             size="sm"
@@ -600,181 +613,278 @@ export default function DashboardOverviewPage() {
                 window.dispatchEvent(new CustomEvent("eos_portal_mode_change", { detail: "STUDENT" }));
               }
             }}
-            className="gap-1.5 font-bold text-xs h-9 cursor-pointer"
+            className="gap-1.5 font-bold text-xs h-9.5 rounded-xl border-border/80 hover:bg-muted cursor-pointer"
           >
-            <GraduationCap size={15} weight="bold" />
+            <GraduationCap size={16} weight="bold" className="text-primary" />
             <span>Student View</span>
           </Button>
 
           <Link href="/dashboard/students">
-            <Button variant="outline" size="sm" className="gap-1.5 font-bold text-xs h-9 cursor-pointer">
-              <UserPlus size={15} weight="bold" />
-              <span>Enroll</span>
+            <Button variant="outline" size="sm" className="gap-1.5 font-bold text-xs h-9.5 rounded-xl border-border/80 hover:bg-muted cursor-pointer">
+              <UserPlus size={16} weight="bold" />
+              <span>Enroll Student</span>
             </Button>
           </Link>
 
           <Link href="/dashboard/courses">
-            <Button size="sm" className="gap-1.5 font-bold text-xs h-9 shadow-2xs cursor-pointer">
-              <Plus size={15} weight="bold" />
+            <Button size="sm" className="gap-1.5 font-bold text-xs h-9.5 rounded-xl shadow-xs cursor-pointer">
+              <Plus size={16} weight="bold" />
               <span>New Course</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* 4 Minimal Stat Metric Cards */}
+      {/* 4 Executive Bento KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 border-border bg-card shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-bold uppercase tracking-wider">Courses</span>
-            <BookOpen size={18} weight="bold" className="text-primary" />
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Courses</span>
+            <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <BookOpen size={18} weight="bold" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-foreground">{adminMetrics.totalCourses}</span>
-            <span className="text-xs text-muted-foreground font-medium">Published</span>
-          </div>
-        </Card>
-
-        <Card className="p-4 border-border bg-card shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-bold uppercase tracking-wider">Students</span>
-            <Users size={18} weight="bold" className="text-emerald-500" />
-          </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-foreground">{adminMetrics.totalStudents}</span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">+18% growth</span>
+          <div className="mt-3">
+            <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{adminMetrics.totalCourses}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary" className="text-[10px] font-bold py-0 px-1.5">Published</Badge>
+              <span className="text-xs text-muted-foreground font-medium">Active curriculums</span>
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 border-border bg-card shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-bold uppercase tracking-wider">Completion</span>
-            <ChartLineUp size={18} weight="bold" className="text-sky-500" />
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Enrolled Students</span>
+            <div className="h-9 w-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+              <Users size={18} weight="bold" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-foreground font-mono">{adminMetrics.avgProgress}%</span>
-            <span className="text-xs text-muted-foreground font-medium">Syllabus avg</span>
+          <div className="mt-3">
+            <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{adminMetrics.totalStudents}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="success" className="text-[10px] font-bold py-0 px-1.5">+18% growth</Badge>
+              <span className="text-xs text-muted-foreground font-medium">Active learners</span>
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 border-border bg-card shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-bold uppercase tracking-wider">Cohorts</span>
-            <FolderPlus size={18} weight="bold" className="text-amber-500" />
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Completion Rate</span>
+            <div className="h-9 w-9 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
+              <ChartLineUp size={18} weight="bold" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-foreground">{adminMetrics.totalBatches}</span>
-            <span className="text-xs text-muted-foreground font-medium">Active terms</span>
+          <div className="mt-3">
+            <span className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">{adminMetrics.avgProgress}%</span>
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-2">
+              <div 
+                className="h-full bg-sky-500 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.max(adminMetrics.avgProgress, 4)}%` }} 
+              />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Academic Term</span>
+            <div className="h-9 w-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+              <FolderPlus size={18} weight="bold" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-lg sm:text-xl font-extrabold text-foreground truncate block">
+              {activeTenant?.settings?.campus?.academicTerm || "Spring 2026"}
+            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary" className="text-[10px] font-mono font-bold py-0 px-1.5">
+                {adminMetrics.totalBatches} {adminMetrics.totalBatches === 1 ? "Cohort" : "Cohorts"}
+              </Badge>
+              <span className="text-xs text-muted-foreground font-medium">Current session</span>
+            </div>
           </div>
         </Card>
       </div>
 
-      {/* Unified Minimal Analytics Card */}
+      {/* Analytics Hub Bento */}
       <AnalyticsHub
         enrollments={adminEnrollments}
-        primaryColor={activeTenant?.settings?.branding?.primaryColor || "#5b12ed"}
+        primaryColor={activeColor}
       />
 
-      {/* Meaningful 2-Column Section: Active Courses & Recent Activity */}
+      {/* 2-Column Section: Active Courses & Campus Live Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left (8 cols): Top Courses */}
-        <Card className="lg:col-span-8 shadow-xs border-border bg-card">
-          <CardHeader className="p-4 sm:p-5 pb-3 border-b border-border flex flex-row items-center justify-between">
+        {/* Left (8 cols): Top Courses Performance */}
+        <Card className="lg:col-span-8 shadow-xs border border-border/80 bg-card rounded-3xl overflow-hidden">
+          <CardHeader className="p-5 sm:p-6 pb-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base font-bold text-foreground">
-                Active Courses
+              <CardTitle className="text-lg font-bold text-foreground tracking-tight">
+                Curriculum Health & Enrollments
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Curriculums and cohort syllabus completion
+                Active syllabuses and cohort completion tracking
               </CardDescription>
             </div>
-            <Link href="/dashboard/courses" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-              All Courses <ArrowRight size={13} weight="bold" />
-            </Link>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filter courses..."
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs bg-muted/40 rounded-xl border border-transparent focus:border-primary/40 focus:bg-background outline-none transition-all placeholder:text-muted-foreground w-36 sm:w-44"
+                />
+              </div>
+              <Link href="/dashboard/courses" className="text-xs font-bold text-primary hover:underline flex items-center gap-1 shrink-0">
+                All Courses <ArrowRight size={13} weight="bold" />
+              </Link>
+            </div>
           </CardHeader>
 
           <CardContent className="p-0 divide-y divide-border/60">
             {filteredAdminCourses.length > 0 ? (
-              filteredAdminCourses.slice(0, 5).map((c) => (
-                <div key={c.id} className="p-3.5 sm:p-4 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 font-mono text-xs font-bold">
+              filteredAdminCourses.slice(0, 6).map((c) => (
+                <div key={c.id} className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-mono text-xs font-bold border border-primary/20">
                       {c.code ? c.code.slice(0, 3) : "CS"}
                     </div>
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      <p className="text-xs font-bold text-foreground truncate">{c.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{c.studentCount} {c.studentCount === 1 ? "student" : "students"} • {c.duration || "4 Weeks"}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-primary">{c.code}</span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-[11px] text-muted-foreground font-medium">{c.duration || "4 Weeks"}</span>
+                      </div>
+                      <p className="text-sm font-bold text-foreground truncate">{c.title}</p>
+                      <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                        <Users size={13} /> {c.studentCount} {c.studentCount === 1 ? "student enrolled" : "students enrolled"}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="w-24 sm:w-32 hidden sm:block space-y-1">
-                      <div className="flex justify-between text-[10px] font-mono font-semibold text-muted-foreground">
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="w-24 sm:w-36 hidden sm:block space-y-1 text-right">
+                      <div className="flex justify-between text-[11px] font-mono font-bold text-muted-foreground">
                         <span>Progress</span>
-                        <span>{c.avgProgress}%</span>
+                        <span className="text-primary">{c.avgProgress}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${Math.max(c.avgProgress, 3)}%` }} />
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/50">
+                        <div 
+                          className="h-full bg-primary rounded-full transition-all duration-300" 
+                          style={{ width: `${Math.max(c.avgProgress, 4)}%` }} 
+                        />
                       </div>
                     </div>
 
                     <Link href={`/dashboard/courses/${c.id}`}>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer">
-                        Manage <CaretRight size={12} weight="bold" />
+                      <Button size="sm" variant="outline" className="h-8 px-3 text-xs font-bold rounded-xl border-border/80 hover:bg-muted cursor-pointer">
+                        Manage <CaretRight size={13} weight="bold" />
                       </Button>
                     </Link>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                No courses yet. Click "+ New Course" to create your first curriculum.
+              <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
+                <BookOpen size={28} className="mx-auto text-muted-foreground/60 mb-2" />
+                <p className="font-semibold text-foreground">No courses matching your search</p>
+                <p>Click &quot;+ New Course&quot; to publish your curriculum to the institution.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Right (4 cols): Recent Enrollments */}
-        <Card className="lg:col-span-4 shadow-xs border-border bg-card">
-          <CardHeader className="p-4 sm:p-5 pb-3 border-b border-border flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-bold text-foreground">
-                Recent Enrollments
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Latest student roster activity
-              </CardDescription>
-            </div>
-            <Link href="/dashboard/students" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-              Roster <ArrowRight size={13} weight="bold" />
-            </Link>
-          </CardHeader>
-
-          <CardContent className="p-3 sm:p-4 space-y-2">
-            {adminMetrics.activities.length > 0 ? (
-              adminMetrics.activities.slice(0, 5).map((act) => (
-                <div key={act.id} className="p-2.5 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-7 w-7 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-[11px] shrink-0">
-                      {act.studentName?.charAt(0)?.toUpperCase() || "S"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-foreground truncate">{act.studentName}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{act.courseTitle}</p>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] font-bold text-primary shrink-0">
-                    {act.progress}%
-                  </span>
+        {/* Right (4 cols): Campus Operations & Recent Activity */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Campus Operations Quick Card */}
+          <Card className="p-5 rounded-3xl border border-border/80 bg-card shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Buildings size={16} weight="bold" />
                 </div>
-              ))
-            ) : (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                No student enrollments yet.
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Campus Branch</h3>
+                  <p className="text-[11px] text-muted-foreground">{activeTenant?.settings?.campus?.branchName || activeTenant?.branch || "Main Campus"}</p>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <Link href="/dashboard/settings">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl" title="Settings">
+                  <Gear size={16} />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-muted-foreground font-medium">
+                <span>Public Portal</span>
+                <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Online</span>
+              </div>
+              <Link 
+                href={`/t/${activeTenant?.slug || 'portal'}/courses`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[11px] text-primary hover:underline flex items-center gap-1 font-bold truncate block"
+              >
+                https://{activeTenant?.slug || 'portal'}.education-os.edu <ArrowUpRight size={12} weight="bold" />
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <Link href="/dashboard/tenants" className="w-full">
+                <Button variant="outline" size="sm" className="w-full text-xs font-bold h-9 rounded-xl border-border/80 hover:bg-muted">
+                  <Buildings size={14} className="mr-1.5" weight="bold" /> Switch / Add Campus
+                </Button>
+              </Link>
+            </div>
+          </Card>
+
+          {/* Recent Student Enrollments Live Stream */}
+          <Card className="shadow-xs border border-border/80 bg-card rounded-3xl overflow-hidden">
+            <CardHeader className="p-5 pb-3 border-b border-border flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">
+                  Recent Enrollments
+                </CardTitle>
+                <CardDescription className="text-[11px] text-muted-foreground">
+                  Real-time student activity feed
+                </CardDescription>
+              </div>
+              <Link href="/dashboard/students" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                Roster <ArrowRight size={13} weight="bold" />
+              </Link>
+            </CardHeader>
+
+            <CardContent className="p-3 sm:p-4 space-y-2">
+              {adminMetrics.activities.length > 0 ? (
+                adminMetrics.activities.slice(0, 5).map((act) => (
+                  <div key={act.id} className="p-2.5 rounded-2xl bg-muted/30 border border-border/60 flex items-center justify-between gap-3 text-xs hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0 border border-primary/20">
+                        {act.studentName?.charAt(0)?.toUpperCase() || "S"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">{act.studentName}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{act.courseTitle}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] font-bold text-primary shrink-0">
+                      {act.progress}%
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center text-xs text-muted-foreground">
+                  No student enrollments yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

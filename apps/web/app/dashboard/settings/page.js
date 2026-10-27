@@ -365,17 +365,20 @@ export default function SettingsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <h1 className="text-2xl font-black tracking-tight text-foreground">
-              Settings & Configurations
-            </h1>
-            <Badge variant="outline" className="font-mono text-[11px] font-bold py-0.5">
+            <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
+              Configuration Suite
+            </Badge>
+            <Badge variant="secondary" className="text-[10px] font-semibold">
               Enterprise v2026.1
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Settings & Configurations
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
             {isStudent
               ? "Manage your personal credentials, contact details, and account security."
               : "Manage your personal credentials, communication preferences, and institutional workspace identity."}
@@ -399,22 +402,22 @@ export default function SettingsPage() {
 
       {/* Main Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className={`grid ${isStudent ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-2 md:grid-cols-4"} w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border`}>
-          <TabsTrigger value="profile" className="flex items-center gap-2 py-2.5">
+        <TabsList className={`grid ${isStudent ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-2 md:grid-cols-4"} w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border/80`}>
+          <TabsTrigger value="profile" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
             <User size={16} weight="bold" />
             <span>Profile & Account</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2 py-2.5">
+          <TabsTrigger value="security" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
             <ShieldCheck size={16} weight="bold" />
             <span>Security & Auth</span>
           </TabsTrigger>
           {!isStudent && (
             <>
-              <TabsTrigger value="branding" className="flex items-center gap-2 py-2.5">
+              <TabsTrigger value="branding" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 <Palette size={16} weight="bold" />
                 <span>Branding & Campus</span>
               </TabsTrigger>
-              <TabsTrigger value="system" className="flex items-center gap-2 py-2.5">
+              <TabsTrigger value="system" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 <Sliders size={16} weight="bold" />
                 <span>Preferences</span>
               </TabsTrigger>
@@ -425,7 +428,7 @@ export default function SettingsPage() {
         {/* TAB 1: Profile & Account */}
         <TabsContent value="profile">
           <form onSubmit={handleProfileSubmit}>
-            <Card className="border-border">
+            <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <User size={18} className="text-primary" />
@@ -544,7 +547,7 @@ export default function SettingsPage() {
         {/* TAB 2: Security & Credentials */}
         <TabsContent value="security">
           <form onSubmit={handlePasswordSubmit}>
-            <Card className="border-border">
+            <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <ShieldCheck size={18} className="text-primary" />
@@ -630,7 +633,7 @@ export default function SettingsPage() {
                   {/* Form inputs column (7 cols) */}
                   <div className="lg:col-span-7 space-y-6">
                     {/* Card 1: Campus Identity & Operations */}
-                    <Card className="border-border shadow-xs">
+                    <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                           <Buildings size={20} className="text-primary" />
@@ -706,7 +709,7 @@ export default function SettingsPage() {
                     </Card>
 
                     {/* Card 2: Visual Branding & Assets */}
-                    <Card className="border-border shadow-xs">
+                    <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                           <Palette size={20} className="text-primary" />
@@ -876,7 +879,7 @@ export default function SettingsPage() {
 
                   {/* Live Preview Column (5 cols) */}
                   <div className="lg:col-span-5 space-y-6">
-                    <div className="p-5 rounded-2xl bg-card border border-border shadow-xs space-y-5 sticky top-6">
+                    <div className="p-6 rounded-3xl bg-card border border-border/80 shadow-xs space-y-5 sticky top-6">
                       <div className="flex items-center justify-between pb-3 border-b border-border">
                         <div className="flex items-center gap-2">
                           <Sparkle size={18} className="text-primary" />
