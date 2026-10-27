@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TenantLogo } from "@/components/ui/tenant-logo";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
+import { MobileAppBanner } from "@/components/dashboard/mobile-app-banner";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -290,6 +291,9 @@ export default function DashboardLayout({ children }) {
             );
           })}
         </nav>
+
+        {/* Mobile Companion App Card */}
+        {sidebarOpen && <MobileAppBanner />}
 
         {/* Sidebar Footer User Badge with DropdownMenu */}
         <div className="p-3 border-t border-border">

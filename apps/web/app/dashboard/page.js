@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsHub } from "@/components/dashboard/analytics-hub";
 import { TenantLogo } from "@/components/ui/tenant-logo";
+import { PerformanceBarChart } from "@/components/dashboard/performance-bar-chart";
+import { StudentClassCard } from "@/components/dashboard/student-class-card";
+import { DashboardTaskList } from "@/components/dashboard/dashboard-task-list";
+import { DashboardScheduleSidebar } from "@/components/dashboard/dashboard-schedule-sidebar";
 import { 
   Users, 
   UserPlus,
@@ -404,311 +408,159 @@ export default function DashboardOverviewPage() {
     );
 
     return (
-      <div className="space-y-8 animate-in fade-in duration-200">
-        {/* Student Welcome Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs">
-          <div className="flex items-center gap-4">
-            <TenantLogo tenant={activeTenant} size="lg" showBadge />
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
-                <Badge variant="outline" className="text-xs font-mono font-bold border-primary/40 text-primary bg-primary/5">
-                  Student Learning Portal
+      <div className="flex flex-col xl:flex-row gap-6 items-start animate-in fade-in duration-200">
+        {/* Main Content (Center 2-Column Stage) */}
+        <div className="flex-1 min-w-0 space-y-6 w-full">
+          {/* Greeting Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
+                  Student Portal
                 </Badge>
-                <Badge variant="secondary" className="text-xs font-semibold">
+                <Badge variant="secondary" className="text-[10px] font-semibold">
                   {activeTenant?.name || "Institution Campus"}
                 </Badge>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground pt-0.5">
-                Welcome back, {user?.name || "Student"}! 🎓
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                Hi, {user?.name?.split(" ")[0] || "Student"}! 👋
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground font-medium">
-                Keep progressing through your curriculum. Real-time progress is synchronized directly with Neon PostgreSQL.
+                Let&apos;s check your progress and upcoming classes for today.
               </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Link href="/dashboard/courses">
+                <Button variant="outline" size="sm" className="gap-2 font-bold text-xs h-9 border-border/80 hover:bg-muted rounded-xl">
+                  <BookOpen size={15} weight="bold" /> Browse Catalog
+                </Button>
+              </Link>
+              {activeCourse && (
+                <Link href={`/dashboard/courses/${activeCourse.courseId}/lesson/${activeCourse.nextModuleId || "first"}`}>
+                  <Button size="sm" className="gap-2 font-bold text-xs h-9 shadow-xs rounded-xl cursor-pointer">
+                    <PlayCircle size={16} weight="bold" /> Resume Lesson
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <Link href="/dashboard/courses">
-              <Button variant="outline" className="gap-2 font-bold text-xs h-10 border-border hover:bg-muted">
-                <BookOpen size={16} weight="bold" /> Browse Catalog
-              </Button>
-            </Link>
-            {activeCourse && (
-              <Link href={`/dashboard/courses/${activeCourse.courseId}/lesson/${activeCourse.nextModuleId}`}>
-                <Button className="gap-2 font-bold text-xs h-10 shadow-sm cursor-pointer">
-                  <PlayCircle size={18} weight="bold" /> Resume Learning
-                </Button>
+          {/* Performance Bar Chart Bento */}
+          <PerformanceBarChart stats={studentStats} courses={enrolledCourses} />
+
+          {/* My Classes Grid (Educame 2-Column style) */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-foreground tracking-tight">My Classes</h2>
+                <p className="text-xs text-muted-foreground">Active course curriculums and cohorts</p>
+              </div>
+              <Link 
+                href="/dashboard/courses" 
+                className="text-xs font-bold text-primary hover:underline flex items-center gap-1 group"
+              >
+                See All <CaretRight size={14} weight="bold" className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Continue Learning Active Hero Banner */}
-        {activeCourse && (
-          <Card className="border-primary/40 bg-gradient-to-r from-card via-card to-primary/5 overflow-hidden shadow-xs hover:border-primary/60 transition-all">
-            <CardContent className="p-6 md:p-7">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                <div className="flex items-start gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-                    <GraduationCap size={30} weight="bold" />
+            {enrolledCourses.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {enrolledCourses.map((enr) => (
+                  <StudentClassCard key={enr.id || enr.courseId} course={enr} />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-8 text-center border-dashed border-2 rounded-3xl bg-card/40">
+                <div className="max-w-md mx-auto space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center">
+                    <BookOpen size={24} weight="bold" />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-primary">{activeCourse.courseCode}</span>
-                      <span className="text-muted-foreground">•</span>
-                      <Badge variant="success" className="text-[10px] font-bold py-0.5">IN PROGRESS</Badge>
-                    </div>
-                    <h2 className="text-xl font-bold text-foreground">{activeCourse.courseTitle}</h2>
-                    <p className="text-xs text-muted-foreground font-medium">
-                      Cohort: <span className="font-semibold text-foreground">{activeCourse.batchName || "Standard Term"}</span> • {activeCourse.completedCount} of {activeCourse.totalCount} modules completed
-                    </p>
-                  </div>
-                </div>
-
-                <div className="w-full lg:w-72 space-y-2 shrink-0">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-muted-foreground">Course Completion</span>
-                    <span className="text-primary font-mono">{activeCourse.progressPercent}%</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border">
-                    <div 
-                      className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${Math.max(activeCourse.progressPercent, 4)}%` }}
-                    />
-                  </div>
+                  <h3 className="font-bold text-base text-foreground">You are not enrolled in any classes yet</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Enroll in courses below or explore our academic catalog to start your learning journey.
+                  </p>
                   <div className="pt-2">
-                    <Link href={`/dashboard/courses/${activeCourse.courseId}/lesson/${activeCourse.nextModuleId}`} className="block">
-                      <Button className="w-full gap-2 font-bold text-xs h-9.5 cursor-pointer">
-                        <PlayCircle size={16} weight="bold" /> Continue Next Lesson
+                    <Link href="/dashboard/courses">
+                      <Button size="sm" className="gap-2 font-bold text-xs px-4 rounded-xl cursor-pointer">
+                        <Sparkle size={15} weight="bold" /> Explore All Courses
                       </Button>
                     </Link>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Student KPI Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-          <Card className="hover:border-primary/40 transition-colors shadow-xs">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Enrolled Courses</span>
-                <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                  <BookOpen size={18} weight="bold" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.enrolledCount}</span>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Active curriculums</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:border-primary/40 transition-colors shadow-xs">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Lessons Finished</span>
-                <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                  <CheckCircle size={18} weight="bold" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.completedLessonsCount}</span>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Verified in Neon DB</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:border-primary/40 transition-colors shadow-xs">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Average Progress</span>
-                <div className="h-9 w-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
-                  <TrendUp size={18} weight="bold" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <span className="text-2xl sm:text-3xl font-extrabold text-foreground font-mono">{studentStats.avgProgress}%</span>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Across all courses</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:border-primary/40 transition-colors shadow-xs">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-wider">Assessments Passed</span>
-                <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-                  <Trophy size={18} weight="bold" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{studentStats.quizzesPassed}</span>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Mastery checks passed</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* My Enrolled Courses Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-extrabold tracking-tight text-foreground">My Enrolled Courses</h2>
-              <p className="text-xs text-muted-foreground font-medium">Curriculums with active student progress tracking</p>
-            </div>
-            <Badge variant="outline" className="text-xs font-mono font-bold">
-              {enrolledCourses.length} {enrolledCourses.length === 1 ? "Course" : "Courses"}
-            </Badge>
+              </Card>
+            )}
           </div>
 
-          {enrolledCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrolledCourses.map((enr) => (
-                <Card key={enr.id} className="overflow-hidden flex flex-col hover:border-primary/50 transition-all hover:shadow-md">
-                  <div className="relative h-40 bg-muted/70 overflow-hidden border-b border-border">
-                    {enr.thumbnailUrl ? (
-                      <img 
-                        src={enr.thumbnailUrl} 
-                        alt={enr.courseTitle} 
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-card via-muted to-primary/10 p-4 text-center">
-                        <GraduationCap size={40} className="text-primary/60 mb-1" />
-                        <span className="text-xs font-mono font-bold text-muted-foreground">{enr.courseCode}</span>
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-black/70 text-white backdrop-blur-xs">
-                        {enr.courseCode}
-                      </span>
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="text-[10px] font-bold backdrop-blur-xs bg-background/80">
-                        {enr.duration}
-                      </Badge>
-                    </div>
-                  </div>
+          {/* Today Tasks Checklist */}
+          <DashboardTaskList enrolledCourses={enrolledCourses} />
 
-                  <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="space-y-1.5">
-                      <h3 className="font-bold text-base text-foreground line-clamp-1">{enr.courseTitle}</h3>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Cohort: <span className="text-foreground font-semibold">{enr.batchName || "Standard"}</span>
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2">
-                      <div className="flex items-center justify-between text-xs font-bold">
-                        <span className="text-muted-foreground font-medium">Progress</span>
-                        <span className="text-primary font-mono">{enr.progressPercent}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border">
-                        <div 
-                          className="h-full bg-primary rounded-full transition-all duration-300"
-                          style={{ width: `${Math.max(enr.progressPercent, 4)}%` }}
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-medium">
-                        {enr.completedCount} of {enr.totalCount} lessons completed
-                      </p>
-                    </div>
-
-                    <div className="pt-2 border-t border-border">
-                      <Link href={`/dashboard/courses/${enr.courseId}/lesson/${enr.nextModuleId}`} className="block">
-                        <Button className="w-full gap-2 font-bold text-xs h-9 cursor-pointer">
-                          <PlayCircle size={16} weight="bold" /> Enter Classroom
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="p-8 text-center border-dashed border-2">
-              <div className="max-w-md mx-auto space-y-3">
-                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center">
-                  <BookOpen size={24} weight="bold" />
+          {/* Available Courses Catalog Preview */}
+          {unenrolledCourses.length > 0 && (
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground tracking-tight">Available Courses</h2>
+                  <p className="text-xs text-muted-foreground">1-click enroll to unlock lectures, readings, and assessments</p>
                 </div>
-                <h3 className="font-bold text-lg text-foreground">You are not enrolled in any courses yet</h3>
-                <p className="text-xs text-muted-foreground font-medium">
-                  Enroll in curriculum courses below or explore the full course catalog to start your learning journey.
-                </p>
-                <div className="pt-2">
-                  <Link href="/dashboard/courses">
-                    <Button className="gap-2 font-bold text-xs px-5 cursor-pointer">
-                      <Sparkle size={15} weight="bold" /> Explore All Courses
-                    </Button>
-                  </Link>
-                </div>
+                <Link href="/dashboard/courses" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                  View Catalog <ArrowRight size={14} weight="bold" />
+                </Link>
               </div>
-            </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {unenrolledCourses.slice(0, 3).map((course) => (
+                  <Card key={course.id} className="overflow-hidden flex flex-col hover:border-primary/40 transition-colors rounded-2xl">
+                    <div className="relative h-32 bg-muted/60 overflow-hidden border-b border-border">
+                      {course.thumbnailUrl ? (
+                        <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-card p-4 text-center">
+                          <GraduationCap size={28} className="text-primary/60 mb-1" />
+                          <span className="text-xs font-mono font-bold text-muted-foreground">{course.code}</span>
+                        </div>
+                      )}
+                      <div className="absolute top-2.5 left-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/70 text-white">
+                          {course.code}
+                        </span>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm text-foreground line-clamp-1">{course.title}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{course.description || "Comprehensive hands-on curriculum with video streaming and interactive assessments."}</p>
+                      </div>
+
+                      <Button 
+                        onClick={() => handleEnrollCourse(course)}
+                        disabled={enrollingCourseId === course.id}
+                        size="sm"
+                        className="w-full font-bold text-xs gap-1.5 h-8.5 rounded-xl cursor-pointer"
+                      >
+                        {enrollingCourseId === course.id ? (
+                          <>
+                            <ArrowsClockwise size={14} className="animate-spin" /> Enrolling...
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={14} weight="bold" /> 1-Click Enroll
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Explore More Courses Catalog Preview */}
-        {unenrolledCourses.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-extrabold tracking-tight text-foreground">Available Courses</h2>
-                <p className="text-xs text-muted-foreground font-medium">1-click enroll to unlock lectures, readings, and interactive quizzes</p>
-              </div>
-              <Link href="/dashboard/courses" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                View Catalog <ArrowRight size={14} weight="bold" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {unenrolledCourses.slice(0, 3).map((course) => (
-                <Card key={course.id} className="overflow-hidden flex flex-col hover:border-primary/40 transition-colors">
-                  <div className="relative h-36 bg-muted/60 overflow-hidden border-b border-border">
-                    {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-card p-4 text-center">
-                        <GraduationCap size={32} className="text-primary/60 mb-1" />
-                        <span className="text-xs font-mono font-bold text-muted-foreground">{course.code}</span>
-                      </div>
-                    )}
-                    <div className="absolute top-2.5 left-2.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/70 text-white">
-                        {course.code}
-                      </span>
-                    </div>
-                  </div>
-
-                  <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-sm text-foreground line-clamp-1">{course.title}</h4>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{course.description || "Comprehensive hands-on curriculum with video streaming and interactive assessments."}</p>
-                    </div>
-
-                    <Button 
-                      onClick={() => handleEnrollCourse(course)}
-                      disabled={enrollingCourseId === course.id}
-                      className="w-full font-bold text-xs gap-1.5 h-8.5 cursor-pointer"
-                    >
-                      {enrollingCourseId === course.id ? (
-                        <>
-                          <ArrowsClockwise size={14} className="animate-spin" /> Enrolling...
-                        </>
-                      ) : (
-                        <>
-                          <Plus size={14} weight="bold" /> 1-Click Enroll
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Right Schedule Sidebar (3rd Column) */}
+        <aside className="w-full xl:w-80 shrink-0 space-y-6">
+          <DashboardScheduleSidebar user={user} activeCourse={activeCourse} />
+        </aside>
       </div>
     );
   }
