@@ -172,25 +172,24 @@ export default function DashboardLayout({ children }) {
           sidebarOpen ? "w-68" : "w-20"
         } border-r border-border bg-card flex flex-col transition-all duration-300 z-30`}
       >
-        {/* Sidebar Header Branding */}
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-            <TenantLogo tenant={activeTenant} size="md" />
-            {sidebarOpen && (
-              <div className="flex flex-col min-w-0">
-                <span className="font-extrabold text-sm tracking-tight truncate text-foreground">
-                  {activeTenant?.name || "Education OS"}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono truncate font-bold uppercase tracking-wider">
-                  {activeTenant?.branch || "Enterprise LMS"}
-                </span>
-              </div>
-            )}
+        {/* Sidebar Header Branding - Full Horizontal Space */}
+        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+          <Link
+            href="/dashboard"
+            className="flex-1 min-w-0 flex items-center overflow-hidden"
+            title={activeTenant?.name || "Education OS"}
+          >
+            <TenantLogo
+              tenant={activeTenant}
+              size={sidebarOpen ? "full" : "sm"}
+              className="w-full"
+            />
           </Link>
 
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-accent shrink-0"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
             <SidebarIcon size={18} />
           </button>

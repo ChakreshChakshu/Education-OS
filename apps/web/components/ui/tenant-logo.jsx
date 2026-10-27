@@ -53,16 +53,18 @@ export function TenantLogo({
     sm: "h-8 w-8 text-xs rounded-lg",
     md: "h-10 w-10 text-sm rounded-xl",
     lg: "h-12 w-12 text-base rounded-2xl",
-    xl: "h-16 w-16 text-xl rounded-2xl"
+    xl: "h-16 w-16 text-xl rounded-2xl",
+    full: "w-full h-11 text-xs rounded-xl"
   };
 
+  const isFull = size === "full";
   const chosenSize = sizeMap[size] || sizeMap.md;
 
   const hasValidLogo = Boolean(rawLogo && rawLogo.trim() !== "" && !imgError);
 
   return (
     <div
-      className={`relative shrink-0 flex items-center justify-center font-black select-none transition-all ${chosenSize} ${className}`}
+      className={`relative ${isFull ? "w-full flex-1" : "shrink-0"} flex items-center justify-center font-black select-none transition-all ${chosenSize} ${className}`}
       style={{
         backgroundColor: hasValidLogo ? "var(--card)" : brandColor,
         color: hasValidLogo ? "var(--foreground)" : "#ffffff"
@@ -78,6 +80,20 @@ export function TenantLogo({
             className="w-full h-full object-contain filter drop-shadow-2xs transition-transform duration-200 hover:scale-105"
             onError={() => setImgError(true)}
           />
+        </div>
+      ) : isFull ? (
+        <div 
+          className="w-full h-full flex items-center justify-center gap-2.5 px-3 rounded-[inherit] shadow-xs border border-white/20 relative overflow-hidden text-white"
+          style={{
+            background: `linear-gradient(135deg, ${brandColor} 0%, ${brandColor}dd 100%)`
+          }}
+        >
+          <div className="h-6 w-6 rounded-md bg-white/20 flex items-center justify-center shrink-0">
+            <GraduationCap size={15} weight="fill" />
+          </div>
+          <span className="font-extrabold text-xs tracking-tight truncate leading-tight uppercase font-sans">
+            {name}
+          </span>
         </div>
       ) : (
         <div 
