@@ -91,8 +91,9 @@ apps/web/
 │   └── use-outside-click.tsx     # Hook for Modal/Dropdown Dismissal
 ├── lib/
 │   └── api.js                    # REST ApiClient with CSRF Double-Submit Protection
-└── providers/
-    └── auth-context.js           # React AuthContext (Session Bootstrap & Dynamic Theme Engine)
+├── providers/
+│   └── auth-context.js           # React AuthContext (Session Bootstrap & Dynamic Theme Engine)
+└── proxy.js                      # Next.js 16 Edge Proxy (Dashboard Route Guards & Subdomains)
 ```
 
 ---
@@ -146,3 +147,11 @@ Modernized and trimmed by 30%+ code bloat to eliminate reading fatigue and deliv
 - **HttpOnly Cookies**: Session tokens (`access_token`, `refresh_token`) are managed in secure `httpOnly` cookies set by the Fastify backend.
 - **Double-Submit CSRF**: The frontend extracts `csrf_token` and attaches it via the `x-csrf-token` header on all mutating HTTP requests (`POST`, `PUT`, `PATCH`, `DELETE`).
 - **Session Bootstrap**: On application load, `ApiClient.getMe()` verifies session status and hydrates available tenants and roles.
+
+### 6. Strict Dashboard Route Guarding & Mock Session Deprecation
+
+- **Next.js 16 Proxy Guard (`apps/web/proxy.js`)**: Runs at the edge for all `/dashboard` requests. Validates incoming cookie tokens (`access_token`, `refresh_token`, or `csrf_token`). Unauthenticated requests are immediately bounced to `/login?redirect=${pathname}` before component rendering.
+- **Client Guard (`apps/web/app/dashboard/layout.js`)**: If client session resolves to unauthenticated, displays an indeterminate verification loader and initiates an immediate client-side router replacement to `/login`.
+- **Purged Offline Mock Sessions**: Eliminated synthetic student user auto-generation in `AuthProvider` and `courses/[id]/page.js`. Login and registration failures surface genuine errors to the user instead of forging offline student sessions.
+- **Zero Hardcoded UUID Fallbacks**: Stripped legacy fallback UUIDs (`018f92ab-...`) from `ApiClient` calls and dashboard analytics hooks. Unauthenticated queries reject cleanly without pulling seeded institution data.
+- **Complete Storage Hygiene on Logout**: `logout()` completely purges `eos_user`, `eos_tenant`, `eos_tenant_id`, `eos_portal_mode`, and `eos_enrolled_courses`.

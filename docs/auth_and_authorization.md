@@ -352,6 +352,36 @@ Admin Enrolls Student (/dashboard/students)
 
 ---
 
+## ADR-029: Strict Dashboard Route Protection & Elimination of Mock Student Sessions
+
+### Status
+**Accepted**
+
+### Context
+Previously, unregistered or unauthenticated users could gain access to LMS dashboard views due to several client-side design flaws:
+1. **Offline Mock Fallback:** When `ApiClient.getMe()`, `login()`, or `register()` encountered an unauthenticated response (401) or network error, `auth-context.js` caught the error and automatically generated a synthetic student user (`id: std-...`, `role: STUDENT`), persisting it to `localStorage.getItem('eos_user')`.
+2. **Missing Next.js Route Guarding:** No server-side middleware guarded `/dashboard/*`; authentication was checked only after React hydration inside `DashboardLayout`.
+3. **Hardcoded Fallback UUIDs:** Multiple API calls and dashboard queries fell back to a seeded administrative/student UUID (`018f92ab-1234-7890-a1b2-c3d4e5f6a7b8`) if `user.id` was missing, pulling real database enrollments into unauthenticated sessions.
+4. **Incomplete Logout Cleanup:** The `logout()` function failed to clear `eos_user`, causing stale sessions to linger in the browser indefinitely.
+
+### Decision
+Enforce multi-layer zero-trust authentication on all dashboard routes:
+1. **Next.js 16 Edge Proxy (`apps/web/proxy.js`):**
+   - Intercepts all requests matching `/dashboard` and `/dashboard/*`.
+   - Validates existence of session cookies (`access_token`, `refresh_token`, or `csrf_token`).
+   - Unauthenticated requests are immediately redirected to `/login?redirect=${pathname}` at the edge before any HTML or React bundles execute.
+2. **Strict Session Verification in `AuthProvider`:**
+   - Stripped all synthetic student fallback logic from `login()`, `register()`, and `ApiClient.getMe()`.
+   - Any failed verification sets `user = null` and wipes `localStorage.removeItem('eos_user')`.
+   - Complete storage reset on `logout()` (`eos_user`, `eos_tenant`, `eos_tenant_id`, `eos_portal_mode`, `eos_enrolled_courses`).
+3. **Removal of Hardcoded UUID Fallbacks:**
+   - All client queries in `api.js`, `dashboard/page.js`, and `courses/page.js` require an authenticated `user.id` or `user.userId`.
+   - Unauthenticated queries return early or redirect, preventing data leakage from seeded DB records.
+4. **Client Layout Redirection:**
+   - `DashboardLayout` checks `!loading && !user` and replaces URL with `/login?redirect=...` while rendering an indeterminate security badge.
+
+---
+
 # Guiding Principle
 
 > **Authentication identifies the user. Authorization evaluates what the user may do within a specific tenant and organization. Roles provide the baseline, while scoped role assignments and temporary permission grants provide the flexibility required for enterprise-scale Education Operating Systems.**
