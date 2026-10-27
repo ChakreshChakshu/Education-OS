@@ -118,30 +118,25 @@ function CoursesCatalogContent() {
   // Fetch student enrollments if logged in
   useEffect(() => {
     async function checkUserEnrollments() {
+      if (!user?.id && !user?.userId) {
+        setEnrolledMap({});
+        return;
+      }
       const map = {};
       try {
-        const localEnrolled = JSON.parse(localStorage.getItem("eos_enrolled_courses") || "[]");
-        localEnrolled.forEach((cid) => {
-          map[cid] = { isEnrolled: true, progressPercent: 0 };
-        });
-      } catch (e) {}
-
-      if (user?.id || user?.userId) {
-        try {
-          const studentId = user.id || user.userId;
-          const res = await ApiClient.getEnrollments({ studentUserId: studentId });
-          if (res?.success && Array.isArray(res.data)) {
-            res.data.forEach((enr) => {
-              map[enr.courseId] = {
-                isEnrolled: true,
-                progressPercent: enr.progressPercentage || 0,
-                enrollmentId: enr.id
-              };
-            });
-          }
-        } catch (e) {
-          console.error("Failed to load user enrollments:", e);
+        const studentId = user.id || user.userId;
+        const res = await ApiClient.getEnrollments({ studentUserId: studentId });
+        if (res?.success && Array.isArray(res.data)) {
+          res.data.forEach((enr) => {
+            map[enr.courseId] = {
+              isEnrolled: true,
+              progressPercent: enr.progressPercentage || 0,
+              enrollmentId: enr.id
+            };
+          });
         }
+      } catch (e) {
+        console.error("Failed to load user enrollments:", e);
       }
       setEnrolledMap(map);
     }

@@ -50,6 +50,19 @@ export function proxy(req) {
     return NextResponse.next();
   }
 
+  // Server-side guard: Protect /dashboard and all subroutes from unregistered visitors
+  if (pathname.startsWith('/dashboard')) {
+    const accessToken = req.cookies.get('access_token')?.value;
+    const refreshToken = req.cookies.get('refresh_token')?.value;
+    const csrfToken = req.cookies.get('csrf_token')?.value;
+
+    if (!accessToken && !refreshToken && !csrfToken) {
+      const loginUrl = new URL('/login', req.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   const host = req.headers.get('host') || '';
   const subdomain = getSubdomain(host);
 

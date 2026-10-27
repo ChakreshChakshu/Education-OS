@@ -165,25 +165,29 @@ export function AuthProvider({ children }) {
 
     ApiClient.getMe()
       .then((res) => {
-        if (res.success) {
+        if (res.success && res.user) {
           setUser(res.user);
           try { localStorage.setItem('eos_user', JSON.stringify(res.user)); } catch (e) {}
           const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
           applyTenants(realTenants, savedTenantId);
         } else {
-          // Check for saved student session fallback
-          let localUser = null;
+          setUser(null);
+          applyTenants([], null);
           try {
-            localUser = JSON.parse(localStorage.getItem('eos_user') || 'null');
+            localStorage.removeItem('eos_user');
+            localStorage.removeItem('eos_tenant');
+            localStorage.removeItem('eos_tenant_id');
           } catch (e) {}
-          if (localUser) {
-            setUser(localUser);
-            applyTenants([], savedTenantId);
-          } else {
-            setUser(null);
-            applyTenants([], null);
-          }
         }
+      })
+      .catch(() => {
+        setUser(null);
+        applyTenants([], null);
+        try {
+          localStorage.removeItem('eos_user');
+          localStorage.removeItem('eos_tenant');
+          localStorage.removeItem('eos_tenant_id');
+        } catch (e) {}
       })
       .finally(() => setLoading(false));
   }, []);
@@ -192,28 +196,17 @@ export function AuthProvider({ children }) {
     try {
       const res = await ApiClient.loginUser({ email, password });
       if (res && res.success !== false && (res.user || res.data)) {
-        const loggedUser = res.user || res.data || { email, name: email.split('@')[0] };
+        const loggedUser = res.user || res.data;
         setUser(loggedUser);
         try { localStorage.setItem('eos_user', JSON.stringify(loggedUser)); } catch (e) {}
         const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
         applyTenants(realTenants, null);
         return { success: true, user: loggedUser };
       }
+      return { success: false, error: res?.error || 'Invalid email or password' };
     } catch (err) {
-      console.warn('API login network notice, fallback to student profile:', err.message);
+      return { success: false, error: err.message || 'Login failed' };
     }
-
-    // Fallback when standalone preview or offline backend
-    const studentUser = {
-      id: 'std-' + Math.random().toString(36).substring(2, 9),
-      name: email.split('@')[0],
-      email: email.trim().toLowerCase(),
-      role: 'STUDENT'
-    };
-    setUser(studentUser);
-    try { localStorage.setItem('eos_user', JSON.stringify(studentUser)); } catch (e) {}
-    applyTenants([], null);
-    return { success: true, user: studentUser };
   };
 
   const register = async (nameOrPayload, email, password, institutionName, options = {}) => {
@@ -230,21 +223,10 @@ export function AuthProvider({ children }) {
         const loginRes = await login(payload.email, payload.password);
         return loginRes;
       }
+      return { success: false, error: res?.error || 'Registration failed' };
     } catch (err) {
-      console.warn('API register network notice, fallback to student profile:', err.message);
+      return { success: false, error: err.message || 'Registration failed' };
     }
-
-    // Fallback when standalone preview or offline backend
-    const studentUser = {
-      id: 'std-' + Math.random().toString(36).substring(2, 9),
-      name: payload.name || payload.email.split('@')[0],
-      email: payload.email.trim().toLowerCase(),
-      role: 'STUDENT'
-    };
-    setUser(studentUser);
-    try { localStorage.setItem('eos_user', JSON.stringify(studentUser)); } catch (e) {}
-    applyTenants([], null);
-    return { success: true, user: studentUser };
   };
 
   // Automatically inject tenant brand theme into DOM whenever active tenant changes
@@ -292,8 +274,13 @@ export function AuthProvider({ children }) {
     setUser(null);
     setActiveTenant(null);
     setTenants([]);
-    localStorage.removeItem('eos_tenant');
-    localStorage.removeItem('eos_tenant_id');
+    try {
+      localStorage.removeItem('eos_user');
+      localStorage.removeItem('eos_tenant');
+      localStorage.removeItem('eos_tenant_id');
+      localStorage.removeItem('eos_portal_mode');
+      localStorage.removeItem('eos_enrolled_courses');
+    } catch (e) {}
   };
 
   return (

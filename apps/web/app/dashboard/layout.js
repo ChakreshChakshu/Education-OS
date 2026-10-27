@@ -72,12 +72,20 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
+      const redirectUrl = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : "/login";
+      router.replace(redirectUrl);
     }
-  }, [loading, user, router]);
+  }, [loading, user, pathname, router]);
 
   if (loading || !user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-xs text-muted-foreground font-mono">Verifying authorization...</p>
+        </div>
+      </div>
+    );
   }
 
   // If user is visiting an institution subdomain where they are not enrolled:

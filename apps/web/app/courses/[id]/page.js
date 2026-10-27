@@ -163,7 +163,7 @@ export default function CourseDetailPage({ params }) {
   // Common helper to execute enrollment after user is authenticated
   const executeEnrollmentAndRedirect = async (studentId, studentEmail, studentName) => {
     try {
-      const tenantId = course.tenantId || course.institution?.id || "018f92ab-1234-7890-a1b2-c3d4e5f6a7b8";
+      const tenantId = course.tenantId || course.institution?.id;
       await ApiClient.enrollStudent({
         courseId: course.id,
         tenantId,
@@ -199,9 +199,13 @@ export default function CourseDetailPage({ params }) {
 
   // 1. Direct Purchase/Enroll for Logged-In User
   const handleLoggedInEnroll = async () => {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/courses/${course?.id || courseId}`)}`);
+      return;
+    }
     setProcessing(true);
     setFormError("");
-    setFormSuccess("Processing dummy payment & auto-enrolling in LMS...");
+    setFormSuccess("Processing enrollment in LMS...");
 
     const studentId = user.id || user.userId;
     const studentEmail = user.email;
@@ -238,7 +242,7 @@ export default function CourseDetailPage({ params }) {
       );
 
       if (regRes && regRes.success) {
-        setFormSuccess("Account created & dummy payment processed! Auto-enrolling in course...");
+        setFormSuccess("Account created! Auto-enrolling in course...");
         const studentId = regRes.user?.id || regRes.user?.userId;
         await executeEnrollmentAndRedirect(
           studentId,
@@ -246,35 +250,12 @@ export default function CourseDetailPage({ params }) {
           signupName.trim()
         );
       } else {
-        // Fallback for standalone preview / offline backend
-        console.warn("Live API registration returned notice, activating verified student session:", regRes?.error);
-        setFormSuccess("Account provisioned & dummy payment processed! Auto-enrolling in LMS...");
-        const studentId = "std-" + Math.random().toString(36).substring(2, 9);
-        const studentObj = {
-          id: studentId,
-          name: signupName.trim(),
-          email: signupEmail.trim().toLowerCase(),
-          role: "STUDENT"
-        };
-        try {
-          localStorage.setItem("eos_user", JSON.stringify(studentObj));
-        } catch (e) {}
-        await executeEnrollmentAndRedirect(studentId, signupEmail.trim().toLowerCase(), signupName.trim());
+        setFormError(regRes?.error || "Registration failed. Please try a different email or sign in.");
+        setProcessing(false);
       }
     } catch (err) {
-      console.warn("Registration network notice, using verified student session:", err.message);
-      setFormSuccess("Account provisioned & dummy payment processed! Auto-enrolling in LMS...");
-      const studentId = "std-" + Math.random().toString(36).substring(2, 9);
-      const studentObj = {
-        id: studentId,
-        name: signupName.trim(),
-        email: signupEmail.trim().toLowerCase(),
-        role: "STUDENT"
-      };
-      try {
-        localStorage.setItem("eos_user", JSON.stringify(studentObj));
-      } catch (e) {}
-      await executeEnrollmentAndRedirect(studentId, signupEmail.trim().toLowerCase(), signupName.trim());
+      setFormError(err.message || "An error occurred during registration. Please try again.");
+      setProcessing(false);
     }
   };
 

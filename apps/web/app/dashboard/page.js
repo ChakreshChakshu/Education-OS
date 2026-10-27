@@ -121,7 +121,11 @@ export default function DashboardOverviewPage() {
     async function loadStudentData() {
       setLoading(true);
       try {
-        const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+        const studentId = user?.id || user?.userId;
+        if (!studentId) {
+          setLoading(false);
+          return;
+        }
         
         const [enrollRes, courseRes] = await Promise.all([
           ApiClient.getEnrollments({ studentUserId: studentId }),
@@ -200,11 +204,15 @@ export default function DashboardOverviewPage() {
   const handleEnrollCourse = async (course) => {
     setEnrollingCourseId(course.id);
     try {
-      const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentId = user?.id || user?.userId;
+      if (!studentId) {
+        router.push("/login");
+        return;
+      }
       const res = await ApiClient.enrollStudent({
         courseId: course.id,
         studentUserId: studentId,
-        studentEmail: user?.email || "student@neon.edu",
+        studentEmail: user?.email,
         studentName: user?.name || "Student"
       });
 

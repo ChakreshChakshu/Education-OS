@@ -9,6 +9,7 @@ interface ParallaxComponentProps {
   title?: string;
   subtitle?: string;
   badge?: string;
+  showLiveDot?: boolean;
   images?: {
     layer1?: string;
     layer2?: string;
@@ -21,6 +22,7 @@ export function ParallaxComponent({
   title = "EducationOS",
   subtitle = "The Unified Campus Platform",
   badge = "Autonomous Multi-Campus Architecture",
+  showLiveDot = false,
   images = {
     layer1: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1600&q=80",
     layer2: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1400&q=80",
@@ -114,7 +116,9 @@ export function ParallaxComponent({
             <div data-parallax-layer="3" className="parallax__layer-title absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6 pointer-events-auto">
               {badge && (
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-card/80 backdrop-blur-md border border-electric-indigo-500/30 text-xs md:text-sm font-medium text-foreground mb-6 shadow-lg shadow-electric-indigo-500/10">
-                  <span className="h-2 w-2 rounded-full bg-electric-indigo-400 animate-ping" />
+                  {showLiveDot && (
+                    <span className="h-2 w-2 rounded-full bg-electric-indigo-400 animate-ping" />
+                  )}
                   <span>{badge}</span>
                 </div>
               )}

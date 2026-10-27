@@ -117,10 +117,10 @@ function CoursesContent() {
     async function loadData() {
       setDataLoading(true);
       try {
-        const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+        const studentId = user?.id || user?.userId;
         const [res, enrollRes] = await Promise.all([
           ApiClient.getCourses(),
-          ApiClient.getEnrollments({ studentUserId: studentId })
+          studentId ? ApiClient.getEnrollments({ studentUserId: studentId }) : Promise.resolve({ success: true, data: [] })
         ]);
 
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -184,11 +184,15 @@ function CoursesContent() {
   const handleEnrollCourse = async (courseId) => {
     setEnrollingId(courseId);
     try {
-      const studentId = user?.id || user?.userId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentId = user?.id || user?.userId;
+      if (!studentId) {
+        router.push("/login");
+        return;
+      }
       const res = await ApiClient.enrollStudent({
         courseId,
         studentUserId: studentId,
-        studentEmail: user?.email || "student@neon.edu",
+        studentEmail: user?.email,
         studentName: user?.name || "Student"
       });
 

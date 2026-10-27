@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import SpecularButton from "@/components/ui/specular-button";
 import { Badge } from "@/components/ui/badge";
 import { ParallaxComponent } from "@/components/ui/parallax-scrolling";
 import AppleCardsCarouselDemo from "@/components/apple-cards-carousel-demo";
@@ -105,9 +106,20 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/register" className="w-full sm:w-auto">
-              <Button variant="ghost" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl border border-border/60 hover:bg-muted transition-all cursor-pointer">
-                Register Institution
-              </Button>
+              <SpecularButton
+                size="md"
+                radius={12}
+                tint="#5b12ed"
+                tintOpacity={0.08}
+                textColor="currentColor"
+                lineColor="#5b12ed"
+                baseColor="#8f707d"
+                thickness={1.4}
+                className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 border border-border/70 hover:border-primary/50 transition-all cursor-pointer"
+              >
+                <span>Register Institution</span>
+                <ArrowRight size={16} weight="bold" />
+              </SpecularButton>
             </Link>
           </div>
 
@@ -502,9 +514,19 @@ export default function Home() {
                 </Button>
               </Link>
               <Link href="/register" className="w-full sm:w-auto">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto font-bold px-8 h-12 rounded-xl border-border hover:bg-muted cursor-pointer">
-                  Register Institution
-                </Button>
+                <SpecularButton
+                  size="md"
+                  radius={12}
+                  tint="#5b12ed"
+                  tintOpacity={0.08}
+                  textColor="currentColor"
+                  lineColor="#5b12ed"
+                  baseColor="#8f707d"
+                  thickness={1.4}
+                  className="w-full sm:w-auto text-sm sm:text-base font-bold px-8 h-12 border border-border/70 hover:border-primary/50 transition-all cursor-pointer"
+                >
+                  <span>Register Institution</span>
+                </SpecularButton>
               </Link>
             </div>
           </div>

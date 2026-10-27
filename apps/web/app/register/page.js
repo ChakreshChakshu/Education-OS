@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import SpecularButton from "@/components/ui/specular-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -306,15 +307,22 @@ export default function RegisterOnboardingPage() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <Link href={`/t/${provisionedTenant.slug}/courses`} className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto font-bold text-xs sm:text-sm gap-2 h-12 px-6 rounded-xl cursor-pointer shadow-md"
-                  style={{ backgroundColor: provisionedTenant.primaryColor }}
+                <SpecularButton
+                  size="md"
+                  radius={12}
+                  tint={provisionedTenant.primaryColor || "#5b12ed"}
+                  tintOpacity={0.92}
+                  textColor="#ffffff"
+                  lineColor="#ffffff"
+                  baseColor="#370b8e"
+                  intensity={1.2}
+                  idleIntensity={0.4}
+                  className="w-full sm:w-auto font-bold text-xs sm:text-sm gap-2 h-12 px-6 cursor-pointer shadow-md"
                 >
                   <Globe size={18} weight="bold" />
                   <span>Launch Public Course Website</span>
                   <ArrowRight size={16} weight="bold" />
-                </Button>
+                </SpecularButton>
               </Link>
 
               <Link href="/dashboard" className="w-full sm:w-auto">
@@ -513,10 +521,20 @@ export default function RegisterOnboardingPage() {
             </CardContent>
 
             <CardFooter className="flex justify-end border-t border-border pt-4">
-              <Button onClick={handleNext} className="gap-2 font-bold text-xs sm:text-sm h-10 px-6 cursor-pointer shadow-xs">
+              <SpecularButton
+                size="sm"
+                radius={10}
+                tint="#5b12ed"
+                tintOpacity={0.9}
+                textColor="#ffffff"
+                lineColor="#ffffff"
+                baseColor="#370b8e"
+                onClick={handleNext}
+                className="gap-2 font-bold text-xs sm:text-sm h-10 px-6 cursor-pointer shadow-xs"
+              >
                 <span>Continue: Campus & Branding</span>
                 <ArrowRight size={16} weight="bold" />
-              </Button>
+              </SpecularButton>
             </CardFooter>
           </Card>
         )}
@@ -659,10 +677,20 @@ export default function RegisterOnboardingPage() {
                 <ArrowLeft size={16} weight="bold" />
                 <span>Back</span>
               </Button>
-              <Button onClick={handleNext} className="gap-2 font-bold text-xs sm:text-sm h-10 px-6 cursor-pointer shadow-xs">
+              <SpecularButton
+                size="sm"
+                radius={10}
+                tint={primaryColor || "#5b12ed"}
+                tintOpacity={0.9}
+                textColor="#ffffff"
+                lineColor="#ffffff"
+                baseColor="#370b8e"
+                onClick={handleNext}
+                className="gap-2 font-bold text-xs sm:text-sm h-10 px-6 cursor-pointer shadow-xs"
+              >
                 <span>Continue: Review & Launch</span>
                 <ArrowRight size={16} weight="bold" />
-              </Button>
+              </SpecularButton>
             </CardFooter>
           </Card>
         )}
@@ -742,14 +770,25 @@ export default function RegisterOnboardingPage() {
                 <ArrowLeft size={16} weight="bold" />
                 <span>Back</span>
               </Button>
-              <Button 
+              <SpecularButton 
                 onClick={handleLaunch} 
                 disabled={loading}
-                className="gap-2 font-bold text-xs sm:text-sm h-10 px-8 cursor-pointer shadow-xs"
+                size="md"
+                radius={12}
+                tint={primaryColor || "#5b12ed"}
+                tintOpacity={0.92}
+                textColor="#ffffff"
+                lineColor="#ffffff"
+                baseColor="#370b8e"
+                intensity={1.2}
+                idleIntensity={0.4}
+                thickness={1.5}
+                glow={1.2}
+                className="gap-2 font-bold text-xs sm:text-sm h-10 px-8 cursor-pointer shadow-md"
               >
                 <RocketLaunch size={18} weight="bold" />
                 <span>{loading ? "Provisioning in Neon Cloud..." : "Launch Workspace"}</span>
-              </Button>
+              </SpecularButton>
             </CardFooter>
           </Card>
         )}
