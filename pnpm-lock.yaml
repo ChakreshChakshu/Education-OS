@@ -101,6 +101,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      framer-motion:
+        specifier: ^14.7.1
+        version: 14.7.1(react-dom@19.2.8)(react@19.2.8)
       gsap:
         specifier: ^3.15.0
         version: 3.15.0
@@ -4662,6 +4665,24 @@ packages:
       tslib: 2.8.1
     dev: false
 
+  /framer-motion@14.7.1(react-dom@19.2.8)(react@19.2.8):
+    resolution: {integrity: sha512-mFDYZxyfeZnpvL/zEQEqLZNYVA/ya47c9TBfZb/PEoNBBVSVvCLkMrCv9U38cuw72W161XENZwZB0+4nIBLEJg==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      motion-dom: 14.7.1
+      motion-utils: 14.7.0
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      tslib: 2.8.1
+    dev: false
+
   /fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
     dev: true
@@ -5907,8 +5928,18 @@ packages:
       motion-utils: 14.0.0
     dev: false
 
+  /motion-dom@14.7.1:
+    resolution: {integrity: sha512-p9q9F7+HoijbQjUG/cSGNmWS2t1OaAKxkd2RG5gQJRoDwoTap/Khb7K1P5rLW90crnSmx0rcRXzh3Jd5UNrpEw==}
+    dependencies:
+      motion-utils: 14.7.0
+    dev: false
+
   /motion-utils@14.0.0:
     resolution: {integrity: sha512-jBsyjVxTTRZNeuvd/v+btVXr90LQkYl4HhRu9T2ARc+PMnvkmjsjRVeAg4Qm10b6TlTw+kykWI8gu/6LuvpLSQ==}
+    dev: false
+
+  /motion-utils@14.7.0:
+    resolution: {integrity: sha512-woO0/Nb7ys75f94fjvQi/6leiHGvZUYkeHUPEZ3vxsV+9OpEVhkxp01x8MlRwX0zt31EqgXsKDAoBoJLC148Tw==}
     dev: false
 
   /motion@14.0.0(react-dom@19.2.8)(react@19.2.8):
