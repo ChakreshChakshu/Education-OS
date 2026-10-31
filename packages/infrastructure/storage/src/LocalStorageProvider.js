@@ -7,7 +7,15 @@ class LocalStorageProvider extends StorageProvider {
   }
 
   async upload(key, fileBuffer, mimeType) {
-    console.log(`[LocalStorageProvider] Mock saving ${key} to local disk folder ${this.config.uploadDir || './uploads'}`);
+    const fs = require('fs');
+    const path = require('path');
+    const targetDir = path.resolve(this.config.uploadDir || './uploads');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetPath = path.join(targetDir, key);
+    fs.writeFileSync(targetPath, fileBuffer);
+    console.log(`[LocalStorageProvider] Saved ${key} to disk at ${targetPath}`);
     return { key, url: `/uploads/${key}` };
   }
 

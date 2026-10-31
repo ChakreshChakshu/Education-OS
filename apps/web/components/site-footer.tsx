@@ -48,6 +48,8 @@ export default function SiteFooter() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
+                autoComplete="email"
+                suppressHydrationWarning
                 className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background/80 text-foreground placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
               />
               <button
@@ -168,7 +170,7 @@ export default function SiteFooter() {
         <div className="w-full border-t border-border/80" />
 
         {/* Copyright notice row */}
-        <div className="py-6 text-center text-xs text-muted-foreground">
+        <div className="py-6 text-center text-xs text-muted-foreground" suppressHydrationWarning>
           © {new Date().getFullYear()} EducationOS. All rights reserved.
         </div>
       </div>

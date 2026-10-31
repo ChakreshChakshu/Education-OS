@@ -15,6 +15,7 @@ import { PerformanceBarChart } from "@/components/dashboard/performance-bar-char
 import { StudentClassCard } from "@/components/dashboard/student-class-card";
 import { DashboardTaskList } from "@/components/dashboard/dashboard-task-list";
 import { DashboardScheduleSidebar } from "@/components/dashboard/dashboard-schedule-sidebar";
+import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
 import { 
   Users, 
   UserPlus,
@@ -517,14 +518,12 @@ export default function DashboardOverviewPage() {
                 {unenrolledCourses.slice(0, 3).map((course) => (
                   <Card key={course.id} className="overflow-hidden flex flex-col hover:border-primary/40 transition-colors rounded-2xl">
                     <div className="relative h-32 bg-muted/60 overflow-hidden border-b border-border">
-                      {course.thumbnailUrl ? (
-                        <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-card p-4 text-center">
-                          <GraduationCap size={28} className="text-primary/60 mb-1" />
-                          <span className="text-xs font-mono font-bold text-muted-foreground">{course.code}</span>
-                        </div>
-                      )}
+                      <img 
+                        src={resolveCourseThumbnail(course)} 
+                        alt={course.title} 
+                        onError={(e) => handleCourseImageError(e, course)}
+                        className="w-full h-full object-cover" 
+                      />
                       <div className="absolute top-2.5 left-2.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/70 text-white">
                           {course.code}

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FALLBACK_COURSES } from "@/lib/catalog-data";
+import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
 import { 
   BookOpen, 
   Plus, 
@@ -498,25 +499,12 @@ function CoursesContent() {
                 <div>
                   {/* Thumbnail Banner */}
                   <div className="relative h-40 w-full overflow-hidden bg-muted/60 border-b border-border/70">
-                    {course.thumbnailUrl ? (
-                      <img 
-                        src={course.thumbnailUrl} 
-                        alt={course.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/15 via-background to-secondary/30 relative">
-                        <div className="absolute right-3 bottom-2 font-black text-6xl text-foreground/5 select-none pointer-events-none font-mono">
-                          {course.code}
-                        </div>
-                        <div className="p-3 rounded-2xl bg-card/80 border border-border/60 shadow-xs text-primary mb-1">
-                          <BookOpen size={26} weight="duotone" />
-                        </div>
-                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest font-mono">
-                          {course.code}
-                        </span>
-                      </div>
-                    )}
+                    <img 
+                      src={resolveCourseThumbnail(course)} 
+                      alt={course.title}
+                      onError={(e) => handleCourseImageError(e, course)}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
 
                     {/* Level Pill */}
                     <div className="absolute top-3 left-3 flex items-center gap-1.5">

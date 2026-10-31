@@ -11,6 +11,7 @@ import {
   DotsThreeVertical, 
   ArrowRight 
 } from "@phosphor-icons/react";
+import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
 
 export function StudentClassCard({ course }) {
   const courseId = course.courseId || course.id;
@@ -39,17 +40,12 @@ export function StudentClassCard({ course }) {
       <div>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            {course.thumbnailUrl ? (
-              <img
-                src={course.thumbnailUrl}
-                alt={title}
-                className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-border/60"
-              />
-            ) : (
-              <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shrink-0 shadow-2xs`}>
-                <GraduationCap size={24} weight="bold" />
-              </div>
-            )}
+            <img
+              src={resolveCourseThumbnail(course)}
+              alt={title}
+              onError={(e) => handleCourseImageError(e, course)}
+              className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-border/60"
+            />
 
             <div className="min-w-0">
               <h3 className="font-extrabold text-sm sm:text-base text-foreground tracking-tight truncate group-hover:text-primary transition-colors">

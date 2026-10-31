@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MediaUploader } from "@/components/ui/media-uploader";
+import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
 import { 
   ArrowLeft, 
   Plus, 
@@ -294,18 +295,12 @@ export default function CourseDetailPage({ params: paramsPromise }) {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs">
           <div className="flex flex-col sm:flex-row items-start gap-5">
-            {course?.thumbnailUrl ? (
-              <img 
-                src={course.thumbnailUrl} 
-                alt={course.title}
-                className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl object-cover border border-border shrink-0 shadow-xs" 
-              />
-            ) : (
-              <div className="w-24 h-24 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center justify-center text-primary shrink-0">
-                <BookBookmark size={36} weight="duotone" />
-                <span className="text-[10px] font-mono font-bold mt-1 text-muted-foreground">{course?.code || "COURSE"}</span>
-              </div>
-            )}
+            <img 
+              src={resolveCourseThumbnail(course)} 
+              alt={course?.title || "Course thumbnail"}
+              onError={(e) => handleCourseImageError(e, course)}
+              className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl object-cover border border-border shrink-0 shadow-xs" 
+            />
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2.5">
                 <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-0.5">{course?.code || "CS-101"}</Badge>

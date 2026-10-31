@@ -80,25 +80,26 @@ export function ParallaxComponent({
           
           <div data-parallax-layers className="parallax__layers relative w-full h-full overflow-hidden">
             {/* Layer 1: Far Background Horizon */}
-            <div data-parallax-layer="1" className="absolute inset-0 w-full h-[120%] -top-[10%] opacity-40 mix-blend-luminosity">
+            <div data-parallax-layer="1" className="absolute inset-0 w-full h-[120%] -top-[10%] opacity-85">
               <img
                 src={images.layer1}
                 loading="eager"
                 alt="University Architecture"
-                className="w-full h-full object-cover filter contrast-110 opacity-25 dark:brightness-75 dark:contrast-125 dark:opacity-35"
+                className="w-full h-full object-cover filter contrast-105 brightness-95 opacity-80 dark:brightness-75 dark:contrast-125 dark:opacity-60"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/50 to-background" />
+              {/* Soft vignette gradient so text stays punchy without washing out the photo */}
+              <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/25 to-background" />
             </div>
 
             {/* Layer 2: Mid-ground Campus Aura */}
-            <div data-parallax-layer="2" className="absolute inset-x-0 bottom-0 h-[85%] flex items-center justify-center opacity-30 pointer-events-none">
-              <div className="w-[800px] h-[450px] rounded-full bg-electric-indigo-500/20 blur-[130px]" />
-              <div className="w-[500px] h-[300px] rounded-full bg-medium-slate-blue-500/20 blur-[100px]" />
+            <div data-parallax-layer="2" className="absolute inset-x-0 bottom-0 h-[85%] flex items-center justify-center opacity-75 pointer-events-none">
+              <div className="w-[850px] h-[480px] rounded-full bg-electric-indigo-500/35 blur-[100px]" />
+              <div className="w-[550px] h-[320px] rounded-full bg-medium-slate-blue-500/30 blur-[80px]" />
             </div>
           </div>
 
           {/* Fade transition into page content */}
-          <div className="parallax__fade absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none z-20" />
+          <div className="parallax__fade absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-background to-transparent pointer-events-none z-20" />
         </div>
 
         {/* Content Layer: Title, Hero Centerpiece, and Cards */}

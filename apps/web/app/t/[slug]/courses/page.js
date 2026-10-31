@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, applyTenantTheme } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import { FALLBACK_COURSES, findInstitutionBySlug } from "@/lib/catalog-data";
+import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -685,25 +686,12 @@ export default function TenantCourseWebsitePage({ params }) {
                       href={`/courses/${course.id}`}
                       className="block relative h-48 w-full overflow-hidden bg-muted/60 border-b border-border cursor-pointer group/thumb"
                     >
-                      {course.thumbnailUrl ? (
-                        <img
-                          src={course.thumbnailUrl}
-                          alt={course.title}
-                          className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/40 relative">
-                          <div className="absolute right-3 bottom-2 font-black text-6xl text-foreground/5 select-none pointer-events-none font-mono">
-                            {course.code}
-                          </div>
-                          <div className="p-3.5 rounded-2xl bg-card/90 border border-border/80 shadow-xs text-primary mb-1 group-hover/thumb:scale-110 transition-transform">
-                            <BookOpen size={28} weight="duotone" />
-                          </div>
-                          <span className="text-xs font-bold text-muted-foreground tracking-widest font-mono">
-                            {course.code}
-                          </span>
-                        </div>
-                      )}
+                      <img
+                        src={resolveCourseThumbnail(course)}
+                        alt={course.title}
+                        onError={(e) => handleCourseImageError(e, course)}
+                        className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
+                      />
 
                       {/* Badges: Level & Credits */}
                       <div className="absolute top-3 left-3 flex items-center gap-1.5">
