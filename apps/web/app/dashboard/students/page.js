@@ -378,7 +378,7 @@ export default function StudentsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border/80 shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
@@ -437,7 +437,7 @@ export default function StudentsPage() {
 
       {/* Metrics Row (4 Bento Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Students</span>
             <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
@@ -461,7 +461,7 @@ export default function StudentsPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Students</span>
             <div className="h-9 w-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -480,7 +480,7 @@ export default function StudentsPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Completions</span>
             <div className="h-9 w-9 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center">
@@ -499,7 +499,7 @@ export default function StudentsPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Average Progress</span>
             <div className="h-9 w-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
@@ -590,7 +590,7 @@ export default function StudentsPage() {
 
       {/* Roster Table */}
       {loading ? (
-        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-3xl shadow-xs w-full">
+        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-2xl shadow-xs w-full">
           <div className="w-full">
             <table className="w-full text-left text-xs font-medium">
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
@@ -680,7 +680,7 @@ export default function StudentsPage() {
           )}
         </Card>
       ) : (
-        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-3xl shadow-xs w-full">
+        <Card className="overflow-hidden border border-border/80 bg-card p-0 rounded-2xl shadow-xs w-full">
           <div className="w-full">
             <table className="w-full text-left text-xs font-medium">
               <thead className="bg-muted/40 border-b border-border uppercase font-bold text-muted-foreground text-[11px] tracking-wider">
@@ -984,7 +984,7 @@ export default function StudentsPage() {
                       {hasMultiple && isExpanded && (
                         <tr className="bg-muted/15 border-b border-border/80">
                           <td colSpan={6} className="p-0">
-                            <div className="p-3 sm:p-4 sm:pl-10 pr-3 sm:pr-6 space-y-3 border-l-4 border-l-primary/60">
+                            <div className="p-3 sm:p-4 sm:pl-10 pr-3 sm:pr-6 space-y-3 bg-muted/20 border-y border-border/60">
                               <div className="flex items-center justify-between flex-wrap gap-2">
                                 <div className="flex items-center gap-2">
                                   <BookOpen size={16} className="text-primary shrink-0" weight="bold" />

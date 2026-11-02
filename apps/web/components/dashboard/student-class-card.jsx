@@ -24,18 +24,8 @@ export function StudentClassCard({ course }) {
   const weeklyHours = course.duration || "3 Hours/Week";
   const nextLessonId = course.nextModuleId || "first";
 
-  // Determine vibrant accent icon background
-  const colors = [
-    "from-blue-600 to-indigo-600",
-    "from-amber-500 to-orange-600",
-    "from-emerald-500 to-teal-600",
-    "from-purple-600 to-pink-600"
-  ];
-  const colorIndex = Math.abs(title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)) % colors.length;
-  const gradient = colors[colorIndex];
-
   return (
-    <div className="bg-card border border-border/70 rounded-3xl p-5 sm:p-6 shadow-xs hover:border-primary/50 transition-all hover:shadow-md flex flex-col justify-between group">
+    <div className="bg-card border border-border/70 rounded-2xl p-5 sm:p-6 shadow-xs hover:border-primary/50 transition-all hover:shadow-md flex flex-col justify-between group">
       {/* Top Header */}
       <div>
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -44,7 +34,7 @@ export function StudentClassCard({ course }) {
               src={resolveCourseThumbnail(course)}
               alt={title}
               onError={(e) => handleCourseImageError(e, course)}
-              className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-border/60"
+              className="h-12 w-12 rounded-xl object-cover shrink-0 border border-border/60"
             />
 
             <div className="min-w-0">

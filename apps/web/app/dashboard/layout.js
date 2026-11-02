@@ -173,27 +173,45 @@ export default function DashboardLayout({ children }) {
           sidebarOpen ? "w-68" : "w-20"
         } border-r border-border bg-card flex flex-col transition-all duration-300 z-30`}
       >
-        {/* Sidebar Header Branding - Full Horizontal Space */}
-        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-          <Link
-            href="/dashboard"
-            className="flex-1 min-w-0 flex items-center overflow-hidden"
-            title={activeTenant?.name || "Education OS"}
-          >
-            <TenantLogo
-              tenant={activeTenant}
-              size={sidebarOpen ? "full" : "sm"}
-              className="w-full"
-            />
-          </Link>
+        {/* Sidebar Header Branding - EducationOS Platform Anchor */}
+        <div className={`p-3 border-b border-border flex items-center ${sidebarOpen ? "justify-between" : "justify-center"} gap-2`}>
+          {sidebarOpen ? (
+            <>
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2.5 min-w-0 overflow-hidden group"
+                title="EducationOS"
+              >
+                <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold shadow-xs transition-transform group-hover:scale-105 shrink-0">
+                  <GraduationCap size={18} weight="bold" />
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-extrabold text-sm tracking-tight text-foreground truncate">
+                    Education<span className="text-primary">OS</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold shrink-0">
+                    v2.4
+                  </span>
+                </div>
+              </Link>
 
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-accent shrink-0"
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          >
-            <SidebarIcon size={18} />
-          </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-accent shrink-0"
+                title="Collapse sidebar"
+              >
+                <SidebarIcon size={18} />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold shadow-xs transition-transform hover:scale-105 cursor-pointer shrink-0"
+              title="Expand sidebar • EducationOS"
+            >
+              <GraduationCap size={18} weight="bold" />
+            </button>
+          )}
         </div>
 
         {/* Institution Switcher with shadcn DropdownMenu */}

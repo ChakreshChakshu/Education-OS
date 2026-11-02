@@ -477,7 +477,7 @@ export default function DashboardOverviewPage() {
                 ))}
               </div>
             ) : (
-              <Card className="p-8 text-center border-dashed border-2 rounded-3xl bg-card/40">
+              <Card className="p-8 text-center border-dashed border-2 rounded-2xl bg-card/40">
                 <div className="max-w-md mx-auto space-y-3">
                   <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center">
                     <BookOpen size={24} weight="bold" />
@@ -577,7 +577,7 @@ export default function DashboardOverviewPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Executive Welcome & Campus Context Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-card p-6 md:p-7 rounded-3xl border border-border/80 shadow-xs">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-card p-6 md:p-7 rounded-2xl border border-border/80 shadow-xs">
         <div className="flex items-center gap-4 min-w-0">
           <TenantLogo tenant={activeTenant} size="xl" showBadge />
           <div className="space-y-1 min-w-0">
@@ -636,7 +636,7 @@ export default function DashboardOverviewPage() {
 
       {/* 4 Executive Bento KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Courses</span>
             <div className="h-9 w-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
@@ -652,7 +652,7 @@ export default function DashboardOverviewPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-emerald-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Enrolled Students</span>
             <div className="h-9 w-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -668,7 +668,7 @@ export default function DashboardOverviewPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-sky-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Completion Rate</span>
             <div className="h-9 w-9 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
@@ -686,7 +686,7 @@ export default function DashboardOverviewPage() {
           </div>
         </Card>
 
-        <Card className="p-5 rounded-3xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
+        <Card className="p-5 rounded-2xl border border-border/70 bg-card shadow-xs hover:border-amber-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Academic Term</span>
             <div className="h-9 w-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
@@ -716,7 +716,7 @@ export default function DashboardOverviewPage() {
       {/* 2-Column Section: Active Courses & Campus Live Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left (8 cols): Top Courses Performance */}
-        <Card className="lg:col-span-8 shadow-xs border border-border/80 bg-card rounded-3xl overflow-hidden">
+        <Card className="lg:col-span-8 shadow-xs border border-border/80 bg-card rounded-2xl overflow-hidden">
           <CardHeader className="p-5 sm:p-6 pb-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg font-bold text-foreground tracking-tight">
@@ -800,7 +800,7 @@ export default function DashboardOverviewPage() {
         {/* Right (4 cols): Campus Operations & Recent Activity */}
         <div className="lg:col-span-4 space-y-6">
           {/* Campus Operations Quick Card */}
-          <Card className="p-5 rounded-3xl border border-border/80 bg-card shadow-xs space-y-4">
+          <Card className="p-5 rounded-2xl border border-border/80 bg-card shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -843,7 +843,7 @@ export default function DashboardOverviewPage() {
           </Card>
 
           {/* Recent Student Enrollments Live Stream */}
-          <Card className="shadow-xs border border-border/80 bg-card rounded-3xl overflow-hidden">
+          <Card className="shadow-xs border border-border/80 bg-card rounded-2xl overflow-hidden">
             <CardHeader className="p-5 pb-3 border-b border-border flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-bold text-foreground">

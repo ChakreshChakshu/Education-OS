@@ -10,6 +10,7 @@ import CoreArchitectureMarquee from "@/components/core-architecture-marquee";
 import ComparisonSection from "@/components/comparison-section";
 import RapidOnboardingTimeline from "@/components/rapid-onboarding-timeline";
 import InteractiveSpotlightBento from "@/components/interactive-spotlight-bento";
+import Pricing5Demo from "@/components/ui/pricing-5";
 import SiteFooter from "@/components/site-footer";
 import {
   GraduationCap,
@@ -64,6 +65,7 @@ export default function Home() {
               <a href="#overview" className="hover:text-foreground transition-colors">Overview</a>
               <a href="#features" className="hover:text-foreground transition-colors">Pillars</a>
               <a href="#architecture" className="hover:text-foreground transition-colors">Architecture</a>
+              <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
               <a href="#setup" className="hover:text-foreground transition-colors">Setup</a>
             </nav>
           </div>
@@ -165,7 +167,12 @@ export default function Home() {
         {/* Section 4: Rapid Onboarding Delivery Framework */}
         <RapidOnboardingTimeline />
 
-        {/* Section 5: High-Impact Callout */}
+        {/* Section 5: Pricing Plans */}
+        <section id="pricing" className="border-t border-border overflow-hidden">
+          <Pricing5Demo />
+        </section>
+
+        {/* Section 6: High-Impact Callout */}
         <section className="py-20 border-t border-border bg-gradient-to-b from-card to-background">
           <div className="max-w-4xl mx-auto px-6 text-center space-y-6">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">

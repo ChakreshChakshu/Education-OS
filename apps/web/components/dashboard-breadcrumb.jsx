@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { TenantLogo } from "@/components/ui/tenant-logo";
+import { SquaresFour } from "@phosphor-icons/react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -65,24 +65,20 @@ export function DashboardBreadcrumb({ tenant, pathname }) {
   return (
     <Breadcrumb className="text-xs">
       <BreadcrumbList className="flex items-center gap-2">
-        {/* Root Institution Item */}
+        {/* Root Dashboard Anchor */}
         <BreadcrumbItem>
           {isRoot ? (
-            <div className="flex items-center gap-2 font-bold text-foreground">
-              <TenantLogo tenant={tenant} size="xs" />
-              <span className="truncate max-w-[150px] sm:max-w-[220px]">
-                {tenant?.name || "Education OS"}
-              </span>
+            <div className="flex items-center gap-1.5 font-bold text-foreground">
+              <SquaresFour size={14} weight="bold" className="text-primary shrink-0" />
+              <span>Dashboard</span>
             </div>
           ) : (
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 font-medium text-muted-foreground hover:text-foreground transition-colors group"
+              className="flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground transition-colors group"
             >
-              <TenantLogo tenant={tenant} size="xs" />
-              <span className="truncate max-w-[120px] sm:max-w-[180px] group-hover:text-foreground">
-                {tenant?.name || "Education OS"}
-              </span>
+              <SquaresFour size={14} weight="bold" className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              <span className="group-hover:text-foreground">Dashboard</span>
             </Link>
           )}
         </BreadcrumbItem>

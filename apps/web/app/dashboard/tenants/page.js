@@ -136,7 +136,7 @@ export default function TenantsPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
@@ -164,7 +164,7 @@ export default function TenantsPage() {
 
       {/* Active Context Banner */}
       {authLoading && !activeTenant ? (
-        <Card className="p-6 md:p-7 border border-border/80 bg-card rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xs">
+        <Card className="p-6 md:p-7 border border-border/80 bg-card rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xs">
           <div className="flex items-center gap-5 w-full">
             <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
             <div className="space-y-2 flex-1 min-w-0">
@@ -179,7 +179,7 @@ export default function TenantsPage() {
           <Skeleton className="h-10 w-44 rounded-xl shrink-0" />
         </Card>
       ) : activeTenant && (
-        <Card className="p-6 md:p-7 border border-primary/40 bg-gradient-to-r from-card via-card to-primary/5 rounded-3xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 shadow-xs">
+        <Card className="p-6 md:p-7 border border-primary/40 bg-gradient-to-r from-card via-card to-primary/5 rounded-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 shadow-xs">
           <div className="flex items-center gap-5 min-w-0">
             <TenantLogo tenant={activeTenant} size="xl" showBadge />
             <div className="space-y-1.5 min-w-0">
@@ -239,7 +239,7 @@ export default function TenantsPage() {
         {authLoading && !uniqueTenants.length ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="p-5 rounded-3xl border-border/70 bg-card shadow-xs space-y-4">
+              <Card key={i} className="p-5 rounded-2xl border-border/70 bg-card shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <Skeleton className="h-5 w-28 rounded-full" />
                   <Skeleton className="h-4 w-16 rounded" />
@@ -269,7 +269,7 @@ export default function TenantsPage() {
             return (
               <Card 
                 key={t.id} 
-                className={`p-5 rounded-3xl transition-all shadow-xs flex flex-col justify-between ${
+                className={`p-5 rounded-2xl transition-all shadow-xs flex flex-col justify-between ${
                   isActive ? "border-primary/80 ring-2 ring-primary/20 bg-card" : "border-border/70 hover:border-primary/40 bg-card"
                 }`}
               >
@@ -347,7 +347,7 @@ export default function TenantsPage() {
       {/* Provision Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <Card className="w-full max-w-xl bg-card border border-border shadow-2xl rounded-3xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-xl bg-card border border-border shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between border-b border-border p-6 pb-4">
               <div>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">

@@ -365,7 +365,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
@@ -428,7 +428,7 @@ export default function SettingsPage() {
         {/* TAB 1: Profile & Account */}
         <TabsContent value="profile">
           <form onSubmit={handleProfileSubmit}>
-            <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
+            <Card className="border border-border/80 bg-card rounded-2xl shadow-xs overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <User size={18} className="text-primary" />
@@ -547,7 +547,7 @@ export default function SettingsPage() {
         {/* TAB 2: Security & Credentials */}
         <TabsContent value="security">
           <form onSubmit={handlePasswordSubmit}>
-            <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
+            <Card className="border border-border/80 bg-card rounded-2xl shadow-xs overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <ShieldCheck size={18} className="text-primary" />
@@ -633,7 +633,7 @@ export default function SettingsPage() {
                   {/* Form inputs column (7 cols) */}
                   <div className="lg:col-span-7 space-y-6">
                     {/* Card 1: Campus Identity & Operations */}
-                    <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
+                    <Card className="border border-border/80 bg-card rounded-2xl shadow-xs overflow-hidden">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                           <Buildings size={20} className="text-primary" />
@@ -709,7 +709,7 @@ export default function SettingsPage() {
                     </Card>
 
                     {/* Card 2: Visual Branding & Assets */}
-                    <Card className="border border-border/80 bg-card rounded-3xl shadow-xs overflow-hidden">
+                    <Card className="border border-border/80 bg-card rounded-2xl shadow-xs overflow-hidden">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                           <Palette size={20} className="text-primary" />
@@ -879,7 +879,7 @@ export default function SettingsPage() {
 
                   {/* Live Preview Column (5 cols) */}
                   <div className="lg:col-span-5 space-y-6">
-                    <div className="p-6 rounded-3xl bg-card border border-border/80 shadow-xs space-y-5 sticky top-6">
+                    <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-5 sticky top-6">
                       <div className="flex items-center justify-between pb-3 border-b border-border">
                         <div className="flex items-center gap-2">
                           <Sparkle size={18} className="text-primary" />

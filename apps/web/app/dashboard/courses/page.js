@@ -345,7 +345,7 @@ function CoursesContent() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-3xl border border-border/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 md:p-8 rounded-2xl border border-border/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Badge variant="outline" className="text-[10px] font-mono font-bold border-primary/40 text-primary bg-primary/5 uppercase">
@@ -432,7 +432,7 @@ function CoursesContent() {
       {dataLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="overflow-hidden flex flex-col justify-between border border-border/80 bg-card rounded-3xl shadow-xs">
+            <Card key={i} className="overflow-hidden flex flex-col justify-between border border-border/80 bg-card rounded-2xl shadow-xs">
               <div>
                 <Skeleton className="h-40 w-full rounded-none" />
                 <div className="p-5 space-y-4">
@@ -458,7 +458,7 @@ function CoursesContent() {
           ))}
         </div>
       ) : filteredCourses.length === 0 ? (
-        <Card className="p-16 text-center flex flex-col items-center justify-center space-y-4 border-dashed border-2 border-border/80 rounded-3xl bg-card/40">
+        <Card className="p-16 text-center flex flex-col items-center justify-center space-y-4 border-dashed border-2 border-border/80 rounded-2xl bg-card/40">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
             <BookBookmark size={36} weight="bold" />
           </div>
@@ -492,7 +492,7 @@ function CoursesContent() {
             return (
               <Card 
                 key={course.id} 
-                className={`overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-md transition-all duration-200 border border-border/80 group bg-card rounded-3xl ${
+                className={`overflow-hidden flex flex-col justify-between hover:border-primary/50 hover:shadow-md transition-all duration-200 border border-border/80 group bg-card rounded-2xl ${
                   course.id === highlightCourseId ? "ring-2 ring-emerald-500 shadow-xl shadow-emerald-500/20 border-emerald-500/60" : ""
                 }`}
               >
