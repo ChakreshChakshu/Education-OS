@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TenantLogo } from "@/components/ui/tenant-logo";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { MobileAppBanner } from "@/components/dashboard/mobile-app-banner";
+import { CommandPalette } from "@/components/dashboard/command-palette";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -35,7 +36,8 @@ import {
   Gear,
   ArrowUpRight,
   Globe,
-  Check
+  Check,
+  MagnifyingGlass
 } from "@phosphor-icons/react";
 
 export default function DashboardLayout({ children }) {
@@ -45,6 +47,7 @@ export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDark, setIsDark] = useState(true);
   const [portalMode, setPortalMode] = useState("ADMIN");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -353,9 +356,32 @@ export default function DashboardLayout({ children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navbar */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
-          <DashboardBreadcrumb tenant={activeTenant} pathname={pathname} />
+          <div className="flex items-center gap-4 min-w-0">
+            <DashboardBreadcrumb tenant={activeTenant} pathname={pathname} />
+
+            {/* Global Command Palette Trigger Button */}
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/80 bg-background hover:bg-muted/60 text-muted-foreground hover:text-foreground text-xs font-medium transition-all shadow-2xs cursor-pointer group"
+              title="Quick Search & Actions (⌘K)"
+            >
+              <MagnifyingGlass size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
+              <span>Search or jump to...</span>
+              <kbd className="inline-flex items-center font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border font-semibold text-muted-foreground">
+                ⌘K
+              </kbd>
+            </button>
+          </div>
 
           <div className="flex items-center gap-3">
+            {/* Mobile Command Palette Button */}
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground rounded-xl border border-border hover:bg-accent transition-colors cursor-pointer bg-card shadow-2xs"
+              title="Quick Search & Actions (⌘K)"
+            >
+              <MagnifyingGlass size={18} />
+            </button>
             {/* Direct Link to Tenant's Public Course Website */}
             <Link
               href={`/t/${activeTenant?.slug || 'apex-main'}/courses`}
@@ -416,6 +442,9 @@ export default function DashboardLayout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Global Command Palette Dialog */}
+      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </div>
   );
 }

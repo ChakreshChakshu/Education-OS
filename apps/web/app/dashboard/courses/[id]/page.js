@@ -24,7 +24,12 @@ import {
   Pencil,
   BookBookmark,
   Hourglass,
-  PlayCircle
+  PlayCircle,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  Check,
+  Sparkle
 } from "@phosphor-icons/react";
 
 export default function CourseDetailPage({ params: paramsPromise }) {
@@ -54,6 +59,8 @@ export default function CourseDetailPage({ params: paramsPromise }) {
   const [correctOpt, setCorrectOpt] = useState("A");
   const [hlsUrl, setHlsUrl] = useState("");
   const [courseProgress, setCourseProgress] = useState({ completedLessonIds: [], progressPercent: 0, completedCount: 0 });
+  const [previewLesson, setPreviewLesson] = useState(null);
+  const [quizTestSelected, setQuizTestSelected] = useState(null);
 
   useEffect(() => {
     async function loadCourseData() {
@@ -184,6 +191,28 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       setModules(modules.filter(m => m.id !== moduleId));
     } finally {
       setIsDeleting(null);
+    }
+  };
+
+  const handleMoveModule = async (index, direction) => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= modules.length) return;
+
+    const updated = [...modules];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+
+    // Update order numbers
+    const reordered = updated.map((m, idx) => ({ ...m, order: idx + 1 }));
+    setModules(reordered);
+
+    // Save order changes
+    try {
+      await ApiClient.updateCourseModule(courseId, temp.id, { order: targetIndex + 1 });
+      await ApiClient.updateCourseModule(courseId, updated[index].id, { order: index + 1 });
+    } catch (e) {
+      console.warn("Could not persist module reordering:", e);
     }
   };
 
@@ -414,70 +443,131 @@ export default function CourseDetailPage({ params: paramsPromise }) {
               </div>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {modules.map((mod, idx) => (
-                <Card key={mod.id} className="hover:border-primary/50 transition-colors p-2">
-                  <CardContent className="p-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-extrabold text-base">
-                        #{idx + 1}
-                      </div>
+            <div className="space-y-4">
+              {/* Curriculum Outline Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-border bg-card/60 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Curriculum Outline</span>
+                  <Badge variant="outline" className="text-[10px] font-mono">{modules.length} Lessons</Badge>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button onClick={() => setModalType("VIDEO")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
+                    <Plus size={13} weight="bold" /> Add Video
+                  </Button>
+                  <Button onClick={() => setModalType("DOCUMENT")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
+                    <Plus size={13} weight="bold" /> Add Reading
+                  </Button>
+                  <Button onClick={() => setModalType("QUIZ")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
+                    <Plus size={13} weight="bold" /> Add Quiz
+                  </Button>
+                </div>
+              </div>
 
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs font-mono font-bold uppercase gap-1">
-                            {mod.contentType === "VIDEO" && <Video size={14} />}
-                            {mod.contentType === "DOCUMENT" && <FileText size={14} />}
-                            {mod.contentType === "QUIZ" && <CheckSquare size={14} />}
-                            {mod.contentType}
-                          </Badge>
-                          <span className="text-base font-bold text-foreground">{mod.title}</span>
+              {/* Module Tree Items */}
+              <div className="space-y-3">
+                {modules.map((mod, idx) => (
+                  <Card key={mod.id} className="hover:border-primary/50 transition-colors p-2 shadow-2xs rounded-xl">
+                    <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        {/* Order Controls */}
+                        <div className="flex flex-col gap-0.5 shrink-0 pt-0.5 sm:pt-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveModule(idx, "up")}
+                            title="Move up"
+                          >
+                            <ArrowUp size={12} weight="bold" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                            disabled={idx === modules.length - 1}
+                            onClick={() => handleMoveModule(idx, "down")}
+                            title="Move down"
+                          >
+                            <ArrowDown size={12} weight="bold" />
+                          </Button>
                         </div>
 
-                        {mod.contentUrl && (
-                          <p className="text-xs font-mono text-muted-foreground truncate max-w-md">
-                            Source: {mod.contentUrl}
-                          </p>
-                        )}
+                        {/* Number Badge */}
+                        <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 font-extrabold text-sm">
+                          #{idx + 1}
+                        </div>
 
-                        {mod.quiz && (
-                          <div className="mt-1 text-xs text-muted-foreground font-medium">
-                            Question: <strong>{mod.quiz.question}</strong>
+                        {/* Module Info */}
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-[10px] font-mono font-bold uppercase gap-1 py-0">
+                              {mod.contentType === "VIDEO" && <Video size={13} />}
+                              {mod.contentType === "DOCUMENT" && <FileText size={13} />}
+                              {mod.contentType === "QUIZ" && <CheckSquare size={13} />}
+                              {mod.contentType}
+                            </Badge>
+                            <span className="text-sm font-bold text-foreground truncate">{mod.title}</span>
                           </div>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link href={`/dashboard/courses/${courseId}/lesson/${mod.id}`}>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 text-xs border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-primary">
-                          <PlayCircle size={16} weight="bold" />
-                          <span>Enter Lesson</span>
+                          {mod.contentUrl && mod.contentUrl !== "#" && (
+                            <p className="text-xs font-mono text-muted-foreground truncate max-w-sm sm:max-w-md">
+                              Source: {mod.contentUrl}
+                            </p>
+                          )}
+
+                          {mod.quiz && (
+                            <div className="text-xs text-muted-foreground font-medium truncate max-w-md">
+                              Question: <strong>{mod.quiz.question}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="gap-1.5 font-bold h-8.5 text-xs rounded-lg cursor-pointer"
+                          onClick={() => {
+                            setPreviewLesson(mod);
+                            setQuizTestSelected(null);
+                          }}
+                        >
+                          <Eye size={14} weight="bold" />
+                          <span>Preview</span>
                         </Button>
-                      </Link>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-9 w-9 p-0 hover:bg-muted"
-                        onClick={() => handleOpenEditModule(mod)}
-                        title="Edit module"
-                      >
-                        <Pencil size={18} />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-9 w-9 p-0 text-destructive hover:bg-destructive/10"
-                        disabled={isDeleting === mod.id}
-                        onClick={() => handleDeleteModule(mod.id)}
-                        title="Delete module"
-                      >
-                        <Trash size={18} />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <Link href={`/dashboard/courses/${courseId}/lesson/${mod.id}`}>
+                          <Button size="sm" variant="outline" className="gap-1.5 font-bold h-8.5 text-xs rounded-lg border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-primary cursor-pointer">
+                            <PlayCircle size={15} weight="bold" />
+                            <span className="hidden sm:inline">Enter Classroom</span>
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8.5 w-8.5 p-0 hover:bg-muted rounded-lg cursor-pointer"
+                          onClick={() => handleOpenEditModule(mod)}
+                          title="Edit module"
+                        >
+                          <Pencil size={16} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8.5 w-8.5 p-0 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                          disabled={isDeleting === mod.id}
+                          onClick={() => handleDeleteModule(mod.id)}
+                          title="Delete module"
+                        >
+                          <Trash size={16} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -637,6 +727,157 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                 <Button type="submit" size="lg" className="font-bold">{editingModuleId ? "Save Changes" : "Save Module"}</Button>
               </div>
             </form>
+          </Card>
+        </div>
+      )}
+
+      {/* FAST LESSON PREVIEW MODAL */}
+      {previewLesson && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <Card className="w-full max-w-2xl bg-card border-border shadow-2xl rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border p-5 bg-muted/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <Badge variant="secondary" className="text-xs font-mono font-bold uppercase gap-1 shrink-0">
+                  {previewLesson.contentType === "VIDEO" && <Video size={14} />}
+                  {previewLesson.contentType === "DOCUMENT" && <FileText size={14} />}
+                  {previewLesson.contentType === "QUIZ" && <CheckSquare size={14} />}
+                  {previewLesson.contentType}
+                </Badge>
+                <CardTitle className="text-base sm:text-lg font-bold truncate">
+                  {previewLesson.title}
+                </CardTitle>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                onClick={() => {
+                  setPreviewLesson(null);
+                  setQuizTestSelected(null);
+                }}
+              >
+                <X size={18} />
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* VIDEO PREVIEW */}
+              {previewLesson.contentType === "VIDEO" && (
+                <div className="space-y-3">
+                  <div className="rounded-xl overflow-hidden bg-black border border-border shadow-xs">
+                    {previewLesson.contentUrl && previewLesson.contentUrl !== "#" ? (
+                      <video
+                        src={previewLesson.contentUrl}
+                        controls
+                        className="w-full max-h-72 object-contain bg-black"
+                      />
+                    ) : (
+                      <div className="p-12 text-center text-muted-foreground space-y-2">
+                        <Video size={40} className="mx-auto text-primary/60" />
+                        <p className="text-xs font-medium">No direct video source stream configured.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-muted/40 p-2.5 rounded-xl border border-border">
+                    <span className="truncate max-w-md">Source: {previewLesson.contentUrl || "Internal storage"}</span>
+                    <span className="font-bold text-foreground shrink-0">Order #{previewLesson.order || 1}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* DOCUMENT PREVIEW */}
+              {previewLesson.contentType === "DOCUMENT" && (
+                <div className="p-8 text-center space-y-4 border border-border/80 rounded-xl bg-muted/20">
+                  <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center mx-auto">
+                    <FileText size={32} weight="bold" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-base font-bold text-foreground">{previewLesson.title}</h4>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      PDF Reading assignment and lecture handout notes.
+                    </p>
+                  </div>
+                  {previewLesson.contentUrl && previewLesson.contentUrl !== "#" && (
+                    <a
+                      href={previewLesson.contentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                    >
+                      Open Document in New Tab ↗
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* QUIZ PREVIEW */}
+              {previewLesson.contentType === "QUIZ" && (
+                <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-mono uppercase text-muted-foreground font-bold">Interactive Quiz Check Preview</span>
+                    <h4 className="text-sm font-bold text-foreground">
+                      {previewLesson.quiz?.question || "Sample Knowledge Verification Question"}
+                    </h4>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(previewLesson.quiz?.options || [
+                      { key: "A", text: "First architectural answer option" },
+                      { key: "B", text: "Alternative option B" },
+                      { key: "C", text: "Option C" },
+                      { key: "D", text: "Option D" }
+                    ]).map((opt) => {
+                      const isSelected = quizTestSelected === opt.key;
+                      const isCorrect = previewLesson.quiz?.correct === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setQuizTestSelected(opt.key)}
+                          className={`w-full p-3 rounded-xl border text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected
+                              ? isCorrect
+                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                                : "border-destructive bg-destructive/10 text-destructive"
+                              : "border-border hover:border-primary/50 bg-background text-foreground"
+                          }`}
+                        >
+                          <span><strong>{opt.key}.</strong> {opt.text}</span>
+                          {isSelected && (
+                            <span className="text-[11px] font-bold">
+                              {isCorrect ? "✓ Correct Answer" : "✗ Incorrect"}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+
+            <div className="flex items-center justify-between p-4 px-5 border-t border-border bg-muted/20">
+              <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Instructor Fast Lesson Preview</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <Link href={`/dashboard/courses/${courseId}/lesson/${previewLesson.id}`}>
+                  <Button size="sm" className="gap-1.5 text-xs font-bold rounded-xl cursor-pointer">
+                    <PlayCircle size={16} weight="bold" />
+                    <span>Full Classroom</span>
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-bold rounded-xl cursor-pointer"
+                  onClick={() => {
+                    setPreviewLesson(null);
+                    setQuizTestSelected(null);
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}
