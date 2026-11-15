@@ -1,8 +1,5 @@
 
-function isDevAuthBypassEnabled() {
-  return (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') &&
-    process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
-}
+const { isDevAuthBypassEnabled } = require('./tenantScope');
 
 const DEV_BYPASS_USER = {
   userId: '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8',
@@ -35,7 +32,6 @@ async function authenticateJWT(request, reply) {
     });
   }
 
-  // If token is dev/mock token, allow only with explicit opt-in
   if (isDevAuthBypassEnabled() && (token === 'dev-token' || token.startsWith('mock_token_') || token.startsWith('mock-jwt-token'))) {
     request.user = DEV_BYPASS_USER;
     return;

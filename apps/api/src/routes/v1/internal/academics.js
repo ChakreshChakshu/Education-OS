@@ -1,13 +1,36 @@
 const { randomUUID } = require('crypto');
 const { authorize } = require('../../../middleware/authorize');
+const {
+  requireTenant,
+  checkPermission,
+  assertPermission,
+  getUserId,
+  isDevAuthBypassEnabled
+} = require('../../../middleware/tenantScope');
 
 async function academicsRoutes(fastify, options) {
   const container = options.container;
 
-  // List Courses Route
-  fastify.get('/courses', async (request, reply) => {
+  const assertSameTenant = (request, reply, resourceTenantId) => {
+    if (isDevAuthBypassEnabled() || !request.tenantId) {
+      return true;
+    }
+    if (resourceTenantId && resourceTenantId !== request.tenantId) {
+      reply.status(404).send({ success: false, error: 'Resource not found' });
+      return false;
+    }
+    return true;
+  };
+
+  fastify.get('/courses', { preHandler: authorize('course.read') }, async (request, reply) => {
     const courseRepo = container.resolve('CourseRepository');
-    const tenantId = request.headers['x-tenant-id'] || request.query.tenantId;
+    const tenantId = request.tenantId;
+    if (!tenantId && !isDevAuthBypassEnabled()) {
+      return reply.status(400).send({
+        success: false,
+        error: 'No active tenant workspace found for this account.'
+      });
+    }
     const courses = await courseRepo.findByTenantId(tenantId);
     return reply.send({
       success: true,
@@ -34,8 +57,7 @@ async function academicsRoutes(fastify, options) {
 
   const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-  // Get Single Course Detail Route
-  fastify.get('/courses/:id', async (request, reply) => {
+  fastify.get('/courses/:id', { preHandler: authorize('course.read') }, async (request, reply) => {
     if (!isUuid(request.params.id)) {
       return reply.status(404).send({ success: false, error: 'Course not found' });
     }
@@ -43,6 +65,9 @@ async function academicsRoutes(fastify, options) {
     const course = await courseRepo.findById(request.params.id);
     if (!course) {
       return reply.status(404).send({ success: false, error: 'Course not found' });
+    }
+    if (!assertSameTenant(request, reply, course.tenantId)) {
+      return;
     }
     return reply.send({
       success: true,
@@ -67,7 +92,6 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Create Course Route
   fastify.post(
     '/courses',
     {
@@ -94,20 +118,11 @@ async function academicsRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      let tenantId = request.body.tenantId;
-      if (!isUuid(tenantId)) {
-        tenantId = request.headers['x-tenant-id'];
-      }
-      if (!isUuid(tenantId)) {
-        const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
-        const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
-          request.user?.userId || request.user?.sub
-        );
-        if (userTenants && userTenants.length > 0) {
-          tenantId = userTenants[0].tenantId;
-        }
+      if (!requireTenant(request, reply)) {
+        return;
       }
 
+      const tenantId = request.tenantId;
       if (!isUuid(tenantId)) {
         return reply.status(400).send({
           success: false,
@@ -142,10 +157,17 @@ async function academicsRoutes(fastify, options) {
     }
   );
 
-  // List Modules for Course Route
-  fastify.get('/courses/:id/modules', async (request, reply) => {
+  fastify.get('/courses/:id/modules', { preHandler: authorize('course.read') }, async (request, reply) => {
     if (!isUuid(request.params.id)) {
       return reply.send({ success: true, data: [] });
+    }
+    const courseRepo = container.resolve('CourseRepository');
+    const course = await courseRepo.findById(request.params.id);
+    if (!course) {
+      return reply.status(404).send({ success: false, error: 'Course not found' });
+    }
+    if (!assertSameTenant(request, reply, course.tenantId)) {
+      return;
     }
     const moduleRepo = container.resolve('LessonModuleRepository');
     const modules = await moduleRepo.findByCourseId(request.params.id);
@@ -174,8 +196,7 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Create Module for Course Route
-  fastify.post('/courses/:id/modules', async (request, reply) => {
+  fastify.post('/courses/:id/modules', { preHandler: authorize('lesson.publish') }, async (request, reply) => {
     const moduleRepo = container.resolve('LessonModuleRepository');
     const courseRepo = container.resolve('CourseRepository');
     const { title, contentType, contentUrl, hlsUrl, order, quiz } = request.body || {};
@@ -183,6 +204,9 @@ async function academicsRoutes(fastify, options) {
     const course = await courseRepo.findById(request.params.id);
     if (!course) {
       return reply.status(404).send({ success: false, error: 'Cannot create module for non-existent course' });
+    }
+    if (!assertSameTenant(request, reply, course.tenantId)) {
+      return;
     }
 
     const moduleId = randomUUID();
@@ -210,15 +234,20 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Update Module for Course Route
-  fastify.put('/courses/:id/modules/:moduleId', async (request, reply) => {
+  fastify.put('/courses/:id/modules/:moduleId', { preHandler: authorize('lesson.publish') }, async (request, reply) => {
     const moduleRepo = container.resolve('LessonModuleRepository');
+    const courseRepo = container.resolve('CourseRepository');
     const { moduleId, id: courseId } = request.params;
     const { title, contentType, contentUrl, hlsUrl, order, quiz, status } = request.body || {};
 
     const existing = await moduleRepo.findById(moduleId);
-    if (!existing) {
+    if (!existing || existing.courseId !== courseId) {
       return reply.status(404).send({ success: false, error: 'Lesson module not found' });
+    }
+
+    const course = await courseRepo.findById(courseId);
+    if (!course || !assertSameTenant(request, reply, course.tenantId)) {
+      return;
     }
 
     const updatedModule = {
@@ -245,14 +274,19 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Delete Module for Course Route
-  fastify.delete('/courses/:id/modules/:moduleId', async (request, reply) => {
+  fastify.delete('/courses/:id/modules/:moduleId', { preHandler: authorize('lesson.publish') }, async (request, reply) => {
     const moduleRepo = container.resolve('LessonModuleRepository');
-    const { moduleId } = request.params;
+    const courseRepo = container.resolve('CourseRepository');
+    const { moduleId, id: courseId } = request.params;
 
     const existing = await moduleRepo.findById(moduleId);
-    if (!existing) {
+    if (!existing || existing.courseId !== courseId) {
       return reply.status(404).send({ success: false, error: 'Lesson module not found' });
+    }
+
+    const course = await courseRepo.findById(courseId);
+    if (!course || !assertSameTenant(request, reply, course.tenantId)) {
+      return;
     }
 
     await moduleRepo.delete(moduleId);
@@ -263,10 +297,19 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // List Batches Route
-  fastify.get('/batches', async (request, reply) => {
+  fastify.get('/batches', { preHandler: authorize('course.read') }, async (request, reply) => {
     const batchRepo = container.resolve('BatchRepository');
+    const courseRepo = container.resolve('CourseRepository');
     const courseId = request.query.courseId;
+    if (courseId) {
+      const course = await courseRepo.findById(courseId);
+      if (!course) {
+        return reply.status(404).send({ success: false, error: 'Course not found' });
+      }
+      if (!assertSameTenant(request, reply, course.tenantId)) {
+        return;
+      }
+    }
     const batches = courseId ? await batchRepo.findByCourseId(courseId) : [];
     return reply.send({
       success: true,
@@ -281,10 +324,10 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Create Batch Route
   fastify.post(
     '/batches',
     {
+      preHandler: authorize('lesson.publish'),
       schema: {
         body: {
           type: 'object',
@@ -299,6 +342,18 @@ async function academicsRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      if (!requireTenant(request, reply)) {
+        return;
+      }
+      const courseRepo = container.resolve('CourseRepository');
+      const course = await courseRepo.findById(request.body.courseId);
+      if (!course) {
+        return reply.status(404).send({ success: false, error: 'Course not found' });
+      }
+      if (!assertSameTenant(request, reply, course.tenantId)) {
+        return;
+      }
+
       const useCase = container.resolve('CreateBatchUseCase');
       const result = await useCase.execute(request.body);
       if (result.isFailure) {
@@ -308,10 +363,22 @@ async function academicsRoutes(fastify, options) {
     }
   );
 
-  // List Enrollments for Tenant / Filtered
-  fastify.get('/enrollments', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] || request.query.tenantId || '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
-    const { courseId, batchId, status, search, studentUserId } = request.query;
+  fastify.get('/enrollments', { preHandler: authorize('course.read') }, async (request, reply) => {
+    if (!requireTenant(request, reply)) {
+      return;
+    }
+
+    const tenantId = request.tenantId;
+    const { courseId, batchId, status, search } = request.query;
+    let { studentUserId } = request.query;
+
+    const canManageEnrollments = await checkPermission(request, 'course.update');
+    if (!canManageEnrollments) {
+      studentUserId = getUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+    }
 
     const useCase = container.resolve('GetTenantEnrollmentsUseCase');
     const result = await useCase.execute({
@@ -349,7 +416,6 @@ async function academicsRoutes(fastify, options) {
     });
   });
 
-  // Enroll Student in Course / Batch
   fastify.post(
     '/enrollments',
     {
@@ -370,18 +436,37 @@ async function academicsRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const tenantId =
-        request.body.tenantId ||
-        request.headers['x-tenant-id'] ||
-        request.user?.tenantId ||
-        '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      if (!requireTenant(request, reply)) {
+        return;
+      }
 
-      // Only fallback to logged-in user if neither studentUserId NOR studentEmail was provided (self-enrollment)
+      const tenantId = request.tenantId;
+
       const isSelfEnrollment = !request.body.studentUserId && !request.body.studentEmail;
 
-      const studentUserId = request.body.studentUserId || (isSelfEnrollment ? (request.user?.userId || request.user?.id) : null);
+      if (!isSelfEnrollment) {
+        if (!(await assertPermission(request, reply, 'course.update'))) {
+          return;
+        }
+      }
+
+      const callerUserId = getUserId(request);
+      const studentUserId = isSelfEnrollment ? callerUserId : request.body.studentUserId;
       const studentEmail = request.body.studentEmail || (isSelfEnrollment ? request.user?.email : null);
       const studentName = request.body.studentName || (isSelfEnrollment ? request.user?.name : null);
+
+      if (isSelfEnrollment && !studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+
+      const courseRepo = container.resolve('CourseRepository');
+      const course = await courseRepo.findById(request.body.courseId);
+      if (!course) {
+        return reply.status(404).send({ success: false, error: 'Course not found' });
+      }
+      if (!assertSameTenant(request, reply, course.tenantId)) {
+        return;
+      }
 
       const useCase = container.resolve('EnrollStudentUseCase');
       const result = await useCase.execute({
@@ -400,11 +485,8 @@ async function academicsRoutes(fastify, options) {
 
       const enrollmentData = result.getValue();
 
-      // Emit outbox event to dispatch transactional email via background worker
       try {
         const outboxRepo = container.resolve('OutboxRepository');
-        const courseRepo = container.resolve('CourseRepository');
-        const course = await courseRepo.findById(request.body.courseId);
         const studentObj = enrollmentData.student || {};
 
         await outboxRepo.create({
@@ -436,10 +518,10 @@ async function academicsRoutes(fastify, options) {
     }
   );
 
-  // Update Enrollment Status or Cohort Batch
   fastify.patch(
     '/enrollments/:id',
     {
+      preHandler: authorize('course.update'),
       schema: {
         params: {
           type: 'object',
@@ -457,6 +539,18 @@ async function academicsRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      if (!requireTenant(request, reply)) {
+        return;
+      }
+      const enrollmentRepo = container.resolve('EnrollmentRepository');
+      const existing = await enrollmentRepo.findById(request.params.id);
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'Enrollment not found' });
+      }
+      if (!assertSameTenant(request, reply, existing.tenantId)) {
+        return;
+      }
+
       const useCase = container.resolve('UpdateEnrollmentStatusUseCase');
       const result = await useCase.execute({
         enrollmentId: request.params.id,
@@ -476,10 +570,10 @@ async function academicsRoutes(fastify, options) {
     }
   );
 
-  // Delete Enrollment (Remove student from course cohort)
   fastify.delete(
     '/enrollments/:id',
     {
+      preHandler: authorize('course.update'),
       schema: {
         params: {
           type: 'object',
@@ -489,7 +583,17 @@ async function academicsRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      if (!requireTenant(request, reply)) {
+        return;
+      }
       const repo = container.resolve('EnrollmentRepository');
+      const existing = await repo.findById(request.params.id);
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'Enrollment not found' });
+      }
+      if (!assertSameTenant(request, reply, existing.tenantId)) {
+        return;
+      }
       await repo.delete(request.params.id);
       return reply.send({ success: true, message: 'Enrollment deleted successfully' });
     }
