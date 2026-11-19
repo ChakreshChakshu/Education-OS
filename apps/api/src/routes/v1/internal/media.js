@@ -2,12 +2,27 @@ const fs = require('fs');
 const path = require('path');
 
 const crypto = require('crypto');
+const { authorize } = require('../../../middleware/authorize');
+const { requireTenant, isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
 
 async function mediaRoutes(fastify, options) {
   const container = options.container;
 
-  // Direct File Upload Route (Saves to local ./uploads/)
-  fastify.post('/upload', async (request, reply) => {
+  const assertSameTenant = (request, reply, resourceTenantId) => {
+    if (isDevAuthBypassEnabled() || !request.tenantId) {
+      return true;
+    }
+    if (resourceTenantId && resourceTenantId !== request.tenantId) {
+      reply.status(404).send({ success: false, error: 'Media asset not found' });
+      return false;
+    }
+    return true;
+  };
+
+  fastify.post('/upload', { preHandler: authorize('media.upload') }, async (request, reply) => {
+    if (!requireTenant(request, reply)) {
+      return;
+    }
     const { filename, fileData, mimeType } = request.body || {};
 
     if (!filename || !fileData) {
@@ -16,7 +31,6 @@ async function mediaRoutes(fastify, options) {
 
     const safeFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-    // Extract base64 buffer
     const base64Data = fileData.replace(/^data:.*;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
@@ -24,7 +38,6 @@ async function mediaRoutes(fastify, options) {
     const mediaAssetId = crypto.randomUUID();
     const effectiveMimeType = mimeType || (isVideo ? 'video/mp4' : 'application/octet-stream');
 
-    // Direct Cloudflare R2 Upload
     const storageProvider = container.resolve('StorageProvider');
     const uploadResult = await storageProvider.upload(safeFilename, buffer, effectiveMimeType);
     const fileUrl = uploadResult.url;
@@ -41,16 +54,7 @@ async function mediaRoutes(fastify, options) {
 
     const hlsUrl = isVideo ? `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8` : null;
 
-    let tenantId = request.headers['x-tenant-id'];
-    if (!tenantId || tenantId === 'undefined') {
-      try {
-        const dbClient = container.resolve('DatabaseClient');
-        const tRes = await dbClient.query('SELECT id FROM tenants LIMIT 1');
-        tenantId = tRes.rows[0]?.id || crypto.randomUUID();
-      } catch (e) {
-        tenantId = crypto.randomUUID();
-      }
-    }
+    const tenantId = request.tenantId || crypto.randomUUID();
 
     try {
       const dbClient = container.resolve('DatabaseClient');
@@ -103,17 +107,15 @@ async function mediaRoutes(fastify, options) {
     });
   });
 
-  // Get Media Asset Transcode Status Route
-  fastify.get('/status/:id', async (request, reply) => {
+  fastify.get('/status/:id', { preHandler: authorize('media.upload') }, async (request, reply) => {
     const { id } = request.params;
     try {
       const dbClient = container.resolve('DatabaseClient');
       const res = await dbClient.query(
-        'SELECT id, status, filename, hls_manifest_url, created_at, updated_at FROM media_assets WHERE id = $1',
+        'SELECT id, tenant_id, status, filename, hls_manifest_url, created_at, updated_at FROM media_assets WHERE id = $1',
         [id]
       );
       if (!res.rows || res.rows.length === 0) {
-        // Check if HLS master manifest already exists on disk
         const manifestPath = path.join(process.cwd(), 'uploads', 'hls', id, 'master.m3u8');
         if (fs.existsSync(manifestPath)) {
           return reply.send({
@@ -129,6 +131,9 @@ async function mediaRoutes(fastify, options) {
       }
 
       const row = res.rows[0];
+      if (!assertSameTenant(request, reply, row.tenant_id)) {
+        return;
+      }
       return reply.send({
         success: true,
         data: {
@@ -143,10 +148,10 @@ async function mediaRoutes(fastify, options) {
     }
   });
 
-  // Create Presigned Upload URL Route
   fastify.post(
     '/presign',
     {
+      preHandler: authorize('media.upload'),
       schema: {
         body: {
           type: 'object',
@@ -162,8 +167,11 @@ async function mediaRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
+      if (!requireTenant(request, reply)) {
+        return;
+      }
       const useCase = container.resolve('CreatePresignedUploadUrlUseCase');
-      const result = await useCase.execute(request.body);
+      const result = await useCase.execute({ ...request.body, tenantId: request.tenantId });
 
       if (result.isFailure) {
         return reply.status(400).send({
@@ -179,8 +187,10 @@ async function mediaRoutes(fastify, options) {
     }
   );
 
-  // Confirm File Upload Route
-  fastify.post('/confirm', async (request, reply) => {
+  fastify.post('/confirm', { preHandler: authorize('media.upload') }, async (request, reply) => {
+    if (!requireTenant(request, reply)) {
+      return;
+    }
     const useCase = container.resolve('ConfirmMediaUploadUseCase');
     const result = await useCase.execute(request.body);
 
@@ -192,6 +202,9 @@ async function mediaRoutes(fastify, options) {
     }
 
     const media = result.getValue();
+    if (!assertSameTenant(request, reply, media.tenantId)) {
+      return;
+    }
     try {
       const outboxRepo = container.resolve('OutboxRepository');
       await outboxRepo.create({

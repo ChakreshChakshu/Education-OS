@@ -1,23 +1,69 @@
+const { isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
+
+const DEV_BYPASS_STUDENT_ID = '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+
+// Production uses the token identity only; dev bypass still honours client hints.
+function resolveStudentUserId(request, ...devHints) {
+  const tokenUserId =
+    request.user?.userId || request.user?.id || request.user?.sub || null;
+
+  if (!isDevAuthBypassEnabled()) {
+    return tokenUserId;
+  }
+
+  for (const hint of devHints) {
+    if (typeof hint === 'string' && hint.trim()) {
+      return hint;
+    }
+  }
+
+  return tokenUserId || request.headers['x-user-id'] || DEV_BYPASS_STUDENT_ID;
+}
+
+async function assertCourseInTenant(request, reply, container, courseId) {
+  if (isDevAuthBypassEnabled() || !request.tenantId || !courseId) {
+    return true;
+  }
+  const courseRepo = container.resolve('CourseRepository');
+  const course = await courseRepo.findById(courseId);
+  if (!course || course.tenantId !== request.tenantId) {
+    reply.status(404).send({ success: false, error: 'Resource not found' });
+    return false;
+  }
+  return true;
+}
+
+async function assertLessonInTenant(request, reply, container, lessonModuleId) {
+  if (isDevAuthBypassEnabled() || !request.tenantId || !lessonModuleId) {
+    return true;
+  }
+  const moduleRepo = container.resolve('LessonModuleRepository');
+  const lessonModule = await moduleRepo.findById(lessonModuleId);
+  if (!lessonModule) {
+    reply.status(404).send({ success: false, error: 'Resource not found' });
+    return false;
+  }
+  return assertCourseInTenant(request, reply, container, lessonModule.courseId);
+}
+
 async function learningRoutes(fastify, options) {
   const container = options.container;
 
-  // Mark Lesson Complete Route
   fastify.post(
     '/lessons/complete',
     async (request, reply) => {
-      const candidateId =
-        request.body?.studentUserId ||
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'];
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request, request.body?.studentUserId);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const lessonModuleId = request.body?.lessonModuleId;
       if (!lessonModuleId) {
         return reply.status(400).send({ success: false, error: 'lessonModuleId is required' });
+      }
+
+      if (!(await assertLessonInTenant(request, reply, container, lessonModuleId))) {
+        return;
       }
 
       const useCase = container.resolve('MarkLessonCompleteUseCase');
@@ -41,23 +87,21 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Submit Quiz Assessment Route
   fastify.post(
     '/quizzes/submit',
     async (request, reply) => {
-      const candidateId =
-        request.body?.studentUserId ||
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'];
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request, request.body?.studentUserId);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const { lessonModuleId, score, passingScore } = request.body || {};
       if (!lessonModuleId || score === undefined) {
         return reply.status(400).send({ success: false, error: 'lessonModuleId and score are required' });
+      }
+
+      if (!(await assertLessonInTenant(request, reply, container, lessonModuleId))) {
+        return;
       }
 
       const useCase = container.resolve('SubmitQuizUseCase');
@@ -85,7 +129,6 @@ async function learningRoutes(fastify, options) {
             batchId: request.body?.batchId
           });
         } catch (e) {
-          // non-fatal
         }
       }
 
@@ -96,19 +139,17 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Get Student Progress for Course Route
   fastify.get(
     '/courses/:courseId/progress',
     async (request, reply) => {
-      const candidateId =
-        request.query?.studentUserId ||
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'];
+      const studentUserId = resolveStudentUserId(request, request.query?.studentUserId);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      if (!(await assertCourseInTenant(request, reply, container, request.params.courseId))) {
+        return;
+      }
 
       const progressRepo = container.resolve('StudentProgressRepository');
       const moduleRepo = container.resolve('LessonModuleRepository');
@@ -138,7 +179,6 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Get Student Notes for Lesson Route
   fastify.get(
     '/lessons/:lessonId/notes',
     {
@@ -153,15 +193,10 @@ async function learningRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const candidateId =
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'] ||
-        request.query?.studentUserId;
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const useCase = container.resolve('GetLessonNoteUseCase');
       const result = await useCase.execute({
@@ -183,7 +218,6 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Save/Update Student Notes for Lesson Route
   fastify.put(
     '/lessons/:lessonId/notes',
     {
@@ -206,15 +240,10 @@ async function learningRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const candidateId =
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'] ||
-        request.body?.studentUserId;
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const useCase = container.resolve('SaveLessonNoteUseCase');
       const result = await useCase.execute({
@@ -237,7 +266,6 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Get Lesson Bookmarks Route
   fastify.get(
     '/lessons/:lessonId/bookmarks',
     {
@@ -252,15 +280,10 @@ async function learningRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const candidateId =
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'] ||
-        request.query?.studentUserId;
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const useCase = container.resolve('GetLessonBookmarksUseCase');
       const result = await useCase.execute({
@@ -282,7 +305,6 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Create Lesson Bookmark Route
   fastify.post(
     '/lessons/:lessonId/bookmarks',
     {
@@ -306,15 +328,10 @@ async function learningRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const candidateId =
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'] ||
-        request.body?.studentUserId;
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const useCase = container.resolve('CreateLessonBookmarkUseCase');
       const result = await useCase.execute({
@@ -339,7 +356,6 @@ async function learningRoutes(fastify, options) {
     }
   );
 
-  // Delete Lesson Bookmark Route
   fastify.delete(
     '/lessons/:lessonId/bookmarks/:bookmarkId',
     {
@@ -355,14 +371,10 @@ async function learningRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const candidateId =
-        request.user?.userId ||
-        request.user?.id ||
-        request.user?.sub ||
-        request.headers['x-user-id'];
-
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
-      const studentUserId = isUuid ? candidateId : '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
+      const studentUserId = resolveStudentUserId(request);
+      if (!studentUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
 
       const useCase = container.resolve('DeleteLessonBookmarkUseCase');
       const result = await useCase.execute({

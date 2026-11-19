@@ -3,19 +3,25 @@ const learningRoutes = require('./learning');
 const mediaRoutes = require('./media');
 const usersRoutes = require('./users');
 const { authenticateJWT } = require('../../../middleware/auth');
+const { authorize } = require('../../../middleware/authorize');
+const {
+  resolveTenantScope,
+  requireTenant,
+  isDevAuthBypassEnabled
+} = require('../../../middleware/tenantScope');
 
 async function internalRoutes(fastify, options) {
   const container = options.container;
 
-  // Attach container to request context
   fastify.addHook('onRequest', async (request, reply) => {
     request.container = container;
   });
 
-  // Enforce JWT Authentication on all internal endpoints
   fastify.addHook('onRequest', authenticateJWT);
 
-  // Register sub-routers
+  // Raw x-tenant-id is only a hint; it is validated against actual memberships.
+  fastify.addHook('preHandler', resolveTenantScope);
+
   await fastify.register(academicsRoutes, { prefix: '/academics', container });
   await fastify.register(learningRoutes, { prefix: '/learning', container });
   await fastify.register(mediaRoutes, { prefix: '/media', container });
@@ -26,9 +32,6 @@ async function internalRoutes(fastify, options) {
     return healthService.getHealth();
   });
 
-  // Session bootstrap for cookie-based web clients: since access_token is httpOnly,
-  // the frontend can't tell it's logged in by reading a cookie — it calls this on load
-  // instead. A 401 here (via authenticateJWT above) means "not logged in."
   fastify.get('/me', async (request, reply) => {
     const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
     const tenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
@@ -42,26 +45,14 @@ async function internalRoutes(fastify, options) {
     };
   });
 
-  // Get Current Active Tenant Details
   fastify.get('/tenants/current', async (request, reply) => {
+    if (!requireTenant(request, reply)) {
+      return;
+    }
+
     const tenantRepo = container.resolve('TenantRepository');
-    let tenantId = request.headers['x-tenant-id'];
+    const tenant = await tenantRepo.findById(request.tenantId);
 
-    if (!tenantId) {
-      const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
-      const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
-        request.user.userId || request.user.sub
-      );
-      if (userTenants && userTenants.length > 0) {
-        tenantId = userTenants[0].id;
-      }
-    }
-
-    if (!tenantId) {
-      return reply.status(404).send({ success: false, error: 'No active tenant workspace found' });
-    }
-
-    const tenant = await tenantRepo.findById(tenantId);
     if (!tenant) {
       return reply.status(404).send({ success: false, error: 'Tenant not found' });
     }
@@ -79,49 +70,27 @@ async function internalRoutes(fastify, options) {
     };
   });
 
-  // Update Current Active Tenant Settings & Branding
   fastify.route({
     method: ['PATCH', 'PUT'],
     url: '/tenants/current/settings',
+    preHandler: authorize('tenant.manage'),
     schema: {
       body: {
         type: 'object',
         properties: {
-          tenantId: { type: 'string' },
           name: { type: 'string', minLength: 1 },
           settingsJson: { type: 'object' }
         }
       }
     },
     handler: async (request, reply) => {
-      let tenantId = request.body.tenantId || request.headers['x-tenant-id'];
-      const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
-      const userTenants = await roleAssignmentRepository.findTenantsWithRolesForUser(
-        request.user.userId || request.user.sub
-      );
-
-      if (!tenantId) {
-        if (userTenants && userTenants.length > 0) {
-          tenantId = userTenants[0].tenantId || userTenants[0].id;
-        }
-      }
-
-      if (!tenantId) {
-        return reply.status(400).send({ success: false, error: 'Tenant ID is required' });
-      }
-
-      // Authorization check: Students are strictly forbidden from modifying campus branding
-      const currentMembership = userTenants.find((t) => (t.tenantId || t.id) === tenantId);
-      if (currentMembership?.role === 'STUDENT' || request.user?.role === 'STUDENT') {
-        return reply.status(403).send({
-          success: false,
-          error: 'Forbidden: Students do not have permission to modify campus branding or institutional settings.'
-        });
+      if (!requireTenant(request, reply)) {
+        return;
       }
 
       const useCase = container.resolve('UpdateTenantSettingsUseCase');
       const result = await useCase.execute({
-        tenantId,
+        tenantId: request.tenantId,
         name: request.body.name,
         settingsJson: request.body.settingsJson
       });
@@ -140,7 +109,6 @@ async function internalRoutes(fastify, options) {
     }
   });
 
-  // Tenant Provisioning Route
   fastify.post(
     '/tenants',
     {
@@ -159,7 +127,15 @@ async function internalRoutes(fastify, options) {
     },
     async (request, reply) => {
       const useCase = container.resolve('CreateTenantUseCase');
-      const ownerUserId = request.body.ownerUserId || request.user?.userId;
+
+      const callerUserId = request.user?.userId || request.user?.sub;
+      const ownerUserId =
+        (isDevAuthBypassEnabled() && request.body.ownerUserId) || callerUserId;
+
+      if (!ownerUserId) {
+        return reply.status(401).send({ success: false, error: 'Unauthorized: no authenticated user' });
+      }
+
       const result = await useCase.execute({ ...request.body, ownerUserId });
 
       if (result.isFailure) {
