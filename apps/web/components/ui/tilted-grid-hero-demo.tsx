@@ -17,7 +17,7 @@ const IMAGES = [
     alt: "High throughput exam and submission testing",
   },
   {
-    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1200&auto=format&fit=crop",
     alt: "FERPA and GDPR compliant student records",
   },
   {

@@ -4,57 +4,25 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /* ── the curved row ──────────────────────────────────────────────
- * Scroll Tilted Grid turned on its side, with the tilt drawn as a curve.
  * One row of images streams from right to left around the inside of a
  * cylinder. The centre faces you flat, the ends bend toward you so each
  * end image curves along its length, and the ends fade into the page.
  *
- * A CSS box can't bend, so every tile is cut into SLICES vertical strips,
- * each a flat facet of the cylinder showing its share of the image. The
- * strips sit still inside their tile, each turned its own few degrees
- * round the cylinder's axis, and the tile (preserve-3d) is what moves: one
- * rotateY about that same axis carries the whole tile along the arc. A
- * tile is one animation, so its strips can never drift apart or show
- * different images. Only a tile's delay differs, and that sets where on
- * the arc it sits. The band is transform-only on the compositor; the fade
- * is a static mask over it.
- *
- * The only JS is a ResizeObserver that sizes the loop, and a handler that
- * hands a tile its next image each time it wraps, out of sight.
+ * Rendered onto a single DPR-scaled 2D canvas (64 vertical strips per
+ * tile inside a smooth curved rounded-corner clip path) instead of
+ * CSS preserve-3d sibling divs, avoiding Chromium's 3D BSP/compositor
+ * tile seams and flickering lines on the curved edges.
  * ─────────────────────────────────────────────────────────────── */
 
-// Strips per tile. Each is a few degrees of arc, too little to read as a
-// facet; fewer starts to show corners along the top and bottom edges. A
-// tight curve wraps a tile round a wide arc, so it needs this many.
-const SLICES = 16;
+const STRIPS = 64;
+const CAMERA = 1.85;
+const MAX_WIDTH = 55;
+const CORNER_RADIUS = 8;
 
-// Camera distance from the screen, as a multiple of the cylinder's radius.
-// Just past the axis, so the ends come right up to the lens and swell; much
-// further back and the row flattens out however tight the cylinder.
-const CAMERA = 1.6;
-
-/**
- * Cylinder radius, as a share of the hero's width, that puts the frame's
- * edge `bend` radians round the arc as seen through the camera:
- * r·sinθ · CAMERA / (CAMERA − 1 + cosθ) = width / 2, solved for r.
- */
 function arc(bend: number) {
   return (CAMERA - 1 + Math.cos(bend)) / (2 * CAMERA * Math.sin(bend));
 }
 
-// A tile is never wider than this share of the hero, so a phone still
-// shows its neighbours instead of one tile edge to edge.
-const MAX_WIDTH = 55;
-
-/**
- * Lays the loop on the cylinder. The radius puts the frame's edge `bend`
- * radians round the arc (see `arc`). Angles come back in degrees: `unit`
- * is the arc one tile-height spans, `limit` how far round a tile's centre
- * can go before the whole tile is off-screen, and `sweep` how far round
- * the loop's ends sit. The loop reaches past `limit`, so a tile only ever
- * wraps out of sight, and is rounded up to a whole number of tiles so the
- * gap never stretches.
- */
 function measure(
   width: number,
   height: number,
@@ -68,35 +36,159 @@ function measure(
     ((MAX_WIDTH / 100) * width) / aspect,
   );
   const radius = width * arc(bend);
-  if (!(h > 0) || !(radius > 0))
-    return { columns: 2, sweep: 0, unit: 0, limit: 0 };
-  const deg = (rad: number) => (rad * 180) / Math.PI;
-  const unit = deg(h / radius);
+  if (!(h > 0) || !(radius > 0)) {
+    return { h: 0, radius: 0, unit: 0, pitch: 1, limit: 0 };
+  }
+  const unit = h / radius; // radians per tile height
   const pitch = (aspect + gap / 100) * unit;
-  const limit = deg(bend) + (aspect * unit) / 2;
-  // Capped so a hero squeezed to a sliver can't mount thousands of tiles.
-  const columns = Math.min(60, Math.max(2, Math.ceil((2 * limit) / pitch)));
-  const round = (n: number) => +n.toFixed(4);
-  const sweep = round((columns * pitch) / 2);
-  return {
-    columns,
-    sweep,
-    unit: round(unit),
-    limit: round(Math.min(sweep, limit)),
+  const limit = bend + (aspect * unit) / 2;
+  return { h, radius, unit, pitch, limit };
+}
+
+function drawCurvedTile(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement | undefined,
+  thetaCenter: number,
+  tileRad: number,
+  aspectRatio: number,
+  radius: number,
+  h: number,
+  cx: number,
+  cy: number,
+  viewW: number,
+) {
+  const persp = radius * CAMERA;
+  const xs = new Float64Array(STRIPS + 1);
+  const tops = new Float64Array(STRIPS + 1);
+  const bots = new Float64Array(STRIPS + 1);
+  const scales = new Float64Array(STRIPS + 1);
+
+  for (let i = 0; i <= STRIPS; i++) {
+    const u = i / STRIPS;
+    const theta = thetaCenter + (0.5 - u) * tileRad;
+    const z = radius * (1 - Math.cos(theta));
+    if (z >= persp * 0.96) return;
+    const scale = persp / (persp - z);
+    const x = cx - radius * Math.sin(theta) * scale;
+    const halfH = (h / 2) * scale;
+    xs[i] = x;
+    tops[i] = cy - halfH;
+    bots[i] = cy + halfH;
+    scales[i] = scale;
+  }
+
+  const totalW = xs[STRIPS] - xs[0];
+  if (totalW <= 1 || xs[STRIPS] < 0 || xs[0] > viewW) return;
+
+  const rl = Math.min(
+    CORNER_RADIUS * scales[0],
+    totalW * 0.25,
+    (bots[0] - tops[0]) * 0.25,
+  );
+  const rr = Math.min(
+    CORNER_RADIUS * scales[STRIPS],
+    totalW * 0.25,
+    (bots[STRIPS] - tops[STRIPS]) * 0.25,
+  );
+
+  // Sample exact point on top/bottom curve at x = xs[0] + rl or xs[N] - rr
+  const sampleAt = (arr: Float64Array, targetX: number) => {
+    for (let i = 0; i < STRIPS; i++) {
+      if (targetX >= xs[i] && targetX <= xs[i + 1]) {
+        const span = xs[i + 1] - xs[i] || 1;
+        const t = (targetX - xs[i]) / span;
+        return arr[i] + t * (arr[i + 1] - arr[i]);
+      }
+    }
+    return arr[0];
   };
+
+  const xLeftInset = xs[0] + rl;
+  const xRightInset = xs[STRIPS] - rr;
+  const topLeftY = sampleAt(tops, xLeftInset);
+  const topRightY = sampleAt(tops, xRightInset);
+  const botLeftY = sampleAt(bots, xLeftInset);
+  const botRightY = sampleAt(bots, xRightInset);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(xs[0], tops[0] + rl);
+  ctx.quadraticCurveTo(xs[0], tops[0], xLeftInset, topLeftY);
+  for (let i = 1; i < STRIPS; i++) {
+    if (xs[i] > xLeftInset && xs[i] < xRightInset) {
+      ctx.lineTo(xs[i], tops[i]);
+    }
+  }
+  ctx.lineTo(xRightInset, topRightY);
+  ctx.quadraticCurveTo(xs[STRIPS], tops[STRIPS], xs[STRIPS], tops[STRIPS] + rr);
+  ctx.lineTo(xs[STRIPS], bots[STRIPS] - rr);
+  ctx.quadraticCurveTo(xs[STRIPS], bots[STRIPS], xRightInset, botRightY);
+  for (let i = STRIPS - 1; i >= 1; i--) {
+    if (xs[i] > xLeftInset && xs[i] < xRightInset) {
+      ctx.lineTo(xs[i], bots[i]);
+    }
+  }
+  ctx.lineTo(xLeftInset, botLeftY);
+  ctx.quadraticCurveTo(xs[0], bots[0], xs[0], bots[0] - rl);
+  ctx.closePath();
+  ctx.clip();
+
+  if (!img || !img.complete || img.naturalWidth === 0) {
+    ctx.fillStyle = "rgba(128, 128, 128, 0.14)";
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // Object-cover source crop matching tile aspectRatio
+  const natW = img.naturalWidth;
+  const natH = img.naturalHeight;
+  const imgAspect = natW / natH;
+  let sx0 = 0;
+  let sy0 = 0;
+  let sw = natW;
+  let sh = natH;
+  if (imgAspect > aspectRatio) {
+    sw = natH * aspectRatio;
+    sx0 = (natW - sw) / 2;
+  } else {
+    sh = natW / aspectRatio;
+    sy0 = (natH - sh) / 2;
+  }
+
+  const stripSrcW = sw / STRIPS;
+  for (let i = 0; i < STRIPS; i++) {
+    const x0 = xs[i];
+    const x1 = xs[i + 1];
+    if (x1 < 0 || x0 > viewW || x1 <= x0) continue;
+    const yTop = Math.min(tops[i], tops[i + 1]) - 1;
+    const yBot = Math.max(bots[i], bots[i + 1]) + 1;
+    // Slight horizontal overlap (0.75px) prevents subpixel gaps on canvas
+    ctx.drawImage(
+      img,
+      sx0 + i * stripSrcW,
+      sy0,
+      stripSrcW,
+      sh,
+      x0,
+      yTop,
+      x1 - x0 + 0.75,
+      yBot - yTop,
+    );
+  }
+
+  ctx.restore();
 }
 
 export type TiltedGridImage = {
   src: string;
-  /** Only used if you drop the decorative treatment; the band is aria-hidden. */
+  /** Kept for API compatibility; the decorative band is aria-hidden. */
   alt?: string;
 };
 
 export type TiltedGridHeroProps = {
   /**
-   * Images run along the row in order. A tile takes its next image each
-   * time it wraps off-screen, so the whole list plays through however
-   * few tiles the frame needs. Short lists simply repeat.
+   * Images run along the row in order. Short lists repeat seamlessly.
    */
   images: TiltedGridImage[];
   /**
@@ -139,176 +231,150 @@ export function TiltedGridHero({
   className,
   ...props
 }: React.ComponentProps<"div"> & TiltedGridHeroProps) {
-  const ref = React.useRef<HTMLDivElement>(null);
-  const id = React.useId().replace(/[^a-zA-Z0-9]/g, "");
-  const orbit = `tgh-o-${id}`;
-  const tile = `tgh-t-${id}`;
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const loadedRef = React.useRef<HTMLImageElement[]>([]);
+  const sizeRef = React.useRef({ width: 0, height: 0 });
   const bend = (Math.min(85, Math.max(5, curve)) * Math.PI) / 180;
 
-  // Null until the observer has measured the hero. The band stays hidden
-  // until then, so a first paint laid out for the wrong size never shows.
-  const [layout, setLayout] = React.useState<ReturnType<typeof measure> | null>(
-    null,
-  );
-
-  // The image each tile shows, as a position in the run of images. It
-  // only changes when the tile wraps, which is out of sight, so a resize
-  // never swaps an image on screen either.
-  const [shown, setShown] = React.useState<Record<number, number>>({});
-
   React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      const next = measure(width, height, tileHeight, aspectRatio, gap, bend);
-      setLayout((prev) =>
-        prev?.columns === next.columns &&
-        prev.sweep === next.sweep &&
-        prev.unit === next.unit
-          ? prev
-          : next,
-      );
+    loadedRef.current = images.map(({ src }) => {
+      const img = new Image();
+      img.src = src;
+      return img;
     });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [tileHeight, aspectRatio, gap, bend]);
-
-  // Fetch every image up front. A tile picks up its next one just before
-  // it comes back into view, too late to start loading it then.
-  React.useEffect(() => {
-    for (const { src } of images) new Image().src = src;
   }, [images]);
 
-  const { columns, sweep, unit, limit } =
-    layout ?? measure(1200, 560, tileHeight, aspectRatio, gap, bend);
+  React.useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
 
-  // Every length is a multiple of the tile's height, which follows the
-  // hero's height until MAX_WIDTH caps it on narrow screens.
-  const u = (n: number) =>
-    `calc(${+n.toFixed(4)} * min(${tileHeight}cqh, ${+(
-      MAX_WIDTH / aspectRatio
-    ).toFixed(4)}cqw))`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-  const r = 100 * arc(bend);
-  const radius = `${+r.toFixed(3)}cqw`;
-  // Out to the axis, round it, back in: a box sits on the cylinder at the
-  // angle rotateY gives it.
-  const turn = (deg: number) =>
-    `translateZ(${radius}) rotateY(${+deg.toFixed(4)}deg) translateZ(-${radius})`;
+    const syncSize = (width: number, height: number) => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      sizeRef.current = { width, height };
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
 
-  // Beyond `limit` a tile is wholly off-screen, so it is hidden there. The
-  // loop's ends, where it wraps, fall inside that stretch, and so do tiles
-  // swinging round behind the camera.
-  const hide = +(((sweep - limit) / (2 * sweep || 1)) * 100).toFixed(4);
-  const css =
-    `@keyframes ${orbit}{` +
-    `from{transform:${turn(-sweep)}}to{transform:${turn(sweep)}}` +
-    `0%,${hide}%,${100 - hide}%,100%{visibility:hidden}` +
-    `${hide + 0.001}%,${100 - hide - 0.001}%{visibility:visible}}` +
-    // Pausing rather than removing the motion keeps the band whole: every
-    // tile is already placed by its negative delay, so it freezes as a
-    // finished still.
-    `@media(prefers-reduced-motion:reduce){.${tile}{animation-play-state:paused}}`;
+    const rect = container.getBoundingClientRect();
+    syncSize(rect.width, rect.height);
 
-  const share = aspectRatio / SLICES;
-  const duration = columns * speed;
-  const mask = `linear-gradient(90deg,transparent,#000 ${fade}%,#000 ${
-    100 - fade
-  }%,transparent)`;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      syncSize(width, height);
+    });
+    ro.observe(container);
+
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let rafId = 0;
+    let lastTime = performance.now();
+    let offset = 0;
+    let inView = true;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting;
+      },
+      { threshold: 0 },
+    );
+    io.observe(container);
+
+    const render = (now: number) => {
+      const dt = Math.min(0.1, Math.max(0, (now - lastTime) / 1000));
+      lastTime = now;
+
+      if (!motionQuery.matches && !document.hidden && inView && speed > 0) {
+        offset += dt / speed;
+      }
+
+      const { width, height } = sizeRef.current;
+      const imgs = loadedRef.current;
+      ctx.clearRect(0, 0, width, height);
+
+      if (width > 0 && height > 0 && imgs.length > 0) {
+        const { h, radius, unit, pitch, limit } = measure(
+          width,
+          height,
+          tileHeight,
+          aspectRatio,
+          gap,
+          bend,
+        );
+
+        if (h > 0 && radius > 0) {
+          const tileRad = aspectRatio * unit;
+          const cx = width / 2;
+          const cy = (axis / 100) * height;
+          const minIdx = Math.ceil(offset - limit / pitch);
+          const maxIdx = Math.floor(offset + limit / pitch);
+
+          for (let idx = minIdx; idx <= maxIdx; idx++) {
+            const thetaCenter = (offset - idx) * pitch;
+            const imgIdx = ((idx % imgs.length) + imgs.length) % imgs.length;
+            drawCurvedTile(
+              ctx,
+              imgs[imgIdx],
+              thetaCenter,
+              tileRad,
+              aspectRatio,
+              radius,
+              h,
+              cx,
+              cy,
+              width,
+            );
+          }
+
+          if (fade > 0) {
+            const fadeW = (Math.min(50, fade) / 100) * width;
+            ctx.save();
+            ctx.globalCompositeOperation = "destination-out";
+
+            const leftGrad = ctx.createLinearGradient(0, 0, fadeW, 0);
+            leftGrad.addColorStop(0, "rgba(0,0,0,1)");
+            leftGrad.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = leftGrad;
+            ctx.fillRect(0, 0, fadeW, height);
+
+            const rightGrad = ctx.createLinearGradient(width - fadeW, 0, width, 0);
+            rightGrad.addColorStop(0, "rgba(0,0,0,0)");
+            rightGrad.addColorStop(1, "rgba(0,0,0,1)");
+            ctx.fillStyle = rightGrad;
+            ctx.fillRect(width - fadeW, 0, fadeW, height);
+
+            ctx.restore();
+          }
+        }
+      }
+
+      rafId = requestAnimationFrame(render);
+    };
+
+    rafId = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      io.disconnect();
+    };
+  }, [speed, tileHeight, aspectRatio, gap, axis, bend, fade]);
 
   return (
     <div
-      ref={ref}
+      ref={containerRef}
       className={cn("relative overflow-hidden", className)}
       {...props}
-      style={{ containerType: "size", ...props.style }}
     >
-      <style>{css}</style>
-
-      <div
+      <canvas
+        ref={canvasRef}
         aria-hidden
-        className="pointer-events-none absolute inset-0 transition-opacity duration-500"
-        style={{
-          opacity: layout ? 1 : 0,
-          // A shared vanishing point on the row's centre line, so the ends
-          // grow evenly above and below it as they come toward the viewer.
-          perspective: `${+(r * CAMERA).toFixed(3)}cqw`,
-          perspectiveOrigin: `50% ${axis}%`,
-          maskImage: mask,
-          WebkitMaskImage: mask,
-        }}
-      >
-        {Array.from({ length: columns }, (_, t) => {
-          // Tile `columns - 1` starts nearest the exit and tile 0 furthest
-          // back, so this numbers tiles in the order they come on.
-          const first = columns - 1 - t;
-          const img = images[(shown[t] ?? first) % Math.max(images.length, 1)];
-          return (
-            <div
-              key={t}
-              className={cn(tile, "absolute")}
-              style={{
-                left: `calc(50% - ${u(aspectRatio / 2)})`,
-                top: `calc(${axis}% - ${u(0.5)})`,
-                width: u(aspectRatio),
-                height: u(1),
-                transformStyle: "preserve-3d",
-                // Tile t starts t tiles along the loop.
-                animation: `${orbit} ${duration}s linear ${-t * speed}s infinite`,
-              }}
-              onAnimationIteration={(e) => {
-                // elapsedTime counts whole loops, missed events included.
-                const lap = Math.round(e.elapsedTime / duration);
-                setShown((prev) => {
-                  const next = lap * columns + first;
-                  return prev[t] === next ? prev : { ...prev, [t]: next };
-                });
-              }}
-            >
-              {Array.from({ length: SLICES }, (_, k) => (
-                <div
-                  key={k}
-                  className={cn(
-                    "absolute top-0 overflow-hidden bg-muted",
-                    k === 0 && "rounded-l-lg",
-                    k === SLICES - 1 && "rounded-r-lg",
-                  )}
-                  style={{
-                    // Every strip starts at the tile's centre and is turned
-                    // round the axis to its own place on the arc.
-                    left: u((aspectRatio - share) / 2),
-                    // A pixel wider than its share, so neighbouring facets
-                    // overlap and no hairline opens between them. The last
-                    // has no neighbour to cover.
-                    width:
-                      k === SLICES - 1 ? u(share) : `calc(${u(share)} + 1px)`,
-                    height: u(1),
-                    transform: turn(
-                      (aspectRatio / 2 - (k + 0.5) * share) * unit,
-                    ),
-                  }}
-                >
-                  {img ? (
-                    <img
-                      src={img.src}
-                      alt={k === 0 ? (img.alt ?? "") : ""}
-                      draggable={false}
-                      className="absolute top-0 max-w-none object-cover"
-                      style={{
-                        left: u(-k * share),
-                        width: u(aspectRatio),
-                        height: u(1),
-                      }}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
+        className="pointer-events-none absolute inset-0 h-full w-full"
+      />
       {children}
     </div>
   );

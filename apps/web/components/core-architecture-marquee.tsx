@@ -110,7 +110,7 @@ const ARCHITECTURE_DATA: ArchitectureItem[] = [
     ],
     techSpec: "Cryptographic audit trail with strict RBAC middleware",
     image:
-      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1200&auto=format&fit=crop",
   },
 ];
 
@@ -129,7 +129,7 @@ const MARQUEE_IMAGES = [
     alt: "High throughput exam and submission system",
   },
   {
-    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1200&auto=format&fit=crop",
     alt: "FERPA and GDPR compliant student privacy records",
   },
   {
