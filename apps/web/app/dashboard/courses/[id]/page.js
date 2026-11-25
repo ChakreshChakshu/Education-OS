@@ -11,6 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import { resolveCourseThumbnail, handleCourseImageError } from "@/lib/course-media";
+import { McqQuizBuilderModal } from "@/components/assessments/mcq-quiz-builder-modal";
+import { AssignmentBuilderModal } from "@/components/assessments/assignment-builder-modal";
+import { InstructorGradingWorkbench } from "@/components/assessments/instructor-grading-workbench";
+import { McqQuizPlayer } from "@/components/assessments/mcq-quiz-player";
+import { AssignmentSubmissionPlayer } from "@/components/assessments/assignment-submission-player";
+import { AssessmentService } from "@/services/assessment-service";
 import { 
   ArrowLeft, 
   Plus, 
@@ -29,38 +35,39 @@ import {
   ArrowDown,
   Eye,
   Check,
-  Sparkle
+  Sparkle,
+  FilePdf,
+  SlidersHorizontal,
+  CalendarCheck,
+  WarningCircle
 } from "@phosphor-icons/react";
 
 export default function CourseDetailPage({ params: paramsPromise }) {
   const params = use(paramsPromise);
   const courseId = params.id;
-  const { activeTenant } = useAuth();
+  const { activeTenant, user } = useAuth();
 
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("curriculum"); // "curriculum" | "details"
+  const [activeTab, setActiveTab] = useState("curriculum"); // "curriculum" | "details" | "grading"
+  const [gradingWorkbenchModuleId, setGradingWorkbenchModuleId] = useState(null);
 
-  // Modal State
-  const [modalType, setModalType] = useState(null); // null | "VIDEO" | "DOCUMENT" | "QUIZ"
+  // Video / Reading Standard Modal State
+  const [modalType, setModalType] = useState(null); // null | "VIDEO" | "DOCUMENT"
   const [editingModuleId, setEditingModuleId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(null);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
-  const [duration, setDuration] = useState(15);
-  
-  // Quiz State
-  const [quizQuestion, setQuizQuestion] = useState("");
-  const [optA, setOptA] = useState("");
-  const [optB, setOptB] = useState("");
-  const [optC, setOptC] = useState("");
-  const [optD, setOptD] = useState("");
-  const [correctOpt, setCorrectOpt] = useState("A");
   const [hlsUrl, setHlsUrl] = useState("");
+
+  // Assessment Modals State
+  const [isQuizBuilderOpen, setIsQuizBuilderOpen] = useState(false);
+  const [isAssignmentBuilderOpen, setIsAssignmentBuilderOpen] = useState(false);
+  const [activeEditingAssessment, setActiveEditingAssessment] = useState(null);
+
   const [courseProgress, setCourseProgress] = useState({ completedLessonIds: [], progressPercent: 0, completedCount: 0 });
   const [previewLesson, setPreviewLesson] = useState(null);
-  const [quizTestSelected, setQuizTestSelected] = useState(null);
 
   useEffect(() => {
     async function loadCourseData() {
@@ -106,7 +113,8 @@ export default function CourseDetailPage({ params: paramsPromise }) {
     loadCourseData();
   }, [courseId]);
 
-  const handleSaveModule = async (e) => {
+  // Save Video / Document standard module
+  const handleSaveStandardModule = async (e) => {
     e.preventDefault();
     if (!title) return;
 
@@ -117,19 +125,6 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       hlsUrl: hlsUrl || (url.includes('.m3u8') ? url : null),
       order: editingModuleId ? (modules.find(m => m.id === editingModuleId)?.order || 1) : (modules.length + 1)
     };
-
-    if (modalType === "QUIZ") {
-      payload.quiz = {
-        question: quizQuestion,
-        options: [
-          { key: "A", text: optA },
-          { key: "B", text: optB },
-          { key: "C", text: optC },
-          { key: "D", text: optD }
-        ].filter(o => o.text),
-        correct: correctOpt
-      };
-    }
 
     if (editingModuleId) {
       const res = await ApiClient.updateCourseModule(courseId, editingModuleId, payload);
@@ -152,28 +147,92 @@ export default function CourseDetailPage({ params: paramsPromise }) {
     closeModal();
   };
 
+  // Save MCQ Quiz from McqQuizBuilderModal
+  const handleSaveQuiz = async (quizData) => {
+    const payload = {
+      title: quizData.title,
+      contentType: "QUIZ",
+      contentUrl: "#",
+      quiz: quizData,
+      order: editingModuleId ? (modules.find(m => m.id === editingModuleId)?.order || 1) : (modules.length + 1)
+    };
+
+    if (editingModuleId) {
+      const res = await ApiClient.updateCourseModule(courseId, editingModuleId, payload);
+      if (res.success && res.data) {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...res.data, quiz: quizData } : m));
+      } else {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...payload } : m));
+      }
+    } else {
+      const res = await ApiClient.createCourseModule(courseId, payload);
+      const created = (res.success && res.data) ? { ...res.data, quiz: quizData } : {
+        id: "module_" + Date.now(),
+        courseId,
+        ...payload,
+        status: "PUBLISHED"
+      };
+      setModules([...modules, created]);
+    }
+
+    setIsQuizBuilderOpen(false);
+    setEditingModuleId(null);
+    setActiveEditingAssessment(null);
+  };
+
+  // Save PDF Assignment from AssignmentBuilderModal
+  const handleSaveAssignment = async (assignmentData) => {
+    const payload = {
+      title: assignmentData.title,
+      contentType: "ASSIGNMENT",
+      contentUrl: assignmentData.templatePdfUrl || "#",
+      quiz: assignmentData, // Preserved in module metadata
+      order: editingModuleId ? (modules.find(m => m.id === editingModuleId)?.order || 1) : (modules.length + 1)
+    };
+
+    if (editingModuleId) {
+      const res = await ApiClient.updateCourseModule(courseId, editingModuleId, payload);
+      if (res.success && res.data) {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...res.data, quiz: assignmentData } : m));
+      } else {
+        setModules(modules.map(m => m.id === editingModuleId ? { ...m, ...payload } : m));
+      }
+    } else {
+      const res = await ApiClient.createCourseModule(courseId, payload);
+      const created = (res.success && res.data) ? { ...res.data, quiz: assignmentData } : {
+        id: "module_" + Date.now(),
+        courseId,
+        ...payload,
+        status: "PUBLISHED"
+      };
+      setModules([...modules, created]);
+    }
+
+    setIsAssignmentBuilderOpen(false);
+    setEditingModuleId(null);
+    setActiveEditingAssessment(null);
+  };
+
   const handleOpenEditModule = (mod) => {
     setEditingModuleId(mod.id);
+
+    if (mod.contentType === "QUIZ") {
+      setActiveEditingAssessment(mod.quiz);
+      setIsQuizBuilderOpen(true);
+      return;
+    }
+
+    if (mod.contentType === "ASSIGNMENT") {
+      setActiveEditingAssessment(mod.quiz);
+      setIsAssignmentBuilderOpen(true);
+      return;
+    }
+
+    // Video / Document standard modal
     setModalType(mod.contentType || "VIDEO");
     setTitle(mod.title || "");
     setUrl(mod.contentUrl || "");
     setHlsUrl(mod.hlsUrl || "");
-    if (mod.quiz) {
-      setQuizQuestion(mod.quiz.question || "");
-      const opts = mod.quiz.options || [];
-      setOptA(opts.find(o => o.key === "A")?.text || opts[0]?.text || "");
-      setOptB(opts.find(o => o.key === "B")?.text || opts[1]?.text || "");
-      setOptC(opts.find(o => o.key === "C")?.text || opts[2]?.text || "");
-      setOptD(opts.find(o => o.key === "D")?.text || opts[3]?.text || "");
-      setCorrectOpt(mod.quiz.correct || "A");
-    } else {
-      setQuizQuestion("");
-      setOptA("");
-      setOptB("");
-      setOptC("");
-      setOptD("");
-      setCorrectOpt("A");
-    }
   };
 
   const handleDeleteModule = async (moduleId) => {
@@ -222,94 +281,43 @@ export default function CourseDetailPage({ params: paramsPromise }) {
     setTitle("");
     setUrl("");
     setHlsUrl("");
-    setDuration(15);
-    setQuizQuestion("");
-    setOptA("");
-    setOptB("");
-    setOptC("");
-    setOptD("");
-    setCorrectOpt("A");
   };
+
+  // Pending submissions calculation for badge
+  const pendingSubmissionsCount = React.useMemo(() => {
+    if (typeof window === "undefined") return 0;
+    try {
+      const all = AssessmentService.getAssignmentSubmissions(courseId);
+      return all.filter(s => s.status === "PENDING_REVIEW").length;
+    } catch (e) {
+      return 0;
+    }
+  }, [courseId, activeTab]);
 
   if (loading) {
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
-        {/* Top Navigation & Course Header Skeleton */}
-        <div className="space-y-4">
-          <Skeleton className="h-5 w-32 rounded-md" />
-
-          <Card className="p-6 md:p-8 rounded-2xl border border-border shadow-xs bg-card">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div className="flex flex-col sm:flex-row items-start gap-5 w-full">
-                <Skeleton className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl shrink-0" />
-                <div className="space-y-3 flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Skeleton className="h-5 w-16 rounded" />
-                    <Skeleton className="h-5 w-24 rounded" />
-                    <Skeleton className="h-5 w-16 rounded" />
-                    <Skeleton className="h-5 w-20 rounded" />
-                  </div>
-                  <Skeleton className="h-8 w-3/4 max-w-lg rounded-lg" />
-                  <Skeleton className="h-4 w-full max-w-md rounded" />
-                  <div className="flex items-center gap-3 pt-1">
-                    <Skeleton className="h-4 w-28 rounded" />
-                    <Skeleton className="h-4 w-20 rounded" />
-                  </div>
+        <Skeleton className="h-5 w-32 rounded-md" />
+        <Card className="p-6 md:p-8 rounded-2xl border border-border shadow-xs bg-card space-y-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+            <div className="flex flex-col sm:flex-row items-start gap-5 flex-1 min-w-0 w-full">
+              <Skeleton className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl shrink-0" />
+              <div className="space-y-3 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-16 rounded" />
+                  <Skeleton className="h-5 w-20 rounded" />
+                  <Skeleton className="h-5 w-16 rounded" />
                 </div>
-              </div>
-              <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
-                <Skeleton className="h-10 w-28 rounded-xl" />
-                <Skeleton className="h-10 w-32 rounded-xl" />
+                <Skeleton className="h-8 w-3/4 max-w-lg rounded-lg" />
+                <Skeleton className="h-4 w-full max-w-md rounded" />
               </div>
             </div>
-          </Card>
-        </div>
-
-        {/* Navigation Tabs Skeleton */}
-        <div className="flex border-b border-border pb-px gap-6">
-          <Skeleton className="h-8 w-32 rounded-lg" />
-          <Skeleton className="h-8 w-28 rounded-lg" />
-        </div>
-
-        {/* Modules Skeleton Cards */}
-        <div className="space-y-6">
-          {[1, 2, 3].map((mod) => (
-            <Card key={mod} className="border-border bg-card rounded-2xl overflow-hidden shadow-xs">
-              <CardHeader className="p-5 border-b border-border/60 bg-muted/20">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-7 w-20 rounded-md" />
-                    <Skeleton className="h-6 w-48 rounded-md" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-8 w-24 rounded-lg" />
-                    <Skeleton className="h-8 w-8 rounded-lg" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-5 space-y-3">
-                {[1, 2].map((lesson) => (
-                  <div
-                    key={lesson}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-background/50 gap-4"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-4 w-44 rounded" />
-                        <Skeleton className="h-3 w-24 rounded" />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Skeleton className="h-7 w-16 rounded-md" />
-                      <Skeleton className="h-7 w-7 rounded-md" />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+            <div className="flex flex-col items-end gap-3 shrink-0 w-full lg:w-auto">
+              <Skeleton className="h-16 w-56 rounded-xl" />
+              <Skeleton className="h-10 w-36 rounded-xl" />
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -322,70 +330,102 @@ export default function CourseDetailPage({ params: paramsPromise }) {
           <ArrowLeft size={18} weight="bold" /> Back to Catalog
         </Link>
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs">
-          <div className="flex flex-col sm:flex-row items-start gap-5">
-            <img 
-              src={resolveCourseThumbnail(course)} 
-              alt={course?.title || "Course thumbnail"}
-              onError={(e) => handleCourseImageError(e, course)}
-              className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl object-cover border border-border shrink-0 shadow-xs" 
-            />
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-0.5">{course?.code || "CS-101"}</Badge>
-                {course?.level && (
-                  <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-0.5">
-                    {course.level}
-                  </Badge>
-                )}
-                <Badge variant="success" className="text-xs font-bold px-3 py-0.5">{course?.status || "ACTIVE"}</Badge>
-                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                  <Hourglass size={15} /> {course?.duration || "4 Weeks"}
-                </span>
-                {course?.credits && (
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    • {course.credits} Credits
+        <div className="bg-card p-6 md:p-8 rounded-2xl border border-border shadow-xs space-y-6">
+          {/* Main Course Header Row */}
+          <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+            <div className="flex flex-col sm:flex-row items-start gap-5 flex-1 min-w-0 w-full">
+              <img 
+                src={resolveCourseThumbnail(course)} 
+                alt={course?.title || "Course thumbnail"}
+                onError={(e) => handleCourseImageError(e, course)}
+                className="w-32 h-24 sm:w-40 sm:h-28 rounded-xl object-cover border border-border shrink-0 shadow-xs" 
+              />
+              <div className="space-y-2.5 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-0.5">{course?.code || "CS-101"}</Badge>
+                  {course?.level && (
+                    <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-0.5">
+                      {course.level}
+                    </Badge>
+                  )}
+                  <Badge variant="success" className="text-xs font-bold px-3 py-0.5">{course?.status || "ACTIVE"}</Badge>
+                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <Hourglass size={15} /> {course?.duration || "4 Weeks"}
                   </span>
-                )}
+                  {course?.credits && (
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      • {course.credits} Credits
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{course?.title}</h1>
+                <p className="text-sm text-muted-foreground max-w-3xl font-medium leading-relaxed">{course?.description}</p>
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{course?.title}</h1>
-              <p className="text-sm text-muted-foreground max-w-3xl font-medium">{course?.description}</p>
+            </div>
+
+            {/* Right: Progress Card & Student Classroom Link */}
+            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-3.5 shrink-0 w-full lg:w-auto">
+              {modules.length > 0 && (
+                <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-muted/40 border border-border w-full sm:w-60">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-muted-foreground">My Progress</span>
+                    <span className="text-primary font-mono font-extrabold">{courseProgress.progressPercent || 0}%</span>
+                  </div>
+                  <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${courseProgress.progressPercent || 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    {courseProgress.completedCount || (courseProgress.completedLessonIds?.length || 0)} of {modules.length} completed
+                  </span>
+                </div>
+              )}
+
+              <Link href={`/dashboard/courses/${courseId}/lesson/${modules[0]?.id || "default"}`} className="w-full sm:w-auto">
+                <Button size="lg" variant="default" className="w-full sm:w-auto gap-2 font-bold bg-primary text-primary-foreground shadow-xs cursor-pointer">
+                  <PlayCircle size={20} weight="bold" /> Student Classroom
+                </Button>
+              </Link>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
-            {modules.length > 0 && (
-              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border min-w-[170px]">
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-muted-foreground">My Progress</span>
-                  <span className="text-primary font-mono font-extrabold">{courseProgress.progressPercent || 0}%</span>
-                </div>
-                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${courseProgress.progressPercent || 0}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-muted-foreground font-medium">
-                  {courseProgress.completedCount || (courseProgress.completedLessonIds?.length || 0)} of {modules.length} completed
-                </span>
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Link href={`/dashboard/courses/${courseId}/lesson/${modules[0]?.id || "default"}`}>
-                <Button size="lg" variant="default" className="gap-2 font-bold bg-primary text-primary-foreground shadow-xs">
-                  <PlayCircle size={22} weight="bold" /> Student Classroom
-                </Button>
-              </Link>
-              <Button onClick={() => setModalType("VIDEO")} variant="secondary" size="lg" className="gap-2 font-bold">
-                <Video size={20} weight="bold" /> Add Video
+          {/* Action Toolbar Header Row for Creating Content */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Curriculum Content Builder:
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={() => setModalType("VIDEO")} variant="secondary" size="sm" className="gap-1.5 font-bold h-9 cursor-pointer">
+                <Video size={16} weight="bold" /> Add Video
               </Button>
-              <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="lg" className="gap-2 font-bold">
-                <FileText size={20} weight="bold" /> Add Reading
+              <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="sm" className="gap-1.5 font-bold h-9 cursor-pointer">
+                <FileText size={16} weight="bold" /> Add Reading
               </Button>
-              <Button onClick={() => setModalType("QUIZ")} variant="outline" size="lg" className="gap-2 font-bold">
-                <CheckSquare size={20} weight="bold" /> Add Quiz
+              <Button 
+                onClick={() => {
+                  setEditingModuleId(null);
+                  setActiveEditingAssessment(null);
+                  setIsQuizBuilderOpen(true);
+                }} 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 font-bold h-9 border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                <CheckSquare size={16} weight="bold" /> Add Quiz
+              </Button>
+              <Button 
+                onClick={() => {
+                  setEditingModuleId(null);
+                  setActiveEditingAssessment(null);
+                  setIsAssignmentBuilderOpen(true);
+                }} 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 font-bold h-9 border-indigo-400/40 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+              >
+                <FilePdf size={16} weight="bold" /> Add Assignment
               </Button>
             </div>
           </div>
@@ -403,6 +443,25 @@ export default function CourseDetailPage({ params: paramsPromise }) {
           }`}
         >
           Curriculum Modules ({modules.length})
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("grading");
+            setGradingWorkbenchModuleId(null);
+          }}
+          className={`pb-3 transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+            activeTab === "grading"
+              ? "border-primary text-primary font-bold"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <SlidersHorizontal size={18} weight="bold" />
+          <span>Grading Workbench</span>
+          {pendingSubmissionsCount > 0 && (
+            <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-bold">
+              {pendingSubmissionsCount}
+            </Badge>
+          )}
         </button>
         <button
           onClick={() => setActiveTab("details")}
@@ -427,18 +486,21 @@ export default function CourseDetailPage({ params: paramsPromise }) {
               <div className="space-y-1 max-w-md">
                 <h3 className="text-xl font-bold">Curriculum Empty</h3>
                 <p className="text-sm text-muted-foreground font-medium">
-                  Add video lectures, PDF reading assignments, and interactive quizzes to build this course curriculum.
+                  Add video lectures, PDF reading assignments, MCQ quizzes, and homework problem sets to build this curriculum.
                 </p>
               </div>
-              <div className="flex gap-3 pt-2">
-                <Button onClick={() => setModalType("VIDEO")} size="sm" className="gap-2 font-bold">
+              <div className="flex gap-2.5 pt-2 flex-wrap justify-center">
+                <Button onClick={() => setModalType("VIDEO")} size="sm" className="gap-1.5 font-bold">
                   <Video size={16} /> Add Video
                 </Button>
-                <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="sm" className="gap-2 font-bold">
+                <Button onClick={() => setModalType("DOCUMENT")} variant="secondary" size="sm" className="gap-1.5 font-bold">
                   <FileText size={16} /> Add Reading
                 </Button>
-                <Button onClick={() => setModalType("QUIZ")} variant="outline" size="sm" className="gap-2 font-bold">
+                <Button onClick={() => setIsQuizBuilderOpen(true)} variant="outline" size="sm" className="gap-1.5 font-bold text-primary">
                   <CheckSquare size={16} /> Add Quiz
+                </Button>
+                <Button onClick={() => setIsAssignmentBuilderOpen(true)} variant="outline" size="sm" className="gap-1.5 font-bold text-indigo-400">
+                  <FilePdf size={16} /> Add Assignment
                 </Button>
               </div>
             </Card>
@@ -448,7 +510,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-border bg-card/60 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-foreground">Curriculum Outline</span>
-                  <Badge variant="outline" className="text-[10px] font-mono">{modules.length} Lessons</Badge>
+                  <Badge variant="outline" className="text-[10px] font-mono">{modules.length} Lessons & Assessments</Badge>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Button onClick={() => setModalType("VIDEO")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
@@ -457,123 +519,195 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                   <Button onClick={() => setModalType("DOCUMENT")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
                     <Plus size={13} weight="bold" /> Add Reading
                   </Button>
-                  <Button onClick={() => setModalType("QUIZ")} size="sm" variant="outline" className="gap-1.5 text-xs font-bold h-8 cursor-pointer">
+                  <Button 
+                    onClick={() => {
+                      setEditingModuleId(null);
+                      setActiveEditingAssessment(null);
+                      setIsQuizBuilderOpen(true);
+                    }} 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-1.5 text-xs font-bold h-8 cursor-pointer text-primary border-primary/30"
+                  >
                     <Plus size={13} weight="bold" /> Add Quiz
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setEditingModuleId(null);
+                      setActiveEditingAssessment(null);
+                      setIsAssignmentBuilderOpen(true);
+                    }} 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-1.5 text-xs font-bold h-8 cursor-pointer text-indigo-400 border-indigo-400/30"
+                  >
+                    <Plus size={13} weight="bold" /> Add Assignment
                   </Button>
                 </div>
               </div>
 
               {/* Module Tree Items */}
               <div className="space-y-3">
-                {modules.map((mod, idx) => (
-                  <Card key={mod.id} className="hover:border-primary/50 transition-colors p-2 shadow-2xs rounded-xl">
-                    <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
-                        {/* Order Controls */}
-                        <div className="flex flex-col gap-0.5 shrink-0 pt-0.5 sm:pt-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                            disabled={idx === 0}
-                            onClick={() => handleMoveModule(idx, "up")}
-                            title="Move up"
-                          >
-                            <ArrowUp size={12} weight="bold" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                            disabled={idx === modules.length - 1}
-                            onClick={() => handleMoveModule(idx, "down")}
-                            title="Move down"
-                          >
-                            <ArrowDown size={12} weight="bold" />
-                          </Button>
-                        </div>
+                {modules.map((mod, idx) => {
+                  const isQuiz = mod.contentType === "QUIZ";
+                  const isAssignment = mod.contentType === "ASSIGNMENT";
+                  const quizQuestionsCount = mod.quiz?.questions?.length || (mod.quiz?.question ? 1 : 0);
+                  const rubricCount = mod.quiz?.rubricCriteria?.length || (isAssignment ? 3 : 0);
 
-                        {/* Number Badge */}
-                        <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 font-extrabold text-sm">
-                          #{idx + 1}
-                        </div>
-
-                        {/* Module Info */}
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="secondary" className="text-[10px] font-mono font-bold uppercase gap-1 py-0">
-                              {mod.contentType === "VIDEO" && <Video size={13} />}
-                              {mod.contentType === "DOCUMENT" && <FileText size={13} />}
-                              {mod.contentType === "QUIZ" && <CheckSquare size={13} />}
-                              {mod.contentType}
-                            </Badge>
-                            <span className="text-sm font-bold text-foreground truncate">{mod.title}</span>
+                  return (
+                    <Card key={mod.id} className="hover:border-primary/50 transition-colors p-2 shadow-2xs rounded-xl">
+                      <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          {/* Order Controls */}
+                          <div className="flex flex-col gap-0.5 shrink-0 pt-0.5 sm:pt-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                              disabled={idx === 0}
+                              onClick={() => handleMoveModule(idx, "up")}
+                              title="Move up"
+                            >
+                              <ArrowUp size={12} weight="bold" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                              disabled={idx === modules.length - 1}
+                              onClick={() => handleMoveModule(idx, "down")}
+                              title="Move down"
+                            >
+                              <ArrowDown size={12} weight="bold" />
+                            </Button>
                           </div>
 
-                          {mod.contentUrl && mod.contentUrl !== "#" && (
-                            <p className="text-xs font-mono text-muted-foreground truncate max-w-sm sm:max-w-md">
-                              Source: {mod.contentUrl}
-                            </p>
-                          )}
+                          {/* Number Badge */}
+                          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 font-extrabold text-sm">
+                            #{idx + 1}
+                          </div>
 
-                          {mod.quiz && (
-                            <div className="text-xs text-muted-foreground font-medium truncate max-w-md">
-                              Question: <strong>{mod.quiz.question}</strong>
+                          {/* Module Info */}
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge
+                                variant={isAssignment ? "outline" : "secondary"}
+                                className={`text-[10px] font-mono font-bold uppercase gap-1 py-0 ${
+                                  isAssignment ? "border-indigo-400/40 text-indigo-400 bg-indigo-500/10" : ""
+                                }`}
+                              >
+                                {mod.contentType === "VIDEO" && <Video size={13} />}
+                                {mod.contentType === "DOCUMENT" && <FileText size={13} />}
+                                {mod.contentType === "QUIZ" && <CheckSquare size={13} />}
+                                {mod.contentType === "ASSIGNMENT" && <FilePdf size={13} />}
+                                {mod.contentType}
+                              </Badge>
+                              <span className="text-sm font-bold text-foreground truncate">{mod.title}</span>
                             </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="gap-1.5 font-bold h-8.5 text-xs rounded-lg cursor-pointer"
-                          onClick={() => {
-                            setPreviewLesson(mod);
-                            setQuizTestSelected(null);
-                          }}
-                        >
-                          <Eye size={14} weight="bold" />
-                          <span>Preview</span>
-                        </Button>
-                        <Link href={`/dashboard/courses/${courseId}/lesson/${mod.id}`}>
-                          <Button size="sm" variant="outline" className="gap-1.5 font-bold h-8.5 text-xs rounded-lg border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-primary cursor-pointer">
-                            <PlayCircle size={15} weight="bold" />
-                            <span className="hidden sm:inline">Enter Classroom</span>
+                            {/* Assessment Details Snippet */}
+                            {isQuiz && (
+                              <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+                                <span>{quizQuestionsCount} Question{quizQuestionsCount !== 1 ? "s" : ""}</span>
+                                <span>· Passing: {mod.quiz?.passingScore || 70}%</span>
+                                {mod.quiz?.timeLimitMinutes > 0 && (
+                                  <span>· {mod.quiz.timeLimitMinutes} Mins Timer</span>
+                                )}
+                              </div>
+                            )}
+
+                            {isAssignment && (
+                              <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+                                <span>{rubricCount} Rubric Criteria</span>
+                                <span>· Total: {mod.quiz?.totalPoints || 35} Pts</span>
+                                <span>· Passing: {mod.quiz?.passingScore || 70}%</span>
+                              </div>
+                            )}
+
+                            {mod.contentUrl && mod.contentUrl !== "#" && !isQuiz && !isAssignment && (
+                              <p className="text-xs font-mono text-muted-foreground truncate max-w-sm sm:max-w-md">
+                                Source: {mod.contentUrl}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                          {/* Direct "Grade Submissions" shortcut for assignments */}
+                          {isAssignment && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setGradingWorkbenchModuleId(mod.id);
+                                setActiveTab("grading");
+                              }}
+                              className="gap-1.5 font-bold h-8.5 text-xs rounded-lg border-indigo-400/40 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                            >
+                              <SlidersHorizontal size={14} weight="bold" />
+                              <span>Grade Submissions</span>
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="gap-1.5 font-bold h-8.5 text-xs rounded-lg cursor-pointer"
+                            onClick={() => setPreviewLesson(mod)}
+                          >
+                            <Eye size={14} weight="bold" />
+                            <span>Preview</span>
                           </Button>
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8.5 w-8.5 p-0 hover:bg-muted rounded-lg cursor-pointer"
-                          onClick={() => handleOpenEditModule(mod)}
-                          title="Edit module"
-                        >
-                          <Pencil size={16} />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8.5 w-8.5 p-0 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                          disabled={isDeleting === mod.id}
-                          onClick={() => handleDeleteModule(mod.id)}
-                          title="Delete module"
-                        >
-                          <Trash size={16} />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+
+                          <Link href={`/dashboard/courses/${courseId}/lesson/${mod.id}`}>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-bold h-8.5 text-xs rounded-lg border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-primary cursor-pointer">
+                              <PlayCircle size={15} weight="bold" />
+                              <span className="hidden sm:inline">Classroom</span>
+                            </Button>
+                          </Link>
+
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8.5 w-8.5 p-0 hover:bg-muted rounded-lg cursor-pointer"
+                            onClick={() => handleOpenEditModule(mod)}
+                            title="Edit module"
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8.5 w-8.5 p-0 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                            disabled={isDeleting === mod.id}
+                            onClick={() => handleDeleteModule(mod.id)}
+                            title="Delete module"
+                          >
+                            <Trash size={16} />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: COURSE SETTINGS */}
+      {/* TAB 2: INSTRUCTOR GRADING WORKBENCH */}
+      {activeTab === "grading" && (
+        <InstructorGradingWorkbench
+          courseId={courseId}
+          selectedModuleId={gradingWorkbenchModuleId}
+          modules={modules}
+          onClose={() => setActiveTab("curriculum")}
+        />
+      )}
+
+      {/* TAB 3: COURSE SETTINGS */}
       {activeTab === "details" && (
         <Card className="p-6">
           <CardHeader className="px-0 pt-0">
@@ -607,7 +741,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
         </Card>
       )}
 
-      {/* MODAL BUILDER (VIDEO / DOCUMENT / QUIZ) */}
+      {/* VIDEO / READING STANDARD MODAL */}
       {modalType && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <Card className="w-full max-w-lg bg-popover border-border shadow-2xl rounded-2xl">
@@ -616,7 +750,6 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                 <CardTitle className="text-xl font-bold">
                   {editingModuleId ? "Edit" : "Add"} {modalType === "VIDEO" && "Video Lesson Module"}
                   {editingModuleId ? "Edit" : "Add"} {modalType === "DOCUMENT" && "PDF / Reading Module"}
-                  {editingModuleId ? "Edit" : "Add"} {modalType === "QUIZ" && "Quiz Assessment Module"}
                 </CardTitle>
                 <CardDescription className="text-sm">Course aggregate curriculum builder</CardDescription>
               </div>
@@ -625,7 +758,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
               </button>
             </CardHeader>
 
-            <form onSubmit={handleSaveModule}>
+            <form onSubmit={handleSaveStandardModule}>
               <CardContent className="space-y-4 pt-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-muted-foreground uppercase">Module Title</label>
@@ -633,8 +766,7 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                     required 
                     placeholder={
                       modalType === "VIDEO" ? "e.g. Lecture 1: Architecture Core" :
-                      modalType === "DOCUMENT" ? "e.g. Chapter 2 Reading Notes (PDF)" :
-                      "e.g. End of Unit 1 Knowledge Check"
+                      "e.g. Chapter 2 Reading Notes (PDF)"
                     }
                     className="h-11 text-base font-bold"
                     value={title} 
@@ -642,84 +774,32 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                   />
                 </div>
 
-                {/* FILE UPLOADER FOR VIDEO / DOCUMENT */}
-                {modalType !== "QUIZ" && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">
-                        {modalType === "VIDEO" ? "Upload Video File (.mp4)" : "Upload PDF Document (.pdf)"}
-                      </label>
-                      <MediaUploader 
-                        accept={modalType === "VIDEO" ? "video/*" : "application/pdf"}
-                        onUploadSuccess={(fileUrl, fileName, mediaData) => {
-                          setUrl(fileUrl);
-                          if (mediaData?.hlsUrl) {
-                            setHlsUrl(mediaData.hlsUrl);
-                          }
-                        }} 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">Or Direct File / Stream URL</label>
-                      <Input 
-                        placeholder={modalType === "VIDEO" ? "https://storage.provider/lecture1.mp4" : "https://storage.provider/handout.pdf"}
-                        className="h-11 text-base font-mono"
-                        value={url} 
-                        onChange={(e) => setUrl(e.target.value)} 
-                      />
-                    </div>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">
+                      {modalType === "VIDEO" ? "Upload Video File (.mp4)" : "Upload PDF Document (.pdf)"}
+                    </label>
+                    <MediaUploader 
+                      accept={modalType === "VIDEO" ? "video/*" : "application/pdf"}
+                      onUploadSuccess={(fileUrl, fileName, mediaData) => {
+                        setUrl(fileUrl);
+                        if (mediaData?.hlsUrl) {
+                          setHlsUrl(mediaData.hlsUrl);
+                        }
+                      }} 
+                    />
                   </div>
-                )}
 
-                {/* QUIZ QUESTION & OPTIONS */}
-                {modalType === "QUIZ" && (
-                  <div className="space-y-3 pt-1 border-t border-border">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">Assessment Question</label>
-                      <Input 
-                        required
-                        placeholder="e.g. What is the primary role of the Domain Aggregate in DDD?"
-                        className="h-11 text-base font-bold"
-                        value={quizQuestion} 
-                        onChange={(e) => setQuizQuestion(e.target.value)} 
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground">Option A</label>
-                        <Input required placeholder="Choice A" value={optA} onChange={(e) => setOptA(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground">Option B</label>
-                        <Input required placeholder="Choice B" value={optB} onChange={(e) => setOptB(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground">Option C</label>
-                        <Input placeholder="Choice C" value={optC} onChange={(e) => setOptC(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground">Option D</label>
-                        <Input placeholder="Choice D" value={optD} onChange={(e) => setOptD(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">Correct Answer Key</label>
-                      <select 
-                        value={correctOpt} 
-                        onChange={(e) => setCorrectOpt(e.target.value)}
-                        className="w-full h-11 rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground"
-                      >
-                        <option value="A">Option A</option>
-                        <option value="B">Option B</option>
-                        <option value="C">Option C</option>
-                        <option value="D">Option D</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Or Direct File / Stream URL</label>
+                    <Input 
+                      placeholder={modalType === "VIDEO" ? "https://storage.provider/lecture1.mp4" : "https://storage.provider/handout.pdf"}
+                      className="h-11 text-base font-mono"
+                      value={url} 
+                      onChange={(e) => setUrl(e.target.value)} 
+                    />
                   </div>
-                )}
+                </div>
               </CardContent>
 
               <div className="flex justify-end gap-3 p-5 border-t border-border bg-muted/20 rounded-b-2xl">
@@ -731,16 +811,41 @@ export default function CourseDetailPage({ params: paramsPromise }) {
         </div>
       )}
 
-      {/* FAST LESSON PREVIEW MODAL */}
+      {/* MCQ QUIZ BUILDER MODAL (TYPE A) */}
+      <McqQuizBuilderModal
+        isOpen={isQuizBuilderOpen}
+        onClose={() => {
+          setIsQuizBuilderOpen(false);
+          setEditingModuleId(null);
+          setActiveEditingAssessment(null);
+        }}
+        initialQuiz={activeEditingAssessment}
+        onSave={handleSaveQuiz}
+      />
+
+      {/* PDF ASSIGNMENT BUILDER MODAL (TYPE B) */}
+      <AssignmentBuilderModal
+        isOpen={isAssignmentBuilderOpen}
+        onClose={() => {
+          setIsAssignmentBuilderOpen(false);
+          setEditingModuleId(null);
+          setActiveEditingAssessment(null);
+        }}
+        initialAssignment={activeEditingAssessment}
+        onSave={handleSaveAssignment}
+      />
+
+      {/* FAST LESSON / ASSESSMENT PREVIEW MODAL */}
       {previewLesson && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl bg-card border-border shadow-2xl rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border p-5 bg-muted/20">
+          <Card className="w-full max-w-3xl bg-card border-border shadow-2xl rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border p-5 bg-muted/20 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <Badge variant="secondary" className="text-xs font-mono font-bold uppercase gap-1 shrink-0">
                   {previewLesson.contentType === "VIDEO" && <Video size={14} />}
                   {previewLesson.contentType === "DOCUMENT" && <FileText size={14} />}
                   {previewLesson.contentType === "QUIZ" && <CheckSquare size={14} />}
+                  {previewLesson.contentType === "ASSIGNMENT" && <FilePdf size={14} />}
                   {previewLesson.contentType}
                 </Badge>
                 <CardTitle className="text-base sm:text-lg font-bold truncate">
@@ -751,16 +856,13 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-                onClick={() => {
-                  setPreviewLesson(null);
-                  setQuizTestSelected(null);
-                }}
+                onClick={() => setPreviewLesson(null)}
               >
                 <X size={18} />
               </Button>
             </CardHeader>
 
-            <CardContent className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            <CardContent className="p-5 space-y-4 overflow-y-auto flex-1">
               {/* VIDEO PREVIEW */}
               {previewLesson.contentType === "VIDEO" && (
                 <div className="space-y-3">
@@ -777,10 +879,6 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                         <p className="text-xs font-medium">No direct video source stream configured.</p>
                       </div>
                     )}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-muted/40 p-2.5 rounded-xl border border-border">
-                    <span className="truncate max-w-md">Source: {previewLesson.contentUrl || "Internal storage"}</span>
-                    <span className="font-bold text-foreground shrink-0">Order #{previewLesson.order || 1}</span>
                   </div>
                 </div>
               )}
@@ -810,69 +908,42 @@ export default function CourseDetailPage({ params: paramsPromise }) {
                 </div>
               )}
 
-              {/* QUIZ PREVIEW */}
+              {/* MCQ QUIZ PREVIEW */}
               {previewLesson.contentType === "QUIZ" && (
-                <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-mono uppercase text-muted-foreground font-bold">Interactive Quiz Check Preview</span>
-                    <h4 className="text-sm font-bold text-foreground">
-                      {previewLesson.quiz?.question || "Sample Knowledge Verification Question"}
-                    </h4>
-                  </div>
+                <McqQuizPlayer
+                  quizConfig={previewLesson.quiz || previewLesson}
+                  moduleId={previewLesson.id}
+                  studentUser={user}
+                />
+              )}
 
-                  <div className="space-y-2">
-                    {(previewLesson.quiz?.options || [
-                      { key: "A", text: "First architectural answer option" },
-                      { key: "B", text: "Alternative option B" },
-                      { key: "C", text: "Option C" },
-                      { key: "D", text: "Option D" }
-                    ]).map((opt) => {
-                      const isSelected = quizTestSelected === opt.key;
-                      const isCorrect = previewLesson.quiz?.correct === opt.key;
-                      return (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => setQuizTestSelected(opt.key)}
-                          className={`w-full p-3 rounded-xl border text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
-                            isSelected
-                              ? isCorrect
-                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                                : "border-destructive bg-destructive/10 text-destructive"
-                              : "border-border hover:border-primary/50 bg-background text-foreground"
-                          }`}
-                        >
-                          <span><strong>{opt.key}.</strong> {opt.text}</span>
-                          {isSelected && (
-                            <span className="text-[11px] font-bold">
-                              {isCorrect ? "✓ Correct Answer" : "✗ Incorrect"}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              {/* PDF ASSIGNMENT PREVIEW */}
+              {previewLesson.contentType === "ASSIGNMENT" && (
+                <AssignmentSubmissionPlayer
+                  assignmentConfig={previewLesson.quiz || previewLesson}
+                  courseId={courseId}
+                  moduleId={previewLesson.id}
+                  studentUser={user}
+                />
               )}
             </CardContent>
 
-            <div className="flex items-center justify-between p-4 px-5 border-t border-border bg-muted/20">
-              <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Instructor Fast Lesson Preview</span>
+            <div className="flex items-center justify-between p-4 px-5 border-t border-border bg-muted/20 shrink-0">
+              <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
+                Fast Interactive Preview Workbench
+              </span>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <Link href={`/dashboard/courses/${courseId}/lesson/${previewLesson.id}`}>
                   <Button size="sm" className="gap-1.5 text-xs font-bold rounded-xl cursor-pointer">
                     <PlayCircle size={16} weight="bold" />
-                    <span>Full Classroom</span>
+                    <span>Open in Classroom</span>
                   </Button>
                 </Link>
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-xs font-bold rounded-xl cursor-pointer"
-                  onClick={() => {
-                    setPreviewLesson(null);
-                    setQuizTestSelected(null);
-                  }}
+                  onClick={() => setPreviewLesson(null)}
                 >
                   Close
                 </Button>

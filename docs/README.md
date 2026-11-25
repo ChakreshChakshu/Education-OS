@@ -34,6 +34,7 @@ This document establishes the architecture master guide, principles, and directo
 | **15 – Testing Strategy** | Testing Pyramid, Testcontainers, Coverage Gates | [testing_strategy.md](file:///home/chakresh/EducationOS/docs/testing_strategy.md) |
 | **16 – Future Evolution** | Roadmap, Microservice Extraction, AI Plugins | [future_evolution.md](file:///home/chakresh/EducationOS/docs/future_evolution.md) |
 | **17 – Work Division & Ownership** | Task breakdown and workflow for Chakresh & Adarsh | [work_division.md](file:///home/chakresh/EducationOS/docs/work_division.md) |
+| **18 – LMS Core Features Gap Analysis** | 14 LMS Feature Categories, Implementation Status, Roadmap | [lms_features_gap_analysis.md](file:///home/adarsh/Education-OS/docs/lms_features_gap_analysis.md) |
 
 ---
 
