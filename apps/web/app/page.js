@@ -103,7 +103,7 @@ export default function Home() {
                 <BookOpen size={18} weight="bold" />
                 <span>Browse Course Catalog</span>
                 <ArrowRight size={16} weight="bold" />
-              </Button>
+              </Button> 
             </Link>
             <Link href="/dashboard" className="w-full sm:w-auto">
               <Button variant="outline" size="lg" className="w-full sm:w-auto text-sm sm:text-base font-bold px-7 h-12 rounded-xl bg-card/80 backdrop-blur-sm border-border hover:bg-muted transition-all cursor-pointer">

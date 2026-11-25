@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import HlsVideoPlayer from "@/components/media/HlsVideoPlayer";
+import { McqQuizPlayer } from "@/components/assessments/mcq-quiz-player";
+import { AssignmentSubmissionPlayer } from "@/components/assessments/assignment-submission-player";
 import { 
   ArrowLeft, 
   Video, 
@@ -15,10 +17,11 @@ import {
   CheckSquare, 
   CheckCircle, 
   PlayCircle, 
-  BookBookmark,
+  BookBookmark, 
   Hourglass,
   Trophy,
-  GraduationCap
+  GraduationCap,
+  FilePdf
 } from "@phosphor-icons/react";
 
 export default function StudentLMSPlayerPage({ params: paramsPromise }) {
@@ -31,11 +34,6 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [completedModuleIds, setCompletedModuleIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
-
-  // Quiz state
-  const [selectedQuizOption, setSelectedQuizOption] = useState(null);
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizScore, setQuizScore] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -75,19 +73,62 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
           },
           {
             id: "mod_demo_3",
-            title: "Knowledge Check: Architecture Assessment Quiz",
+            title: "Knowledge Check: Architecture Assessment Quiz (Type A)",
             contentType: "QUIZ",
             quiz: {
-              question: "What is the primary boundary for consistency in Domain-Driven Design?",
-              options: [
-                { key: "A", text: "Domain Aggregate Root" },
-                { key: "B", text: "Database ORM Model" },
-                { key: "C", text: "REST API Endpoint Route" },
-                { key: "D", text: "Microservice Container" }
-              ],
-              correct: "A"
+              title: "Architecture Core Knowledge Check",
+              timeLimitMinutes: 15,
+              passingScore: 70,
+              maxAttempts: 3,
+              shuffleQuestions: true,
+              questions: [
+                {
+                  id: "q1",
+                  questionType: "SINGLE_CHOICE",
+                  title: "What is the primary boundary for consistency in Domain-Driven Design?",
+                  points: 10,
+                  explanation: "The Domain Aggregate Root encapsulates entities and enforces business invariants atomically.",
+                  options: [
+                    { id: "A", key: "A", label: "Domain Aggregate Root", isCorrect: true },
+                    { id: "B", key: "B", label: "Database ORM Model", isCorrect: false },
+                    { id: "C", key: "C", label: "REST API Endpoint Route", isCorrect: false },
+                    { id: "D", key: "D", label: "Microservice Container", isCorrect: false }
+                  ]
+                },
+                {
+                  id: "q2",
+                  questionType: "TRUE_FALSE",
+                  title: "In clean architecture, the domain layer may directly import external database ORM libraries.",
+                  points: 10,
+                  explanation: "The domain layer must remain pure and free from infrastructure or database coupling.",
+                  options: [
+                    { id: "A", key: "A", label: "True", isCorrect: false },
+                    { id: "B", key: "B", label: "False", isCorrect: true }
+                  ]
+                }
+              ]
             },
             order: 3
+          },
+          {
+            id: "mod_demo_4",
+            title: "Homework: Distributed Sagas Problem Set (Type B)",
+            contentType: "ASSIGNMENT",
+            quiz: {
+              title: "Distributed Sagas & Idempotency Lab Report",
+              instructions: "Download the problem set template. Analyze two-phase commit vs saga orchestrator patterns, and upload your PDF submission.",
+              templatePdfUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+              templateFileName: "Sagas_Problem_Set_Handout.pdf",
+              dueDate: new Date(Date.now() + 86400000 * 7).toISOString(),
+              passingScore: 70,
+              maxFileSizeMB: 25,
+              rubricCriteria: [
+                { id: "c1", name: "Methodology & Architecture", maxPoints: 15, description: "Clear decomposition of compensation steps." },
+                { id: "c2", name: "Failure Mode Proofs", maxPoints: 15, description: "Validation under network partition." },
+                { id: "c3", name: "PDF Standard Formatting", maxPoints: 5, description: "Compliance with university standards." }
+              ]
+            },
+            order: 4
           }
         ]);
       }
@@ -118,33 +159,17 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
     }
   };
 
-  const handleQuizSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedQuizOption || !activeModule?.quiz) return;
-
-    const isCorrect = selectedQuizOption === activeModule.quiz.correct;
-    const score = isCorrect ? 100 : 0;
-    setQuizSubmitted(true);
-    setQuizScore(score);
-
-    if (isCorrect) {
+  const handleAssessmentCompleted = (result) => {
+    if (activeModule?.id) {
       setCompletedModuleIds(new Set([...completedModuleIds, activeModule.id]));
+      if (user?.id) {
+        ApiClient.completeLesson({
+          studentUserId: user.id,
+          lessonModuleId: activeModule.id,
+          batchId: course?.batchId
+        });
+      }
     }
-
-    if (user?.id) {
-      await ApiClient.submitQuiz({
-        studentUserId: user.id,
-        lessonModuleId: activeModule.id,
-        score,
-        passingScore: 70
-      });
-    }
-  };
-
-  const resetQuiz = () => {
-    setSelectedQuizOption(null);
-    setQuizSubmitted(false);
-    setQuizScore(null);
   };
 
   if (loading) {
@@ -189,10 +214,16 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
             <CardHeader className="border-b border-border p-5 bg-card flex flex-row items-center justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs font-mono font-bold uppercase gap-1">
+                  <Badge
+                    variant={activeModule?.contentType === "ASSIGNMENT" ? "outline" : "secondary"}
+                    className={`text-xs font-mono font-bold uppercase gap-1 ${
+                      activeModule?.contentType === "ASSIGNMENT" ? "border-indigo-400/40 text-indigo-400 bg-indigo-500/10" : ""
+                    }`}
+                  >
                     {activeModule?.contentType === "VIDEO" && <Video size={14} />}
                     {activeModule?.contentType === "DOCUMENT" && <FileText size={14} />}
                     {activeModule?.contentType === "QUIZ" && <CheckSquare size={14} />}
+                    {activeModule?.contentType === "ASSIGNMENT" && <FilePdf size={14} />}
                     {activeModule?.contentType}
                   </Badge>
                   <span className="text-xs text-muted-foreground font-mono font-semibold">Lesson #{activeModuleIndex + 1}</span>
@@ -205,7 +236,7 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                   onClick={() => toggleComplete(activeModule.id)}
                   variant={completedModuleIds.has(activeModule.id) ? "success" : "outline"}
                   size="sm"
-                  className="gap-2 font-bold shrink-0"
+                  className="gap-2 font-bold shrink-0 cursor-pointer"
                 >
                   <CheckCircle size={18} weight="bold" />
                   {completedModuleIds.has(activeModule.id) ? "Completed" : "Mark Complete"}
@@ -234,7 +265,7 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                       <p className="text-xs text-muted-foreground">Open in full minimalist classroom view with interactive chapter checkpoints and autosaved notes.</p>
                     </div>
                     <Link href={`/dashboard/courses/${courseId}/lesson/${activeModule.id}`}>
-                      <Button size="sm" className="font-bold gap-2 shrink-0">
+                      <Button size="sm" className="font-bold gap-2 shrink-0 cursor-pointer">
                         <span>Open Classroom View</span>
                       </Button>
                     </Link>
@@ -254,7 +285,7 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                       <p className="text-xs font-mono text-muted-foreground">{activeModule.contentUrl}</p>
                     </div>
                     <a href={activeModule.contentUrl} target="_blank" rel="noreferrer">
-                      <Button size="lg" className="gap-2 font-bold">
+                      <Button size="lg" className="gap-2 font-bold cursor-pointer">
                         Download / Read PDF Document
                       </Button>
                     </a>
@@ -262,68 +293,25 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                 </div>
               )}
 
-              {/* QUIZ ASSESSMENT PLAYER */}
-              {activeModule?.contentType === "QUIZ" && activeModule?.quiz && (
-                <div className="space-y-6 max-w-xl mx-auto py-2">
-                  <div className="p-5 rounded-xl border border-border bg-background space-y-3">
-                    <span className="text-xs uppercase font-bold text-primary tracking-wider">Knowledge Assessment</span>
-                    <h3 className="text-lg font-bold leading-snug">{activeModule.quiz.question}</h3>
-                  </div>
+              {/* TYPE A: MCQ-STYLE QUIZ PLAYER */}
+              {activeModule?.contentType === "QUIZ" && (
+                <McqQuizPlayer
+                  quizConfig={activeModule.quiz || activeModule}
+                  moduleId={activeModule.id}
+                  studentUser={user}
+                  onCompleted={handleAssessmentCompleted}
+                />
+              )}
 
-                  {!quizSubmitted ? (
-                    <form onSubmit={handleQuizSubmit} className="space-y-4">
-                      <div className="space-y-2.5">
-                        {activeModule.quiz.options.map((opt) => (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => setSelectedQuizOption(opt.key)}
-                            className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
-                              selectedQuizOption === opt.key
-                                ? "border-primary bg-primary/10 text-foreground font-bold"
-                                : "border-border bg-background hover:border-foreground/30 text-foreground font-medium"
-                            }`}
-                          >
-                            <span className="h-8 w-8 rounded-lg bg-card border border-border flex items-center justify-center font-bold text-sm shrink-0">
-                              {opt.key}
-                            </span>
-                            <span className="text-sm">{opt.text}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <Button 
-                        type="submit" 
-                        size="lg" 
-                        className="w-full font-bold h-12 text-base mt-2" 
-                        disabled={!selectedQuizOption}
-                      >
-                        Submit Answer Key
-                      </Button>
-                    </form>
-                  ) : (
-                    <div className="space-y-4 text-center p-6 rounded-xl border border-border bg-background">
-                      <div className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto ${
-                        quizScore === 100 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-                      }`}>
-                        <Trophy size={36} weight="bold" />
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-2xl font-extrabold">
-                          {quizScore === 100 ? "Assessment Passed! 100%" : "Incorrect Answer (0%)"}
-                        </h4>
-                        <p className="text-xs text-muted-foreground font-medium">
-                          {quizScore === 100 
-                            ? "Great job! Lesson marked as completed in your roster." 
-                            : `Correct answer was Option ${activeModule.quiz.correct}. Try again!`}
-                        </p>
-                      </div>
-                      <Button onClick={resetQuiz} variant="outline" size="sm" className="font-bold">
-                        Retake Assessment
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              {/* TYPE B: PDF SUBMISSION-STYLE ASSESSMENT PLAYER */}
+              {activeModule?.contentType === "ASSIGNMENT" && (
+                <AssignmentSubmissionPlayer
+                  assignmentConfig={activeModule.quiz || activeModule}
+                  courseId={courseId}
+                  moduleId={activeModule.id}
+                  studentUser={user}
+                  onCompleted={handleAssessmentCompleted}
+                />
               )}
             </CardContent>
           </Card>
@@ -334,7 +322,7 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
           <Card className="border-border bg-card p-0 rounded-2xl">
             <CardHeader className="border-b border-border p-5">
               <CardTitle className="text-lg font-bold">Curriculum Syllabus</CardTitle>
-              <CardDescription className="text-xs font-medium">Click any lesson to open classroom player</CardDescription>
+              <CardDescription className="text-xs font-medium">Click any lesson or assessment to open</CardDescription>
             </CardHeader>
 
             <CardContent className="p-3 space-y-2">
@@ -344,7 +332,7 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                 return (
                   <button
                     key={mod.id}
-                    onClick={() => { setActiveModuleIndex(idx); resetQuiz(); }}
+                    onClick={() => setActiveModuleIndex(idx)}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                       isActive
                         ? "border-primary bg-primary/10 text-foreground font-bold"
@@ -358,9 +346,19 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
                         {isDone ? <CheckCircle size={18} weight="bold" /> : `#${idx + 1}`}
                       </div>
                       <div className="truncate">
-                        <p className="text-sm font-bold truncate leading-snug">{mod.title}</p>
-                        <span className="text-[11px] font-mono text-muted-foreground uppercase">{mod.contentType}</span>
+                        <p className="text-sm truncate">{mod.title}</p>
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                          {mod.contentType}
+                        </span>
                       </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {isDone ? (
+                        <span className="text-xs text-success font-bold">Done</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Start</span>
+                      )}
                     </div>
                   </button>
                 );

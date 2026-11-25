@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
 import HlsVideoPlayer from "@/components/media/HlsVideoPlayer";
+import { McqQuizPlayer } from "@/components/assessments/mcq-quiz-player";
+import { AssignmentSubmissionPlayer } from "@/components/assessments/assignment-submission-player";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -31,6 +33,7 @@ import {
   Trash,
   Video,
   CheckSquare,
+  FilePdf,
   ArrowSquareOut
 } from "@phosphor-icons/react";
 
@@ -251,7 +254,7 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     // Set appropriate initial tab based on content type
     if (currentLesson.contentType === "DOCUMENT") {
       setActiveTab("notes");
-    } else if (currentLesson.contentType === "QUIZ") {
+    } else if (currentLesson.contentType === "QUIZ" || currentLesson.contentType === "ASSIGNMENT") {
       setActiveTab("quiz");
     } else {
       setActiveTab(currentLesson.chapters && currentLesson.chapters.length > 0 ? "chapters" : "notes");
@@ -688,91 +691,26 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                 </div>
               </div>
             </div>
+          ) : currentLesson.contentType === "QUIZ" ? (
+            /* Type A: MCQ-Style Quiz Assessment Stage */
+            <McqQuizPlayer
+              quizConfig={currentLesson.quiz || resolvedQuiz}
+              moduleId={currentLesson.id}
+              studentUser={user}
+              onCompleted={() => markLessonComplete(currentLesson.id)}
+            />
+          ) : currentLesson.contentType === "ASSIGNMENT" ? (
+            /* Type B: PDF Submission Assessment Stage */
+            <AssignmentSubmissionPlayer
+              assignmentConfig={currentLesson.quiz || currentLesson}
+              courseId={courseId}
+              moduleId={currentLesson.id}
+              studentUser={user}
+              onCompleted={() => markLessonComplete(currentLesson.id)}
+            />
           ) : (
-            /* Quiz / Knowledge Assessment Stage */
-            <Card className="border-border bg-card p-6 md:p-8 rounded-2xl space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-border/80 pb-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-mono text-xs font-bold uppercase gap-1">
-                    <CheckSquare size={13} weight="bold" className="text-primary" />
-                    <span>Knowledge Checkpoint</span>
-                  </Badge>
-                  <Badge variant="outline" className="text-[11px] font-mono">
-                    Passing: 70%
-                  </Badge>
-                </div>
-                {quizSubmitted && (
-                  <Badge variant={quizCorrect ? "success" : "destructive"} className="font-bold">
-                    {quizCorrect ? "PASSED (100%)" : "FAILED (0%)"}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-lg md:text-xl font-extrabold text-foreground leading-snug">
-                  {resolvedQuiz.question}
-                </h2>
-
-                <div className="space-y-2.5">
-                  {(resolvedQuiz.options || []).map((opt) => {
-                    const isSelected = selectedOption === opt.key;
-                    const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
-                    const isAnswerCorrect = String(opt.key).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
-
-                    let btnStyle = "border-border hover:bg-muted/50 hover:border-primary/40 text-foreground";
-                    if (quizSubmitted) {
-                      if (isAnswerCorrect) {
-                        btnStyle = "bg-emerald-500/10 border-emerald-500/60 text-emerald-400 font-bold";
-                      } else if (isSelected) {
-                        btnStyle = "bg-red-500/10 border-red-500/60 text-red-400";
-                      }
-                    } else if (isSelected) {
-                      btnStyle = "bg-primary/10 border-primary text-primary font-bold";
-                    }
-
-                    return (
-                      <button
-                        key={opt.key}
-                        onClick={() => handleQuizAnswer(opt.key)}
-                        disabled={quizSubmitted}
-                        className={`w-full flex items-center gap-3.5 p-4 rounded-xl border text-left text-sm font-medium transition-all ${btnStyle}`}
-                      >
-                        <span className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center font-mono font-extrabold text-xs shrink-0">
-                          {opt.key}
-                        </span>
-                        <span className="flex-1">{opt.text}</span>
-                        {quizSubmitted && isAnswerCorrect && (
-                          <CheckCircle size={18} weight="fill" className="text-emerald-500 shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {quizSubmitted && (
-                  <div
-                    className={`p-4 rounded-xl border text-xs leading-relaxed animate-in fade-in duration-200 ${
-                      quizCorrect
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-medium"
-                        : "bg-red-500/10 border-red-500/30 text-red-400 font-medium"
-                    }`}
-                  >
-                    {quizCorrect ? (
-                      <div className="space-y-1">
-                        <strong className="block text-sm">Correct Answer!</strong>
-                        <span>{resolvedQuiz.explanation || "Domain entity checks validated. Your score has been submitted to your academic record."}</span>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <strong className="block text-sm">Review Needed</strong>
-                        <span>
-                          Option {resolvedQuiz.correct || "A"} is correct. {resolvedQuiz.explanation || "Re-review the prerequisite module materials and retry."}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+            <Card className="border-border bg-card p-6 rounded-2xl text-center text-muted-foreground">
+              Select a lesson module from the curriculum syllabus.
             </Card>
           )}
 
@@ -1082,78 +1020,22 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
 
             {/* Tab: Knowledge Check Quiz */}
             {activeTab === "quiz" && (
-              <Card className="border-border bg-card p-6 rounded-2xl animate-in fade-in duration-200">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                      <Sparkle size={16} weight="bold" />
-                      <span>Knowledge Checkpoint</span>
-                    </div>
-                    {quizSubmitted && (
-                      <Badge variant={quizCorrect ? "success" : "destructive"} className="text-[11px] font-bold">
-                        {quizCorrect ? "PASSED (100%)" : "FAILED (0%)"}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <h3 className="text-base font-bold text-foreground">
-                    {resolvedQuiz.question}
-                  </h3>
-
-                  <div className="space-y-2">
-                    {(resolvedQuiz.options || []).map((opt) => {
-                      const isSelected = selectedOption === opt.key;
-                      const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
-                      const isAnswerCorrect = String(opt.key).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
-
-                      let btnStyle = "border-border hover:bg-muted/50 hover:border-primary/40 text-foreground";
-                      if (quizSubmitted) {
-                        if (isAnswerCorrect) {
-                          btnStyle = "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 font-bold";
-                        } else if (isSelected) {
-                          btnStyle = "bg-red-500/10 border-red-500/50 text-red-400";
-                        }
-                      } else if (isSelected) {
-                        btnStyle = "bg-primary/10 border-primary text-primary font-bold";
-                      }
-
-                      return (
-                        <button
-                          key={opt.key}
-                          onClick={() => handleQuizAnswer(opt.key)}
-                          disabled={quizSubmitted}
-                          className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left text-sm font-medium transition-all ${btnStyle}`}
-                        >
-                          <span className="h-6 w-6 rounded-lg bg-muted flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                            {opt.key}
-                          </span>
-                          <span>{opt.text}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {quizSubmitted && (
-                    <div
-                      className={`p-4 rounded-xl border text-xs leading-relaxed ${
-                        quizCorrect
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-medium"
-                          : "bg-red-500/10 border-red-500/30 text-red-400 font-medium"
-                      }`}
-                    >
-                      {quizCorrect ? (
-                        <span>
-                          <strong>Correct!</strong> {resolvedQuiz.explanation || "Domain entity checks validated. Your score has been submitted to your academic transcript."}
-                        </span>
-                      ) : (
-                        <span>
-                          <strong>Incorrect.</strong> Option {resolvedQuiz.correct || "A"} is correct: {resolvedQuiz.explanation || "Review course material and retry."}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Card>
+              currentLesson.contentType === "ASSIGNMENT" ? (
+                <AssignmentSubmissionPlayer
+                  assignmentConfig={currentLesson.quiz || currentLesson}
+                  courseId={courseId}
+                  moduleId={currentLesson.id}
+                  studentUser={user}
+                  onCompleted={() => markLessonComplete(currentLesson.id)}
+                />
+              ) : (
+                <McqQuizPlayer
+                  quizConfig={currentLesson.quiz || resolvedQuiz}
+                  moduleId={currentLesson.id}
+                  studentUser={user}
+                  onCompleted={() => markLessonComplete(currentLesson.id)}
+                />
+              )
             )}
           </div>
         </div>
@@ -1360,6 +1242,8 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                                 <PlayCircle size={16} weight="fill" className="text-primary shrink-0 animate-pulse" />
                               ) : les.contentType === "DOCUMENT" ? (
                                 <FileText size={16} className="text-muted-foreground shrink-0" />
+                              ) : les.contentType === "ASSIGNMENT" ? (
+                                <FilePdf size={16} className="text-indigo-400 shrink-0" />
                               ) : les.contentType === "QUIZ" ? (
                                 <CheckSquare size={16} className="text-muted-foreground shrink-0" />
                               ) : (
