@@ -297,7 +297,7 @@ test('POST /api/v1/internal/learning/quizzes/submit processes quiz submission', 
 
 test('POST /api/v1/internal/media/presign creates presigned upload URL', async () => {
   const app = await buildApp();
-  const tenantId = crypto.randomUUID();
+  const tenantId = await getOrCreateTestTenant(app);
 
   const response = await app.inject({
     method: 'POST',
@@ -320,7 +320,7 @@ test('POST /api/v1/internal/media/presign creates presigned upload URL', async (
 
 test('POST /api/v1/internal/media/confirm confirms file upload completion', async () => {
   const app = await buildApp();
-  const tenantId = crypto.randomUUID();
+  const tenantId = await getOrCreateTestTenant(app);
 
   // Create presigned asset first
   const presignRes = await app.inject({
@@ -339,6 +339,7 @@ test('POST /api/v1/internal/media/confirm confirms file upload completion', asyn
     method: 'POST',
     url: '/api/v1/internal/media/confirm',
     payload: {
+      tenantId,
       mediaAssetId: assetData.id
     }
   });

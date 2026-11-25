@@ -3,21 +3,10 @@ const path = require('path');
 
 const crypto = require('crypto');
 const { authorize } = require('../../../middleware/authorize');
-const { requireTenant, isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
+const { requireTenant, isUuid, getUserId, isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
 
 async function mediaRoutes(fastify, options) {
   const container = options.container;
-
-  const assertSameTenant = (request, reply, resourceTenantId) => {
-    if (isDevAuthBypassEnabled() || !request.tenantId) {
-      return true;
-    }
-    if (resourceTenantId && resourceTenantId !== request.tenantId) {
-      reply.status(404).send({ success: false, error: 'Media asset not found' });
-      return false;
-    }
-    return true;
-  };
 
   fastify.post('/upload', { preHandler: authorize('media.upload') }, async (request, reply) => {
     if (!requireTenant(request, reply)) {
@@ -109,30 +98,22 @@ async function mediaRoutes(fastify, options) {
 
   fastify.get('/status/:id', { preHandler: authorize('media.upload') }, async (request, reply) => {
     const { id } = request.params;
+    if (!isUuid(id)) {
+      return reply.status(400).send({ success: false, error: 'Invalid media asset ID' });
+    }
+    if (!requireTenant(request, reply)) {
+      return;
+    }
     try {
       const dbClient = container.resolve('DatabaseClient');
       const res = await dbClient.query(
-        'SELECT id, tenant_id, status, filename, hls_manifest_url, created_at, updated_at FROM media_assets WHERE id = $1',
-        [id]
+        `SELECT id, status, filename, hls_manifest_url FROM media_assets
+         WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+        [id, request.tenantId]
       );
-      if (!res.rows || res.rows.length === 0) {
-        const manifestPath = path.join(process.cwd(), 'uploads', 'hls', id, 'master.m3u8');
-        if (fs.existsSync(manifestPath)) {
-          return reply.send({
-            success: true,
-            data: {
-              id,
-              status: 'READY',
-              hlsUrl: `http://localhost:3001/uploads/hls/${id}/master.m3u8`
-            }
-          });
-        }
-        return reply.status(404).send({ success: false, error: 'Media asset not found' });
-      }
-
       const row = res.rows[0];
-      if (!assertSameTenant(request, reply, row.tenant_id)) {
-        return;
+      if (!row) {
+        return reply.status(404).send({ success: false, error: 'Media asset not found' });
       }
       return reply.send({
         success: true,
@@ -144,7 +125,8 @@ async function mediaRoutes(fastify, options) {
         }
       });
     } catch (err) {
-      return reply.status(500).send({ success: false, error: err.message });
+      request.log.error({ err }, 'Failed to read media status');
+      return reply.status(500).send({ success: false, error: 'Failed to read media status' });
     }
   });
 
@@ -155,10 +137,9 @@ async function mediaRoutes(fastify, options) {
       schema: {
         body: {
           type: 'object',
-          required: ['tenantId', 'filename', 'mimeType', 'sizeBytes'],
+          required: ['filename', 'mimeType', 'sizeBytes'],
           properties: {
             tenantId: { type: 'string' },
-            uploaderUserId: { type: 'string' },
             filename: { type: 'string', minLength: 1 },
             mimeType: { type: 'string', minLength: 3 },
             sizeBytes: { type: 'number', minimum: 1 }
@@ -171,7 +152,11 @@ async function mediaRoutes(fastify, options) {
         return;
       }
       const useCase = container.resolve('CreatePresignedUploadUrlUseCase');
-      const result = await useCase.execute({ ...request.body, tenantId: request.tenantId });
+      const result = await useCase.execute({
+        ...request.body,
+        tenantId: request.tenantId,
+        uploaderUserId: isDevAuthBypassEnabled() ? null : getUserId(request)
+      });
 
       if (result.isFailure) {
         return reply.status(400).send({
@@ -191,8 +176,12 @@ async function mediaRoutes(fastify, options) {
     if (!requireTenant(request, reply)) {
       return;
     }
+    const { mediaAssetId, moduleId } = request.body || {};
+    if (!isUuid(mediaAssetId) || (moduleId != null && !isUuid(moduleId))) {
+      return reply.status(400).send({ success: false, error: 'Invalid media asset or module ID' });
+    }
     const useCase = container.resolve('ConfirmMediaUploadUseCase');
-    const result = await useCase.execute(request.body);
+    const result = await useCase.execute({ mediaAssetId, tenantId: request.tenantId });
 
     if (result.isFailure) {
       return reply.status(400).send({
@@ -202,10 +191,7 @@ async function mediaRoutes(fastify, options) {
     }
 
     const media = result.getValue();
-    if (!assertSameTenant(request, reply, media.tenantId)) {
-      return;
-    }
-    try {
+    if (media.status === 'ENCODING') {
       const outboxRepo = container.resolve('OutboxRepository');
       await outboxRepo.create({
         eventName: 'MediaUploaded',
@@ -216,13 +202,9 @@ async function mediaRoutes(fastify, options) {
           filename: media.filename,
           storageKey: media.storageKey,
           tenantId: media.tenantId,
-          moduleId: request.body?.moduleId || null,
-          courseId: request.body?.courseId || null
+          moduleId: moduleId || null
         }
       });
-      request.log.info(`[MediaConfirm] Emitted MediaUploaded outbox event for media ${media.id}`);
-    } catch (e) {
-      request.log.warn(`Failed to create MediaUploaded outbox event: ${e.message}`);
     }
 
     return reply.status(200).send({

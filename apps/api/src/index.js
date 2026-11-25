@@ -2,8 +2,7 @@ const Fastify = require('fastify');
 const cors = require('@fastify/cors');
 const cookie = require('@fastify/cookie');
 const dotenv = require('dotenv');
-const path = require('path');
-const fs = require('fs');
+const uploadRoutes = require('./routes/uploads');
 const { container } = require('./bootstrap/container');
 const { registerProviders } = require('./bootstrap/providers');
 const { registerServices } = require('./bootstrap/services');
@@ -38,64 +37,7 @@ async function start() {
   // Bearer-header clients (mobile/API) never carry our cookies, so they're unaffected.
   fastify.addHook('onRequest', verifyCsrf);
 
-  // Serve uploads directory (including HLS multi-bitrate streams & segments)
-  fastify.get('/uploads/*', async (request, reply) => {
-    const subpath = request.params['*'] || '';
-    const filePath = path.join(process.cwd(), 'uploads', subpath);
-
-    // Explicit CORS header for media streaming
-    reply.header('Access-Control-Allow-Origin', request.headers.origin || '*');
-    reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      try {
-        const storageProvider = container.resolve('StorageProvider');
-        if (storageProvider && typeof storageProvider.download === 'function') {
-          const buffer = await storageProvider.download(subpath);
-          if (buffer && buffer.length > 0) {
-            // Cache downloaded asset locally on disk for subsequent instant streaming
-            try {
-              const fileDir = path.dirname(filePath);
-              if (!fs.existsSync(fileDir)) fs.mkdirSync(fileDir, { recursive: true });
-              fs.writeFileSync(filePath, buffer);
-            } catch (cacheErr) {
-              // non-fatal disk write error
-            }
-
-            if (subpath.endsWith('.m3u8')) reply.header('Content-Type', 'application/vnd.apple.mpegurl');
-            else if (subpath.endsWith('.ts')) reply.header('Content-Type', 'video/mp2t');
-            else if (subpath.endsWith('.jpg') || subpath.endsWith('.jpeg')) reply.header('Content-Type', 'image/jpeg');
-            else if (subpath.endsWith('.png')) reply.header('Content-Type', 'image/png');
-            else if (subpath.endsWith('.mp4')) reply.header('Content-Type', 'video/mp4');
-            else if (subpath.endsWith('.pdf')) reply.header('Content-Type', 'application/pdf');
-            return reply.send(buffer);
-          }
-        }
-      } catch (e) {
-        // fallback to 404
-      }
-      return reply.status(404).send({ error: 'File not found' });
-    }
-
-    if (filePath.endsWith('.m3u8')) {
-      reply.header('Content-Type', 'application/vnd.apple.mpegurl');
-      reply.header('Cache-Control', 'no-cache');
-    } else if (filePath.endsWith('.ts')) {
-      reply.header('Content-Type', 'video/mp2t');
-      reply.header('Cache-Control', 'public, max-age=86400');
-    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
-      reply.header('Content-Type', 'image/jpeg');
-    } else if (filePath.endsWith('.png')) {
-      reply.header('Content-Type', 'image/png');
-    } else if (filePath.endsWith('.mp4')) {
-      reply.header('Content-Type', 'video/mp4');
-    } else if (filePath.endsWith('.pdf')) {
-      reply.header('Content-Type', 'application/pdf');
-    }
-
-    const stream = fs.createReadStream(filePath);
-    return reply.send(stream);
-  });
+  await fastify.register(uploadRoutes, { container });
 
   // Register versioned route handlers
   await fastify.register(internalV1Routes, { prefix: '/api/v1/internal', container });

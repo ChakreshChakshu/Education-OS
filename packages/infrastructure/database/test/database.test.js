@@ -271,6 +271,47 @@ test('DrizzleMediaAssetRepository converts MediaAsset Entity <-> Row correctly',
   assert.equal(found.size.megaBytes, 25);
 });
 
+test('DrizzleMediaAssetRepository persists and reloads media through DatabaseClient.query', async () => {
+  const tenantId = crypto.randomUUID();
+  const asset = MediaAsset.create({
+    tenantId,
+    filename: 'sample-video.mp4',
+    mimeType: 'video/mp4',
+    size: 4096
+  }).getValue();
+  let savedRow;
+  const db = {
+    query: async (sql, values) => {
+      if (sql.startsWith('INSERT')) {
+        assert.match(sql, /ON CONFLICT/);
+        assert.deepEqual(values.slice(0, 7), [
+          asset.id, tenantId, null, asset.filename, 'video/mp4', 4096, asset.storageKey
+        ]);
+        savedRow = {
+          id: asset.id,
+          tenant_id: tenantId,
+          filename: asset.filename,
+          mime_type: 'video/mp4',
+          size_bytes: '4096',
+          storage_key: asset.storageKey,
+          status: values[7]
+        };
+        return { rows: [] };
+      }
+      assert.match(sql, /deleted_at IS NULL/);
+      assert.deepEqual(values, [sql.includes('storage_key =') ? asset.storageKey : asset.id]);
+      return { rows: [savedRow] };
+    }
+  };
+
+  await new DrizzleMediaAssetRepository(db).save(asset);
+  const repository = new DrizzleMediaAssetRepository(db);
+  const reloaded = await repository.findById(asset.id);
+  assert.equal(reloaded.size.bytes, 4096);
+  assert.equal(reloaded.tenantId, tenantId);
+  assert.equal((await repository.findByStorageKey(asset.storageKey)).id, asset.id);
+});
+
 test('DrizzleLessonNoteRepository saves and retrieves student lesson notes correctly', async () => {
   const studentUserId = crypto.randomUUID();
   const lessonModuleId = 'mod_1_lesson_2';

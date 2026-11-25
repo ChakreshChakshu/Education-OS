@@ -19,7 +19,7 @@ class DrizzleMediaAssetRepository extends BaseRepository {
         uploaderUserId: row.uploaderUserId || row.uploader_user_id,
         filename: row.filename,
         mimeType: row.mimeType || row.mime_type,
-        size: row.sizeBytes || row.size_bytes,
+        size: Number(row.sizeBytes ?? row.size_bytes),
         storageKey: row.storageKey || row.storage_key,
         status: row.status,
         hlsManifestUrl: row.hlsManifestUrl || row.hls_manifest_url,
@@ -49,6 +49,13 @@ class DrizzleMediaAssetRepository extends BaseRepository {
   }
 
   async findById(id) {
+    if (typeof this.db?.query === 'function') {
+      const { rows } = await this.db.query(
+        'SELECT * FROM media_assets WHERE id = $1 AND deleted_at IS NULL',
+        [id]
+      );
+      return DrizzleMediaAssetRepository.toDomain(rows[0]);
+    }
     if (this.db && this.db.select) {
       const rows = await this.db
         .select()
@@ -62,6 +69,13 @@ class DrizzleMediaAssetRepository extends BaseRepository {
   }
 
   async findByStorageKey(key) {
+    if (typeof this.db?.query === 'function') {
+      const { rows } = await this.db.query(
+        'SELECT * FROM media_assets WHERE storage_key = $1 AND deleted_at IS NULL LIMIT 1',
+        [key]
+      );
+      return DrizzleMediaAssetRepository.toDomain(rows[0]);
+    }
     if (this.db && this.db.select) {
       const rows = await this.db
         .select()
@@ -80,6 +94,23 @@ class DrizzleMediaAssetRepository extends BaseRepository {
 
   async save(mediaAsset) {
     const raw = DrizzleMediaAssetRepository.toPersistence(mediaAsset);
+    if (typeof this.db?.query === 'function') {
+      await this.db.query(
+        `INSERT INTO media_assets (
+           id, tenant_id, uploader_user_id, filename, mime_type, size_bytes, storage_key,
+           status, hls_manifest_url, created_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status, hls_manifest_url = EXCLUDED.hls_manifest_url,
+           updated_at = EXCLUDED.updated_at
+         WHERE media_assets.tenant_id = EXCLUDED.tenant_id AND media_assets.deleted_at IS NULL`,
+        [
+          raw.id, raw.tenantId, raw.uploaderUserId, raw.filename, raw.mimeType, raw.sizeBytes,
+          raw.storageKey, raw.status, raw.hlsManifestUrl, raw.createdAt, raw.updatedAt
+        ]
+      );
+      return mediaAsset;
+    }
     if (this.db && this.db.insert) {
       await this.db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,

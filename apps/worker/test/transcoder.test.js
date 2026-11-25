@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
+const os = require('node:os');
+const { randomUUID } = require('node:crypto');
 const path = require('path');
 const { VideoTranscoder } = require('../src/services/transcoder');
 
@@ -67,25 +69,57 @@ test('VideoTranscoder transcodes MP4 into multi-bitrate HLS and poster thumbnail
   assert.ok(fs.statSync(result.posterPath).size > 0);
 });
 
-test('Video transcoding processor executes MediaUploaded job with multi-bitrate HLS output', async () => {
+test('Video transcoding processor verifies asset ownership and updates only matching lessons', async (t) => {
   const { PROCESSORS } = require('../src/processors');
   const { JOBS } = require('../src/jobs');
+  const { DatabaseClient } = require('../../../packages/infrastructure/database/src');
+  const { R2StorageProvider } = require('../../../packages/infrastructure/storage/src');
   const transcoder = new VideoTranscoder();
-
-  const testVideoPath = path.join(TEST_SCRATCH, 'processor_test.mp4');
-  await transcoder.createSyntheticVideo(testVideoPath, 2);
-
-  const mediaAssetId = '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
-  const result = await PROCESSORS[JOBS.VIDEO_TRANSCODE]({
-    mediaAssetId,
-    filename: 'processor_test.mp4',
-    filePath: testVideoPath
+  const mediaAssetId = randomUUID();
+  const tenantId = randomUUID();
+  const storageKey = `${mediaAssetId}.mp4`;
+  const storageUrl = `/uploads/${storageKey}`;
+  const tempUploads = path.join(os.tmpdir(), 'eos_uploads');
+  fs.mkdirSync(tempUploads, { recursive: true });
+  const testVideoPath = path.join(tempUploads, storageKey);
+  const mirroredOutput = path.resolve(__dirname, '../../api/uploads/hls', mediaAssetId);
+  t.after(() => {
+    fs.rmSync(testVideoPath, { force: true });
+    fs.rmSync(mirroredOutput, { recursive: true, force: true });
   });
+  t.mock.method(R2StorageProvider.prototype, 'upload', async () => {});
+  t.mock.method(R2StorageProvider.prototype, 'download', async () => null);
+  const changes = [];
+  t.mock.method(DatabaseClient.prototype, 'query', async (sql, params) => {
+    if (sql.startsWith('SELECT')) {
+      assert.deepEqual(params, [mediaAssetId]);
+      return { rows: [{ tenant_id: tenantId, storage_key: storageKey, storage_url: storageUrl }] };
+    }
+    changes.push({ sql, params });
+    return { rows: [] };
+  });
+
+  await assert.rejects(
+    PROCESSORS[JOBS.VIDEO_TRANSCODE]({ mediaAssetId, tenantId: randomUUID() }),
+    /Media asset not found for this tenant/
+  );
+  await assert.rejects(
+    PROCESSORS[JOBS.VIDEO_TRANSCODE]({ mediaAssetId, tenantId }),
+    /Source video not found/
+  );
+  assert.equal(changes.length, 0);
+
+  await transcoder.createSyntheticVideo(testVideoPath, 2);
+  const result = await PROCESSORS[JOBS.VIDEO_TRANSCODE]({ mediaAssetId, tenantId, filePath: testVideoPath });
 
   assert.equal(result.success, true);
   assert.equal(result.mediaAssetId, mediaAssetId);
-  assert.ok(result.manifestUrl.includes('master.m3u8'));
+  assert.match(result.manifestUrl, /master\.m3u8$/);
   assert.deepEqual(result.variants, ['360p', '720p', '1080p']);
+  assert.equal(changes.length, 1);
+  assert.deepEqual(changes[0].params, [result.manifestUrl, mediaAssetId, tenantId, null]);
+  assert.match(changes[0].sql, /course.tenant_id = asset.tenant_id/);
+  assert.match(changes[0].sql, /NULLIF\(asset.storage_url, ''\) = lesson.content_url/);
 });
 
 test('Email processor renders student invitation template and dispatches via ResendMailProvider', async () => {

@@ -290,6 +290,8 @@ async function runNeonMigration() {
       `CREATE INDEX IF NOT EXISTS idx_jobs_status_available ON jobs(status, available_at, priority DESC);`,
       `CREATE INDEX IF NOT EXISTS idx_jobs_queue_name ON jobs(queue_name);`,
 
+      `ALTER TABLE lesson_modules ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`,
+
       // 21. Media Assets Schema Enhancements (for HLS & Storage Keys)
       `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS storage_key TEXT;`,
       `ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS hls_manifest_url TEXT;`,

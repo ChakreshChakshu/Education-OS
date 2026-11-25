@@ -89,8 +89,28 @@ test('ConfirmMediaUploadUseCase transition status to ENCODING for video files', 
 
   const useCase = new ConfirmMediaUploadUseCase({ mediaAssetRepository });
 
-  const result = await useCase.execute({ mediaAssetId: asset.id });
+  const result = await useCase.execute({ mediaAssetId: asset.id, tenantId });
 
   assert.equal(result.isSuccess, true);
   assert.equal(result.getValue().status, 'ENCODING');
+  assert.equal(result.getValue().tenantId, tenantId);
+});
+
+test('ConfirmMediaUploadUseCase leaves an asset untouched without a matching tenant', async () => {
+  const mediaAssetRepository = new MockMediaAssetRepository();
+  const asset = MediaAsset.create({
+    tenantId: crypto.randomUUID(),
+    filename: 'demo.mp4',
+    mimeType: 'video/mp4',
+    size: 1024
+  }).getValue();
+  await mediaAssetRepository.save(asset);
+  const useCase = new ConfirmMediaUploadUseCase({ mediaAssetRepository });
+
+  for (const tenantId of [undefined, crypto.randomUUID()]) {
+    const result = await useCase.execute({ mediaAssetId: asset.id, tenantId });
+    assert.equal(result.isFailure, true);
+    assert.equal(asset.status, 'PENDING_UPLOAD');
+    assert.equal((await mediaAssetRepository.findById(asset.id)).status, 'PENDING_UPLOAD');
+  }
 });
