@@ -1,6 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-
+const { hlsUrl, uploadUrl } = require('../../mediaAccess');
 const crypto = require('crypto');
 const { authorize } = require('../../../middleware/authorize');
 const { requireTenant, isUuid, getUserId, isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
@@ -27,59 +25,43 @@ async function mediaRoutes(fastify, options) {
     const mediaAssetId = crypto.randomUUID();
     const effectiveMimeType = mimeType || (isVideo ? 'video/mp4' : 'application/octet-stream');
 
-    const storageProvider = container.resolve('StorageProvider');
-    const uploadResult = await storageProvider.upload(safeFilename, buffer, effectiveMimeType);
-    const fileUrl = uploadResult.url;
-    request.log.info(`[MediaUpload] Uploaded directly to Cloudflare R2: ${fileUrl}`);
-
-    let filePath = null;
-    if (isVideo) {
-      const os = require('os');
-      const tempDir = path.join(os.tmpdir(), 'eos_uploads');
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-      filePath = path.join(tempDir, safeFilename);
-      fs.writeFileSync(filePath, buffer);
-    }
-
-    const hlsUrl = isVideo ? `http://localhost:3001/uploads/hls/${mediaAssetId}/master.m3u8` : null;
+    const storageKey = `private/${mediaAssetId}/${safeFilename}`;
+    const storageProvider = container.resolve('PrivateStorageProvider');
+    await storageProvider.upload(storageKey, buffer, effectiveMimeType);
+    const fileUrl = uploadUrl(storageKey);
 
     const tenantId = request.tenantId || crypto.randomUUID();
 
-    try {
-      const dbClient = container.resolve('DatabaseClient');
-      await dbClient.query(`
-        INSERT INTO media_assets (id, tenant_id, filename, mime_type, size_bytes, storage_key, storage_url, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, storage_url = EXCLUDED.storage_url, updated_at = NOW()
-      `, [
-        mediaAssetId,
-        tenantId,
-        safeFilename,
-        effectiveMimeType,
-        buffer.length,
-        safeFilename,
-        fileUrl,
-        isVideo ? 'ENCODING' : 'READY'
-      ]);
+    const dbClient = container.resolve('DatabaseClient');
+    await dbClient.query(`
+      INSERT INTO media_assets (id, tenant_id, filename, mime_type, size_bytes, storage_key, storage_url, status, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, storage_url = EXCLUDED.storage_url, updated_at = NOW()
+    `, [
+      mediaAssetId,
+      tenantId,
+      safeFilename,
+      effectiveMimeType,
+      buffer.length,
+      storageKey,
+      fileUrl,
+      isVideo ? 'ENCODING' : 'READY'
+    ]);
 
-      if (isVideo) {
-        const outboxRepo = container.resolve('OutboxRepository');
-        await outboxRepo.create({
-          eventName: 'MediaUploaded',
-          aggregateType: 'MediaAsset',
-          aggregateId: mediaAssetId,
-          payload: {
-            mediaAssetId,
-            filename: safeFilename,
-            filePath,
-            storageKey: safeFilename,
-            tenantId
-          }
-        });
-        request.log.info(`[MediaUpload] Created mediaAsset ${mediaAssetId} and published MediaUploaded outbox event`);
-      }
-    } catch (err) {
-      request.log.warn(`[MediaUpload] Outbox / DB creation warning: ${err.message}`);
+    if (isVideo) {
+      const outboxRepo = container.resolve('OutboxRepository');
+      await outboxRepo.create({
+        eventName: 'MediaUploaded',
+        aggregateType: 'MediaAsset',
+        aggregateId: mediaAssetId,
+        payload: {
+          mediaAssetId,
+          filename: safeFilename,
+          storageKey,
+          tenantId
+        }
+      });
+      request.log.info(`[MediaUpload] Created mediaAsset ${mediaAssetId} and published MediaUploaded outbox event`);
     }
 
     return reply.status(201).send({
@@ -87,9 +69,8 @@ async function mediaRoutes(fastify, options) {
       data: {
         id: mediaAssetId,
         filename: safeFilename,
-        path: filePath,
         url: fileUrl,
-        hlsUrl: isVideo ? hlsUrl : null,
+        hlsUrl: isVideo ? hlsUrl(mediaAssetId) : null,
         status: isVideo ? 'ENCODING' : 'READY',
         mimeType: mimeType || 'application/octet-stream'
       }
@@ -121,7 +102,7 @@ async function mediaRoutes(fastify, options) {
           id: row.id,
           status: row.status,
           filename: row.filename,
-          hlsUrl: row.hls_manifest_url || `http://localhost:3001/uploads/hls/${id}/master.m3u8`
+          hlsUrl: row.hls_manifest_url ? hlsUrl(id) : null
         }
       });
     } catch (err) {

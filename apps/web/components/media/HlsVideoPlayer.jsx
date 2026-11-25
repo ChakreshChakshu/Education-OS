@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import Hls from "hls.js";
+import { ApiClient } from "@/lib/api";
 import {
   Play,
   Pause,
@@ -17,22 +18,6 @@ import {
   Clock,
   X
 } from "@phosphor-icons/react";
-
-// Resolves video stream URL, normalizing private S3/R2 endpoints to the local API proxy in dev mode
-function normalizeStreamUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
-
-  // If URL points to Cloudflare R2 S3 API (which lacks browser CORS and breaks relative HLS chunks)
-  if (rawUrl.includes(".r2.cloudflarestorage.com/hls/")) {
-    const match = rawUrl.match(/\/hls\/([a-zA-Z0-9_-]+)\/master\.m3u8/);
-    if (match && match[1]) {
-      const assetId = match[1];
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-      return `${apiBase}/uploads/hls/${assetId}/master.m3u8`;
-    }
-  }
-  return rawUrl;
-}
 
 const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
   {
@@ -133,7 +118,34 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
     const video = videoRef.current;
     if (!video || !src) return;
 
-    const effectiveSrc = normalizeStreamUrl(src);
+    const effectiveSrc = src;
+    const isManagedMedia = src.startsWith("/uploads/");
+    let disposed = false;
+    let triedRefresh = false;
+    let resumeAt = null;
+    const refreshMediaSession = async () => {
+      if (!isManagedMedia || triedRefresh) return false;
+      triedRefresh = true;
+      return await ApiClient._tryRefreshAccessToken() && !disposed;
+    };
+    const handleLoadedMetadata = () => {
+      setIsBuffering(false);
+      if (resumeAt !== null) {
+        video.currentTime = resumeAt;
+        resumeAt = null;
+        triedRefresh = false;
+      } else {
+        performInitialSeek(video.duration);
+      }
+      if (autoPlay) video.play().catch(() => {});
+    };
+    const handleNativeError = async () => {
+      const position = video.currentTime;
+      if (await refreshMediaSession()) {
+        resumeAt = position;
+        video.load();
+      }
+    };
 
     // Reset states
     setCurrentTime(0);
@@ -193,19 +205,25 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
         }
       });
 
-      hls.on(Hls.Events.ERROR, (event, data) => {
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        triedRefresh = false;
+      });
+      hls.on(Hls.Events.ERROR, async (event, data) => {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.warn("[HlsPlayer] Fatal network error, recovering...", data);
-              // If failed on a remote R2 manifest, attempt fallback to local API uploads
-              if (data.details === "manifestLoadError" && src && src.includes(".r2.cloudflarestorage.com")) {
-                const normalized = normalizeStreamUrl(src);
-                if (normalized !== data.context?.url) {
-                  console.info("[HlsPlayer] Retrying via local API streaming proxy:", normalized);
-                  hls.loadSource(normalized);
-                  return;
+              if (isManagedMedia && [401, 404].includes(data.response?.code)) {
+                if (await refreshMediaSession()) {
+                  if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
+                    hls.loadSource(effectiveSrc);
+                  } else {
+                    hls.startLoad(video.currentTime);
+                  }
+                } else if (!disposed) {
+                  setIsBuffering(false);
                 }
+                return;
               }
               if (fallbackUrl && hls.url !== fallbackUrl) {
                 console.info("[HlsPlayer] Falling back to secondary stream URL:", fallbackUrl);
@@ -225,25 +243,16 @@ const HlsVideoPlayer = forwardRef(function HlsVideoPlayer(
           }
         }
       });
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native HLS for Safari/iOS
-      video.src = effectiveSrc;
-      video.addEventListener("loadedmetadata", () => {
-        setIsBuffering(false);
-        performInitialSeek(video.duration);
-        if (autoPlay) video.play().catch(() => {});
-      });
     } else {
-      // Direct MP4 playback fallback
+      video.addEventListener("loadedmetadata", handleLoadedMetadata);
+      video.addEventListener("error", handleNativeError);
       video.src = effectiveSrc;
-      video.addEventListener("loadedmetadata", () => {
-        setIsBuffering(false);
-        performInitialSeek(video.duration);
-        if (autoPlay) video.play().catch(() => {});
-      });
     }
 
     return () => {
+      disposed = true;
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("error", handleNativeError);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;

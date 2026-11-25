@@ -112,12 +112,6 @@ export function resolveCourseThumbnail(course = {}) {
     return getCourseFallbackImage(course);
   }
 
-  // If local uploads relative path, ensure it works with Fastify backend or proxy
-  if (url.startsWith("/uploads/")) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    return `${apiUrl}${url}`;
-  }
-
   return url;
 }
 

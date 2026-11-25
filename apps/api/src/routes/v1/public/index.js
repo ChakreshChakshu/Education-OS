@@ -1,3 +1,4 @@
+const { mediaUrlsForCourse } = require('../../mediaAccess');
 const { learningDomain } = require('../../../bootstrap/domain-bridge');
 const { queueEnrollmentInvitation, serializeEnrollment } = require('../enrollmentInvitation');
 const { STUDENT_ACTIVATION_TYPE, activationPasswordHash } = learningDomain.application;
@@ -823,8 +824,15 @@ async function publicRoutes(fastify, options) {
       const moduleRepo = container.resolve('LessonModuleRepository');
       const modules = await moduleRepo.findByCourseId(course.id);
 
+      const previewUrls = (modules || []).filter((module, index) => index === 0 || module.props?.isPreview)
+        .map((module) => module.contentUrl).filter(Boolean);
+      const managedMedia = previewUrls.length
+        ? await mediaUrlsForCourse(container.resolve('DatabaseClient'), course.tenantId, previewUrls)
+        : new Map();
+
       const publicModules = (modules || []).map((m, idx) => {
-        const isPreview = idx === 0 || Boolean(m.props?.isPreview);
+        const isPreview = Boolean((idx === 0 || m.props?.isPreview) && m.contentUrl &&
+          !managedMedia.has(m.contentUrl) && !/(?:^|\/)uploads\//.test(m.contentUrl));
         return {
           id: m.id,
           title: m.title,

@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { canReadMedia, findMediaAsset } = require('./mediaAccess');
 
 const contentTypes = {
   '.m3u8': 'application/vnd.apple.mpegurl',
@@ -7,6 +8,9 @@ const contentTypes = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
   '.mp4': 'video/mp4',
   '.pdf': 'application/pdf'
 };
@@ -14,6 +18,7 @@ const contentTypes = {
 async function uploadRoutes(fastify, { container, uploadsRoot = path.resolve('uploads') }) {
   fastify.get('/uploads/*', async (request, reply) => {
     const key = request.params['*'] || '';
+    reply.header('Cache-Control', 'private, no-store');
     const notFound = () => reply.code(404).send({ error: 'File not found' });
 
     // Use the same relative key for disk and object storage.
@@ -26,11 +31,20 @@ async function uploadRoutes(fastify, { container, uploadsRoot = path.resolve('up
       return notFound();
     }
 
+    let record;
+    try {
+      record = await findMediaAsset(container.resolve('DatabaseClient'), key);
+      if (!record || !(await canReadMedia(container, request, record, key))) return notFound();
+    } catch (err) {
+      request.log.error({ err }, 'Media authorization lookup failed');
+      return reply.code(503).send({ error: 'Media temporarily unavailable' });
+    }
+
     let asset;
     try {
       const realRoot = await fs.promises.realpath(uploadsRoot);
       const realFile = await fs.promises.realpath(filePath);
-      if (!realFile.startsWith(realRoot + path.sep) || !(await fs.promises.stat(realFile)).isFile()) {
+      if (realFile !== path.resolve(realRoot, key) || !(await fs.promises.stat(realFile)).isFile()) {
         return notFound();
       }
       asset = fs.createReadStream(realFile);
@@ -39,8 +53,16 @@ async function uploadRoutes(fastify, { container, uploadsRoot = path.resolve('up
         return notFound();
       }
       try {
-        const storage = container.resolve('StorageProvider');
-        asset = await storage.download(key);
+        const isPrivateObject = record.storage_key?.startsWith('private/');
+        if (key.startsWith('hls/')) {
+          asset = await container.resolve('PrivateStorageProvider').download(`private/${key}`);
+          if (!asset?.length && !isPrivateObject) {
+            asset = await container.resolve('StorageProvider').download(key);
+          }
+        } else {
+          const storage = container.resolve(isPrivateObject ? 'PrivateStorageProvider' : 'StorageProvider');
+          asset = await storage.download(key);
+        }
         if (!asset?.length) {
           return notFound();
         }
@@ -51,13 +73,8 @@ async function uploadRoutes(fastify, { container, uploadsRoot = path.resolve('up
 
     const extension = path.extname(key).toLowerCase();
     reply.type(contentTypes[extension] || 'application/octet-stream');
-    reply.header('Access-Control-Allow-Origin', '*');
-    reply.removeHeader('Access-Control-Allow-Credentials');
-    if (extension === '.m3u8') {
-      reply.header('Cache-Control', 'no-cache');
-    } else if (extension === '.ts') {
-      reply.header('Cache-Control', 'public, max-age=86400');
-    }
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Content-Security-Policy', "default-src 'none'");
     return reply.send(asset);
   });
 }

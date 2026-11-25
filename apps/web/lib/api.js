@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const configuredApi = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_URL;
+const apiOrigin = configuredApi?.startsWith('http') ? new URL(configuredApi).origin : 'http://localhost:3001';
+const API_BASE_URL = typeof window === 'undefined' ? `${apiOrigin}/api/v1` : '/api/v1';
 
 // Reads the non-httpOnly csrf_token cookie the API sets on login/refresh. It's
 // deliberately readable by JS — the double-submit check just confirms this
@@ -33,18 +35,20 @@ class ApiClient {
   // Attempts a single silent access-token refresh via the httpOnly refresh_token
   // cookie. Access tokens are short-lived (15 min, see docs/auth_and_authorization.md),
   // so without this every internal request would start failing mid-session.
-  static async _tryRefreshAccessToken() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/public/auth/refresh`, {
+  static _refreshInFlight = null;
+
+  static _tryRefreshAccessToken() {
+    if (!this._refreshInFlight) {
+      this._refreshInFlight = fetch(`${API_BASE_URL}/public/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: this.getHeaders({}, { mutating: true }),
         body: JSON.stringify({})
+      }).then((response) => response.ok, () => false).finally(() => {
+        this._refreshInFlight = null;
       });
-      return res.ok;
-    } catch (err) {
-      return false;
     }
+    return this._refreshInFlight;
   }
 
   // Shared fetch wrapper for authenticated internal routes: sends cookies, attaches

@@ -79,12 +79,13 @@ const PROCESSORS = {
       throw new Error('[video.transcode] Missing mediaAssetId in job payload.');
     }
 
-    const hasR2 = Boolean(
-      process.env.R2_ACCOUNT_ID &&
-      process.env.R2_ACCESS_KEY_ID &&
-      process.env.R2_SECRET_ACCESS_KEY
-    );
-    const r2 = hasR2 && R2StorageProvider ? new R2StorageProvider() : null;
+    const hasR2 = Boolean(process.env.R2_ACCOUNT_ID || process.env.R2_BUCKET_NAME || process.env.R2_PRIVATE_BUCKET_NAME);
+    const privateBucket = process.env.R2_PRIVATE_BUCKET_NAME;
+    if (hasR2 && (!privateBucket ||
+      (privateBucket === process.env.R2_BUCKET_NAME && (process.env.R2_PUBLIC_DOMAIN || process.env.MEDIA_CDN_URL)))) {
+      throw new Error('Configure R2_PRIVATE_BUCKET_NAME for private transcodes.');
+    }
+    const privateStorage = hasR2 ? new R2StorageProvider({ bucketName: privateBucket, privateUrls: true }) : null;
 
     const dbClient = new DatabaseClient({ connectionString: process.env.DATABASE_URL });
     let assetRow;
@@ -107,8 +108,9 @@ const PROCESSORS = {
 
     try {
       let inputPath = resolveInputVideoPath(assetRow.storage_key, payload.filePath);
-      if (!inputPath && r2) {
-        const buffer = await r2.download(assetRow.storage_key);
+      if (!inputPath && privateStorage) {
+        const sourceStorage = assetRow.storage_key.startsWith('private/') ? privateStorage : new R2StorageProvider();
+        const buffer = await sourceStorage.download(assetRow.storage_key);
         if (buffer?.length) {
           inputPath = path.join(tempWorkDir, `source_${path.basename(assetRow.storage_key)}`);
           fs.writeFileSync(inputPath, buffer);
@@ -128,30 +130,9 @@ const PROCESSORS = {
         segmentDuration: 4
       });
 
-      const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
-      let manifestUrl = `${apiBaseUrl}/uploads/hls/${mediaAssetId}/master.m3u8`;
-
-      // 6. Upload HLS segments and playlists to Cloudflare R2
-      let publishedToStorage = false;
-      if (r2) {
-        try {
-          console.log(`[video.transcode] Syncing HLS stream directory to Cloudflare R2 for asset ${mediaAssetId}...`);
-          await uploadDirectoryToR2(r2, hlsOutputDir, `hls/${mediaAssetId}`);
-          publishedToStorage = true;
-
-          // In production with a custom CDN domain (e.g., https://media.yourdomain.com), use the public CDN URL.
-          // In development or when using private S3 API endpoints (*.r2.cloudflarestorage.com),
-          // route through the API streaming server so relative HLS sub-playlists resolve with CORS.
-          const cdnDomain = process.env.MEDIA_CDN_URL || (process.env.R2_PUBLIC_DOMAIN && !process.env.R2_PUBLIC_DOMAIN.includes('.r2.cloudflarestorage.com') ? process.env.R2_PUBLIC_DOMAIN : null);
-          if (cdnDomain) {
-            manifestUrl = `${cdnDomain.replace(/\/$/, '')}/hls/${mediaAssetId}/master.m3u8`;
-            console.log(`[video.transcode] R2 Sync Complete! Production CDN URL: ${manifestUrl}`);
-          } else {
-            console.log(`[video.transcode] R2 Sync Complete! Dev Streaming URL: ${manifestUrl}`);
-          }
-        } catch (r2Err) {
-          console.warn(`[video.transcode] Cloudflare R2 upload warning: ${r2Err.message}`);
-        }
+      const manifestUrl = `/uploads/hls/${mediaAssetId}/master.m3u8`;
+      if (privateStorage) {
+        await uploadDirectoryToR2(privateStorage, hlsOutputDir, `private/hls/${mediaAssetId}`);
       }
 
       // Mirror to API local uploads folder as local fallback
@@ -160,7 +141,7 @@ const PROCESSORS = {
         if (!fs.existsSync(apiUploadsDir)) fs.mkdirSync(apiUploadsDir, { recursive: true });
         fs.cpSync(hlsOutputDir, apiUploadsDir, { recursive: true });
       } catch (mirrorErr) {
-        if (!publishedToStorage) throw mirrorErr;
+        if (!privateStorage) throw mirrorErr;
       }
 
       // Match direct uploads by their recorded URL. Explicit module links still require an owned course.

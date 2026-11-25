@@ -14,6 +14,7 @@ class LocalStorageProvider extends StorageProvider {
       fs.mkdirSync(targetDir, { recursive: true });
     }
     const targetPath = path.join(targetDir, key);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, fileBuffer);
     console.log(`[LocalStorageProvider] Saved ${key} to disk at ${targetPath}`);
     return { key, url: `/uploads/${key}` };

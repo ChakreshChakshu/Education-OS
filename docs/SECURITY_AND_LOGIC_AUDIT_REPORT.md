@@ -986,7 +986,7 @@ Roadmap checkmarks indicate implemented fixes. Staging verification and remainin
 |---|---|---|
 | `BE-01` | Both enrollment endpoints omit credentials. Activation links go through the email outbox for newly provisioned students and are consumed by a conditional password update. Legacy activation links are rejected. | Previously invited students with legacy links need to use password recovery. Payment verification for self-enrollment remains open. |
 | `BE-05` | Learning routes enforce tenant membership, permission and active enrollment. Course module reads also require enrollment unless the caller can publish lessons for that course's scope. | Quiz changes are tracked under `UI-03`. |
-| `BE-02` | Upload serving checks filesystem containment before streaming. Media status validates IDs and queries by tenant. The filesystem status fallback was removed. | Enforce authorization for private media across the upload route, object storage and CDN. |
+| `BE-02` | Upload serving verifies tenant staff access or active course enrollment for private files, HLS playlists and segments. Browser playback uses same-origin links, and new remote uploads and HLS output require a private R2 bucket. Published course thumbnails remain public. | Configure `R2_PRIVATE_BUCKET_NAME`, disable public access to legacy media, and verify playback with staging PostgreSQL and R2. |
 | `BE-03` | Transcoding gets tenant ownership from the persisted asset and only updates video lessons in that tenant. It targets an explicit module ID or an exact recorded source URL for direct uploads. | Verify the update against staging PostgreSQL with lessons in two tenants. |
 | `BE-04` | Confirmation checks the asset's tenant before saving and forwards the verified tenant to the worker. | Verify the presign, confirm and transcode flow with staging object storage. |
 | `BE-06` | Media assets and quiz submissions now persist through the API's database client. | Batch and organization repositories still need persistence fixes. |
@@ -1003,7 +1003,8 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
    - [ ] Introduce dedicated public student checkout + internal self-enroll endpoints and remove `localStorage` synthetic `"std-..."` fallback identities.
 2. **Patch Arbitrary File Read & Media Access Control (`BE-02`)**:
    - [x] Enforce filesystem containment in `GET /uploads/*` before serving files.
-   - [ ] Authorize access to private media or serve it through signed URLs.
+   - [x] Authorize playback and downloads through the API, including every HLS playlist and segment.
+   - [ ] Set `API_ORIGIN` for the web deployment and `R2_PRIVATE_BUCKET_NAME` for the API and worker. Disable public URLs, custom domains and public CDN caching on the private bucket. Close or migrate legacy public media origins and invalidate previously issued download links and cached media. Keep server credentials for the legacy bucket while old objects are still served through the API. Import unregistered legacy uploads before linking to them.
    - [x] Validate media status IDs as UUIDs, scope lookup by tenant, and remove the filesystem fallback.
 3. **Fix Cross-Tenant Worker Corruption & Confirm IDOR (`BE-03`, `BE-04`)**:
    - [x] Limit transcode updates to lessons in the verified asset tenant. Match by explicit module ID or exact recorded source URL.

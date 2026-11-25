@@ -78,9 +78,9 @@ class DrizzleCourseRepository extends BaseRepository {
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.query) {
       const res = await db.query(`
-        SELECT c.*, m.storage_url as thumbnail_url
+        SELECT c.*, CASE WHEN m.storage_key IS NOT NULL THEN '/uploads/' || m.storage_key END as thumbnail_url
         FROM courses c
-        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id AND m.tenant_id = c.tenant_id AND m.deleted_at IS NULL
         WHERE c.id = $1 AND c.deleted_at IS NULL
         LIMIT 1
       `, [id]);
@@ -110,9 +110,9 @@ class DrizzleCourseRepository extends BaseRepository {
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.query) {
       const res = await db.query(`
-        SELECT c.*, m.storage_url as thumbnail_url
+        SELECT c.*, CASE WHEN m.storage_key IS NOT NULL THEN '/uploads/' || m.storage_key END as thumbnail_url
         FROM courses c
-        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+        LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id AND m.tenant_id = c.tenant_id AND m.deleted_at IS NULL
         WHERE c.tenant_id = $1 AND UPPER(c.code) = $2 AND c.deleted_at IS NULL
         LIMIT 1
       `, [tenantId, upperCode]);
@@ -148,14 +148,14 @@ class DrizzleCourseRepository extends BaseRepository {
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.query) {
       const queryStr = tenantId 
-        ? `SELECT c.*, m.storage_url as thumbnail_url
+        ? `SELECT c.*, CASE WHEN m.storage_key IS NOT NULL THEN '/uploads/' || m.storage_key END as thumbnail_url
            FROM courses c
-           LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+           LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id AND m.tenant_id = c.tenant_id AND m.deleted_at IS NULL
            WHERE c.tenant_id = $1 AND c.deleted_at IS NULL
            ORDER BY c.created_at DESC`
-        : `SELECT c.*, m.storage_url as thumbnail_url
+        : `SELECT c.*, CASE WHEN m.storage_key IS NOT NULL THEN '/uploads/' || m.storage_key END as thumbnail_url
            FROM courses c
-           LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id
+           LEFT JOIN media_assets m ON c.thumbnail_file_id = m.id AND m.tenant_id = c.tenant_id AND m.deleted_at IS NULL
            WHERE c.deleted_at IS NULL
            ORDER BY c.created_at DESC`;
       const params = tenantId ? [tenantId] : [];

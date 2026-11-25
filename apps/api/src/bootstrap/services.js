@@ -126,6 +126,17 @@ function registerServices(container) {
     return new LocalStorageProvider({ uploadDir: './uploads' });
   });
 
+  container.register('PrivateStorageProvider', () => {
+    if (!process.env.R2_BUCKET_NAME && !process.env.R2_ACCOUNT_ID && !process.env.R2_PRIVATE_BUCKET_NAME) {
+      return new LocalStorageProvider({ uploadDir: './uploads' });
+    }
+    const bucketName = process.env.R2_PRIVATE_BUCKET_NAME;
+    if (!bucketName || (bucketName === process.env.R2_BUCKET_NAME && (process.env.R2_PUBLIC_DOMAIN || process.env.MEDIA_CDN_URL))) {
+      throw new Error('Configure R2_PRIVATE_BUCKET_NAME for private uploads.');
+    }
+    return new R2StorageProvider({ bucketName, privateUrls: true });
+  });
+
   // Mail Provider: Resend Email Provider
   container.register('MailProvider', () => {
     const { ResendMailProvider } = infraMail || require('../../../../packages/infrastructure/mail/src');
@@ -348,7 +359,7 @@ function registerServices(container) {
     (c) =>
       new CreatePresignedUploadUrlUseCase({
         mediaAssetRepository: c.resolve('MediaAssetRepository'),
-        storageProvider: c.resolve('StorageProvider')
+        storageProvider: c.resolve('PrivateStorageProvider')
       })
   );
 

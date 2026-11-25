@@ -45,6 +45,7 @@ export function proxy(req) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/uploads/') ||
     pathname.includes('.')
   ) {
     return NextResponse.next();
@@ -92,6 +93,6 @@ export function proxy(req) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/v1(?:/|$)|uploads(?:/|$)).*)',
   ],
 };

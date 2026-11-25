@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto');
 const { Result } = require('../../core');
 const { MediaAsset } = require('../../domain/entities/MediaAsset');
 
@@ -10,12 +11,16 @@ class CreatePresignedUploadUrlUseCase {
   async execute(dto) {
     const { tenantId, uploaderUserId, filename, mimeType, sizeBytes } = dto;
 
+    if (typeof filename !== 'string') return Result.fail('Filename is required.');
+
+    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const assetRes = MediaAsset.create({
       tenantId,
       uploaderUserId,
       filename,
       mimeType,
-      size: sizeBytes
+      size: sizeBytes,
+      storageKey: `private/${tenantId}/${randomUUID()}-${safeFilename}`
     });
 
     if (assetRes.isFailure) {

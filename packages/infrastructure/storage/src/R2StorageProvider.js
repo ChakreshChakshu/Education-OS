@@ -22,7 +22,8 @@ class R2StorageProvider extends StorageProvider {
       accessKeyId: config.accessKeyId || process.env.R2_ACCESS_KEY_ID || '',
       secretAccessKey: config.secretAccessKey || process.env.R2_SECRET_ACCESS_KEY || '',
       bucketName: config.bucketName || process.env.R2_BUCKET_NAME || 'education-os-media',
-      publicDomain: config.publicDomain || process.env.R2_PUBLIC_DOMAIN || ''
+      publicDomain: config.privateUrls ? '' : (config.publicDomain || process.env.R2_PUBLIC_DOMAIN || ''),
+      privateUrls: config.privateUrls === true
     };
 
     if (S3Client && this.config.accessKeyId && this.config.secretAccessKey && this.config.accountId) {
@@ -38,6 +39,7 @@ class R2StorageProvider extends StorageProvider {
   }
 
   getPublicUrl(key) {
+    if (this.config.privateUrls) throw new Error('Private storage has no public URL.');
     if (this.config.publicDomain) {
       const domain = this.config.publicDomain.replace(/\/$/, '');
       return `${domain}/${key}`;
@@ -61,7 +63,7 @@ class R2StorageProvider extends StorageProvider {
         ContentType: mimeType
       });
       await this.client.send(command);
-      const url = await this.getDownloadUrl(key);
+      const url = this.config.privateUrls ? null : await this.getDownloadUrl(key);
       return { key, url };
     }
 
@@ -120,6 +122,7 @@ class R2StorageProvider extends StorageProvider {
       return await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
     }
 
+    if (this.config.privateUrls) throw new Error('Private upload signing is unavailable.');
     const publicUrl = this.getPublicUrl(key);
     return `${publicUrl}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=${expiresInSeconds}`;
   }

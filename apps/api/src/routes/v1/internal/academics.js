@@ -1,3 +1,4 @@
+const { mediaUrlsForCourse } = require('../../mediaAccess');
 const { learningDomain } = require('../../../bootstrap/domain-bridge');
 const { studentQuiz } = learningDomain.application;
 const { requireActiveEnrollment } = require('../courseEnrollment');
@@ -185,26 +186,27 @@ async function academicsRoutes(fastify, options) {
     }
     const moduleRepo = container.resolve('LessonModuleRepository');
     const modules = await moduleRepo.findByCourseId(request.params.id);
+    const mediaUrls = await mediaUrlsForCourse(container.resolve('DatabaseClient'), course.tenantId,
+      modules.flatMap((module) => [module.contentUrl, module.quiz?.templatePdfUrl]).filter(Boolean));
     return reply.send({
       success: true,
       data: modules.map((m) => {
-        let hlsUrl = m.props?.hlsUrl || (m.contentUrl && m.contentUrl.includes('.m3u8') ? m.contentUrl : null);
-        if (hlsUrl && hlsUrl.includes('.r2.cloudflarestorage.com/hls/') && !process.env.MEDIA_CDN_URL) {
-          const match = hlsUrl.match(/\/hls\/([a-zA-Z0-9_-]+)\/master\.m3u8/);
-          if (match && match[1]) {
-            hlsUrl = `http://localhost:3001/uploads/hls/${match[1]}/master.m3u8`;
-          }
+        const contentUrl = mediaUrls.get(m.contentUrl) || m.contentUrl;
+        const hlsUrl = contentUrl?.includes('.m3u8') ? contentUrl : null;
+        let quiz = m.contentType === 'QUIZ' && !canPublish ? studentQuiz(m.quiz) : m.quiz || null;
+        if (quiz && mediaUrls.has(quiz.templatePdfUrl)) {
+          quiz = { ...quiz, templatePdfUrl: mediaUrls.get(quiz.templatePdfUrl) };
         }
         return {
           id: m.id,
           courseId: m.courseId,
           title: m.title,
           contentType: m.contentType,
-          contentUrl: m.contentUrl,
+          contentUrl,
           hlsUrl,
           order: m.order,
           status: m.status,
-          quiz: m.contentType === 'QUIZ' && !canPublish ? studentQuiz(m.quiz) : m.quiz || null
+          quiz
         };
       })
     });

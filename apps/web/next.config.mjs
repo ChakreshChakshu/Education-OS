@@ -1,12 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const configuredApi = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_URL;
+    const apiOrigin = configuredApi?.startsWith('http') ? new URL(configuredApi).origin : 'http://localhost:3001';
     return [
-      {
-        source: '/uploads/:path*',
-        destination: `${apiUrl}/uploads/:path*`,
-      },
+      { source: '/uploads/:path*', destination: `${apiOrigin}/uploads/:path*` },
+      { source: '/api/v1/:path*', destination: `${apiOrigin}/api/v1/:path*` },
     ];
   },
   images: {
