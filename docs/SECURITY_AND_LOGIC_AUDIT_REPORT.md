@@ -980,6 +980,8 @@ Several critical defects span both UI and Backend layers, amplifying impact or b
 
 ### Remediation progress
 
+Roadmap checkmarks indicate implemented fixes. Staging verification and remaining work are tracked below.
+
 | Finding | Changes completed | Open work |
 |---|---|---|
 | `BE-01` | Both enrollment endpoints omit credentials. Activation links go through the email outbox for newly provisioned students and are consumed by a conditional password update. Legacy activation links are rejected. | Previously invited students with legacy links need to use password recovery. Payment verification for self-enrollment remains open. |
@@ -996,18 +998,20 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
 ### P0 — Immediate Release Blockers (Critical Security, Data Corruption, & Fatal Crashes)
 
 1. **Eliminate Activation Token Leak & Unauthenticated Takeover (`BE-01`, `UI-02`)**:
-   - Strip `activationToken`, `activationUrl`, and `temporaryPassword` from `POST /public/storefront/:slug/enroll` and `POST /internal/academics/enrollments`.
-   - Never issue password-resetting activation tokens to existing active users; generate single-use hashed tokens stored in DB and delivered strictly via outbox email.
-   - Introduce dedicated public student checkout + internal self-enroll endpoints and remove `localStorage` synthetic `"std-..."` fallback identities.
+   - [x] Strip `activationToken`, `activationUrl`, and `temporaryPassword` from `POST /public/storefront/:slug/enroll` and `POST /internal/academics/enrollments`.
+   - [x] Issue single-use activation links only for newly provisioned students, store the nonce hash in the database, and deliver links through the email outbox. Reject legacy activation links.
+   - [ ] Introduce dedicated public student checkout + internal self-enroll endpoints and remove `localStorage` synthetic `"std-..."` fallback identities.
 2. **Patch Arbitrary File Read & Media Access Control (`BE-02`)**:
-   - Canonicalize `subpath` with `path.resolve(uploadsRoot, subpath)` and enforce strict `uploadsRoot + path.sep` containment in `GET /uploads/*`; authenticate/authorize private media or serve via signed R2 URLs.
-   - Validate `:id` as UUID in `GET /media/status/:id` and remove the unauthenticated filesystem fallback.
+   - [x] Enforce filesystem containment in `GET /uploads/*` before serving files.
+   - [ ] Authorize access to private media or serve it through signed URLs.
+   - [x] Validate media status IDs as UUIDs, scope lookup by tenant, and remove the filesystem fallback.
 3. **Fix Cross-Tenant Worker Corruption & Confirm IDOR (`BE-03`, `BE-04`)**:
-   - Remove `LIKE '%' || filename || '%'` from `apps/worker/src/processors/index.js` and scope `lesson_modules` updates strictly by verified `(moduleId, tenantId)`.
-   - Return `tenantId` from `ConfirmMediaUploadUseCase`, verify `asset.tenantId === request.tenantId` prior to mutation/saving, and make `assertSameTenant` fail-closed.
+   - [x] Limit transcode updates to lessons in the verified asset tenant. Match by explicit module ID or exact recorded source URL.
+   - [x] Verify asset ownership before confirming an upload and forward the verified tenant to the worker.
 4. **Lock Down Learning Endpoints, `x-tenant-id` Bypass, & Quiz Grading (`BE-05`, `UI-03`)**:
-   - Add `authorize('assessment.submit')` / `authorize('lesson.read')` (invoking `requireTenant`) and active `Enrollment` checks across all 8 `internal/learning.js` routes; make `assertCourseInTenant` / `assertLessonInTenant` fail-closed on `!request.tenantId`.
-   - Strip `correct`, `isCorrect`, and `explanation` from student quiz payloads; grade MCQ answers server-side in `SubmitQuizUseCase` using the authenticated JWT user ID.
+   - [x] Require permission, verified tenant membership, and active enrollment across all eight learning routes.
+   - [x] Remove answer keys and rationales from student quiz payloads. Grade selected answers using the authenticated student identity and complete lessons only after a passing score.
+   - [ ] Enforce quiz attempt limits and timers on the server.
 5. **Fix Tenant Settings Overwrite, Dashboard RBAC, & Fatal UI Crashes (`UI-01`, `UI-04`, `UI-05`, `UI-06`, `UI-07`, `UI-08`)**:
    - Switch `eos_tenant_id` (or pass explicit `tenantId`) before calling `updateTenantSettings` in `TenantsPage` (`UI-04`).
    - Fix `auth-context.js` apex domain detection against `NEXT_PUBLIC_ROOT_DOMAIN` and import `LockSimple` in `dashboard/layout.js` (`UI-05`).
@@ -1016,7 +1020,8 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
 ### P1 — High Security, Auth, Persistence, & Core Cross-Layer Contracts
 
 1. **Fix Broken Repository Persistence (`BE-06`)**:
-   - Standardize `DrizzleMediaAssetRepository`, `DrizzleBatchRepository`, `DrizzleQuizSubmissionRepository`, and `DrizzleOrganizationRepository` on `DatabaseClient.query()` (or properly unwrap Drizzle vs `pg.Pool`) and remove silent in-memory fallback `Map`s.
+   - [x] Persist media assets and quiz submissions through `DatabaseClient.query()`.
+   - [ ] Fix persistence for batch and organization repositories.
 2. **Harden Authentication, Recovery, & Brute-Force Defenses (`BE-07`, `BE-08`, `BE-10`)**:
    - Remove `'hashed_'` prefix password comparison in `services.js`; require `JWT_SECRET` outside `test`; enforce `user.status === 'ACTIVE'` and `tenant.status === 'ACTIVE'` on login, refresh, and role lookups.
    - Stop using `Origin`/`Referer` for reset links and remove `devResetUrl` / `devWarning` from HTTP responses in `/auth/forgot-password`.
@@ -1033,11 +1038,13 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
 1. **Implement Real DB Transactions & Atomic Concurrency (`BE-11`)**:
    - Replace mock `executeTransaction` with real `BEGIN`/`COMMIT`/`ROLLBACK` transactions across registration and tenant provisioning; claim outbox rows atomically; use atomic `UPDATE ... WHERE revoked_at IS NULL` in `RefreshTokenUseCase`; add `UNIQUE(student_user_id, lesson_module_id)` on `student_progress`.
 2. **Resolve Schema Drift, `LessonModule` Quiz Wipe, & Publish Lifecycle (`BE-13`, `BE-14`, `BE-18`, `BE-19`)**:
-   - Preserve `quiz` and `props` in `LessonModule.create()`; migrate Neon provisioning to versioned Drizzle SQL migrations (`drizzle-kit`); update `enrollments.progress_percentage` on completion; add Type B assignment submission/grading persistence.
+   - [x] Preserve quiz configuration when reloading and editing lesson modules.
+   - [ ] Preserve remaining lesson module properties, migrate Neon provisioning to versioned Drizzle SQL migrations, update enrollment progress on completion, and persist Type B submissions and grades.
    - Add `PATCH /courses/:id` + `POST /courses/:id/publish`, validate `batchId` course/tenant ownership in `PATCH /enrollments/:id`, normalize slugs consistently, and enforce UUID JSON schemas (`BE-14`).
 3. **Fix Media Upload Constraints, Worker Resilience, TLS, & Session Hygiene (`BE-12`, `BE-15`, `BE-16`, `BE-17`)**:
    - Enforce `MimeType` allowlist + R2 `PutObjectCommand` `ContentType`/size constraints, clean up temp upload files, and eliminate hardcoded `localhost:3001` URLs (`BE-12`, `UI-18`).
-   - Revoke sessions in `ChangePasswordUseCase`, align `minLength: 8` on `/auth/activate`, HTML-escape email templates, enforce `rejectUnauthorized: true` + `settingsJson` schema validation, fail missing-source transcodes instead of faking `READY`, and add a worker stalled-job reaper.
+   - Revoke sessions in `ChangePasswordUseCase`, align `minLength: 8` on `/auth/activate`, HTML-escape email templates, enforce `rejectUnauthorized: true` + `settingsJson` schema validation, and add a worker stalled-job reaper.
+   - [x] Fail missing-source transcodes instead of marking synthetic output as ready.
 4. **Fix Cross-Layer Schemas & UI Component Bugs (`UI-14`–`UI-23`)**:
    - Align `settingsJson.branding.*` (`UI-16`), standardize price display in cents (`UI-17`), split `API_ORIGIN` vs `/api/v1` (`UI-18`), fix `getBatches()` contract (`UI-19`), fix quiz key/timer bugs (`UI-14`), rubric path & mock seeding (`UI-15`), Course Settings save & optimistic errors (`UI-20`), `MediaUploader`/`HlsVideoPlayer` bugs (`UI-21`), LMS player sync/`?enrolled=` spoof (`UI-22`), and `CommandPalette` cache (`UI-23`).
 
