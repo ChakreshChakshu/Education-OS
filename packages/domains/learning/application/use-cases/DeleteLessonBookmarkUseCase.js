@@ -5,7 +5,7 @@ class DeleteLessonBookmarkUseCase {
     this.lessonBookmarkRepository = lessonBookmarkRepository;
   }
 
-  async execute({ bookmarkId, studentUserId }) {
+  async execute({ bookmarkId, studentUserId, lessonModuleId }) {
     if (!bookmarkId) {
       return Result.fail('Bookmark ID is required.');
     }
@@ -13,7 +13,7 @@ class DeleteLessonBookmarkUseCase {
       return Result.fail('Student user ID is required.');
     }
 
-    await this.lessonBookmarkRepository.delete(bookmarkId, studentUserId);
+    await this.lessonBookmarkRepository.delete(bookmarkId, studentUserId, lessonModuleId);
     return Result.ok({ id: bookmarkId });
   }
 }

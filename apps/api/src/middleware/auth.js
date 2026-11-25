@@ -40,7 +40,7 @@ async function authenticateJWT(request, reply) {
   const tokenService = request.container.resolve('TokenService');
   const decoded = tokenService.verifyToken(token);
 
-  if (!decoded) {
+  if (!decoded || decoded.type !== undefined) {
     return reply.status(401).send({
       success: false,
       error: 'Unauthorized: Invalid or expired JWT access token'

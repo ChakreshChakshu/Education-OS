@@ -321,7 +321,6 @@ function registerServices(container) {
         enrollmentRepository: c.resolve('EnrollmentRepository'),
         userRepository: c.resolve('UserRepository'),
         roleAssignmentRepository: c.resolve('RoleAssignmentRepository'),
-        passwordHasher: c.resolve('PasswordHasher'),
         tokenService: c.resolve('TokenService')
       })
   );

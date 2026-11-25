@@ -26,9 +26,6 @@ import {
   Sparkle,
   FolderPlus,
   ArrowSquareOut,
-  Copy,
-  Key,
-  LinkSimple,
   CaretDown,
   CaretRight,
   CaretUp
@@ -57,8 +54,6 @@ export default function StudentsPage() {
   const [submittingEnroll, setSubmittingEnroll] = useState(false);
   const [enrollError, setEnrollError] = useState("");
   const [enrollSuccessResult, setEnrollSuccessResult] = useState(null);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedPassword, setCopiedPassword] = useState(false);
 
   // Create Batch Modal State
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -144,13 +139,10 @@ export default function StudentsPage() {
       });
 
       if (res?.success) {
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
         setEnrollSuccessResult({
           studentName: studentName.trim(),
           studentEmail: studentEmail.trim().toLowerCase(),
-          temporaryPassword: res.data?.temporaryPassword,
-          activationToken: res.data?.activationToken,
-          activationUrl: res.data?.activationToken ? `${origin}/activate?token=${res.data.activationToken}` : null
+          invitationQueued: res.invitationQueued
         });
         await fetchData(true);
       } else {
@@ -1159,80 +1151,11 @@ export default function StudentsPage() {
                   </div>
                 </div>
 
-                {/* OPTION 1: ACTIVATION LINK */}
-                {enrollSuccessResult.activationUrl && (
-                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                        <LinkSimple size={16} weight="bold" />
-                        <span>Option 1: Student Activation Link (Recommended)</span>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20 text-primary font-semibold">
-                        Self-Service
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Student opens this link to set their own permanent password and jump straight into their courses:
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        readOnly
-                        value={enrollSuccessResult.activationUrl}
-                        className="flex-1 h-9 px-3 text-[11px] font-mono rounded-lg border border-border bg-background text-foreground select-all focus:outline-none"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(enrollSuccessResult.activationUrl);
-                          setCopiedLink(true);
-                          setTimeout(() => setCopiedLink(false), 2000);
-                        }}
-                        className="h-9 font-semibold text-xs gap-1.5 shrink-0"
-                      >
-                        {copiedLink ? <Check size={14} weight="bold" className="text-emerald-400" /> : <Copy size={14} />}
-                        {copiedLink ? "Copied!" : "Copy Link"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* OPTION 2: TEMPORARY PASSWORD */}
-                {enrollSuccessResult.temporaryPassword && (
-                  <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <Key size={16} weight="duotone" className="text-amber-500" />
-                        <span>Option 2: Direct Login with Temporary Password</span>
-                      </div>
-                      <Badge variant="secondary" className="text-[10px] font-semibold">
-                        Instant Access
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Student can log in at <span className="font-semibold text-foreground">/login</span> using their email and this temporary password:
-                    </p>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background">
-                      <span className="font-mono text-xs font-bold text-foreground tracking-wider px-2">
-                        {enrollSuccessResult.temporaryPassword}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(enrollSuccessResult.temporaryPassword);
-                          setCopiedPassword(true);
-                          setTimeout(() => setCopiedPassword(false), 2000);
-                        }}
-                        className="h-8 text-xs gap-1.5"
-                      >
-                        {copiedPassword ? <Check size={13} weight="bold" className="text-emerald-500" /> : <Copy size={13} />}
-                        {copiedPassword ? "Copied!" : "Copy Password"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  {enrollSuccessResult.invitationQueued
+                    ? "An enrollment email is queued for delivery."
+                    : "The enrollment was saved. No invitation email was queued."}
+                </p>
 
                 <div className="flex justify-end pt-2">
                   <Button

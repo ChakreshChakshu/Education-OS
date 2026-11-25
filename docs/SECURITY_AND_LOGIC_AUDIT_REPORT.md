@@ -980,8 +980,10 @@ Several critical defects span both UI and Backend layers, amplifying impact or b
 
 ### Remediation progress
 
-| Finding | Changes in the first pass | Open work |
+| Finding | Changes completed | Open work |
 |---|---|---|
+| `BE-01` | Both enrollment endpoints omit credentials. Activation links go through the email outbox for newly provisioned students and are consumed by a conditional password update. Legacy activation links are rejected. | Previously invited students with legacy links need to use password recovery. Payment verification for self-enrollment remains open. |
+| `BE-05` | Learning routes enforce tenant membership, permission and active enrollment. Course module reads also require enrollment unless the caller can publish lessons for that course's scope. | Server-side quiz grading and student answer-key removal remain open under `UI-03`. |
 | `BE-02` | Upload serving checks filesystem containment before streaming. Media status validates IDs and queries by tenant. The filesystem status fallback was removed. | Enforce authorization for private media across the upload route, object storage and CDN. |
 | `BE-03` | Transcoding gets tenant ownership from the persisted asset and only updates video lessons in that tenant. It targets an explicit module ID or an exact recorded source URL for direct uploads. | Verify the update against staging PostgreSQL with lessons in two tenants. |
 | `BE-04` | Confirmation checks the asset's tenant before saving and forwards the verified tenant to the worker. | Verify the presign, confirm and transcode flow with staging object storage. |

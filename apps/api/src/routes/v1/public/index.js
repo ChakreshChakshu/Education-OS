@@ -1,4 +1,16 @@
+const { learningDomain } = require('../../../bootstrap/domain-bridge');
+const { queueEnrollmentInvitation, serializeEnrollment } = require('../enrollmentInvitation');
+const { STUDENT_ACTIVATION_TYPE, activationPasswordHash } = learningDomain.application;
 const { setAuthCookies, clearAuthCookies, generateCsrfToken } = require('../../../middleware/authCookies');
+
+function verifyStudentActivation(tokenService, token) {
+  const decoded = tokenService.verifyToken(token);
+  if (decoded?.type === STUDENT_ACTIVATION_TYPE && typeof decoded.nonce === 'string' &&
+      /^[0-9a-f]{64}$/.test(decoded.nonce)) {
+    return decoded;
+  }
+  return null;
+}
 
 function slugify(input) {
   return input
@@ -295,8 +307,10 @@ async function publicRoutes(fastify, options) {
     },
     async (request, reply) => {
       const tokenService = container.resolve('TokenService');
-      const decoded = tokenService.verifyToken(request.query.token);
-      if (!decoded || decoded.type !== 'student_activation') {
+      const decoded = verifyStudentActivation(tokenService, request.query.token);
+      const user = decoded && await container.resolve('UserRepository').findById(decoded.userId);
+      if (!user || user.status !== 'ACTIVE' || (user.email?.value || user.email) !== decoded.email ||
+          user.passwordHash !== activationPasswordHash(decoded.nonce)) {
         return reply.status(400).send({
           success: false,
           error: 'Activation token is invalid or has expired.'
@@ -310,18 +324,11 @@ async function publicRoutes(fastify, options) {
         if (tenant) tenantName = tenant.name;
       } catch (e) {}
 
-      let userName = '';
-      try {
-        const userRepo = container.resolve('UserRepository');
-        const user = await userRepo.findById(decoded.userId);
-        if (user) userName = user.name;
-      } catch (e) {}
-
       return reply.send({
         success: true,
         userId: decoded.userId,
         email: decoded.email,
-        name: userName,
+        name: user.name,
         tenantId: decoded.tenantId,
         tenantName
       });
@@ -345,8 +352,8 @@ async function publicRoutes(fastify, options) {
     },
     async (request, reply) => {
       const tokenService = container.resolve('TokenService');
-      const decoded = tokenService.verifyToken(request.body.token);
-      if (!decoded || decoded.type !== 'student_activation') {
+      const decoded = verifyStudentActivation(tokenService, request.body.token);
+      if (!decoded) {
         return reply.status(400).send({
           success: false,
           error: 'Activation token is invalid or has expired.'
@@ -357,28 +364,17 @@ async function publicRoutes(fastify, options) {
       const userRepo = container.resolve('UserRepository');
       const newHash = await passwordHasher.hash(request.body.password);
 
-      if (typeof userRepo.updatePassword === 'function') {
-        await userRepo.updatePassword(decoded.userId, newHash);
-      } else {
-        const user = await userRepo.findById(decoded.userId);
-        if (user) {
-          user.updatePassword(newHash);
-          await userRepo.save(user);
-        }
+      const consumed = await userRepo.consumeStudentActivation(
+        decoded.userId, decoded.email, activationPasswordHash(decoded.nonce), newHash
+      );
+      if (!consumed) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Activation token is invalid or has expired.'
+        });
       }
 
-      // Ensure STUDENT role assignment
       const roleAssignmentRepository = container.resolve('RoleAssignmentRepository');
-      if (roleAssignmentRepository && typeof roleAssignmentRepository.assignRole === 'function') {
-        try {
-          await roleAssignmentRepository.assignRole({
-            userId: decoded.userId,
-            tenantId: decoded.tenantId,
-            roleName: 'STUDENT'
-          });
-        } catch (e) {}
-      }
-
       const user = await userRepo.findById(decoded.userId);
       const tenants = await roleAssignmentRepository.findTenantsWithRolesForUser(decoded.userId);
 
@@ -879,7 +875,7 @@ async function publicRoutes(fastify, options) {
           required: ['courseId', 'email'],
           properties: {
             courseId: { type: 'string' },
-            email: { type: 'string' },
+            email: { type: 'string', format: 'email' },
             name: { type: 'string' }
           }
         }
@@ -891,7 +887,7 @@ async function publicRoutes(fastify, options) {
 
       const tenantRepo = container.resolve('TenantRepository');
       const tenant = await tenantRepo.findBySlug(slug);
-      if (!tenant || tenant.status === 'ARCHIVED' || tenant.status === 'SUSPENDED') {
+      if (tenant?.status !== 'ACTIVE') {
         return reply.status(404).send({
           success: false,
           error: 'Institution storefront not found.'
@@ -900,7 +896,8 @@ async function publicRoutes(fastify, options) {
 
       const courseRepo = container.resolve('CourseRepository');
       const course = await courseRepo.findById(courseId);
-      if (!course || course.tenantId !== tenant.id) {
+      if (!course || course.tenantId !== tenant.id || course.visibility !== 'PUBLIC' ||
+          !['PUBLISHED', 'ACTIVE'].includes(course.status)) {
         return reply.status(404).send({
           success: false,
           error: 'Course not found in this institution.'
@@ -922,10 +919,12 @@ async function publicRoutes(fastify, options) {
         });
       }
 
+      const enrollment = enrollRes.getValue();
+      const invitationQueued = await queueEnrollmentInvitation({ container, request, enrollment, course });
       return reply.status(201).send({
         success: true,
-        message: 'Successfully enrolled. Please check your email for access instructions.',
-        enrollment: enrollRes.getValue()
+        message: invitationQueued ? 'Successfully enrolled. Please check your email for access instructions.' : 'Successfully enrolled.',
+        enrollment: serializeEnrollment(enrollment)
       });
     }
   );

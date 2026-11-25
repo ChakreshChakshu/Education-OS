@@ -65,7 +65,8 @@ test('Tenant Public Storefront API Flow', async (t) => {
     code: courseCode,
     shortDescription: 'Foundations of orbital trajectories and rocket propulsion.',
     level: 'BEGINNER',
-    visibility: 'PUBLIC'
+    visibility: 'PUBLIC',
+    status: 'PUBLISHED'
   }).getValue();
   await courseRepo.save(course);
 

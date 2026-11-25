@@ -110,8 +110,11 @@ class DrizzleLessonBookmarkRepository extends BaseRepository {
     return bookmark;
   }
 
-  async delete(id, studentUserId) {
-    this._bookmarkStore.delete(id);
+  async delete(id, studentUserId, lessonModuleId) {
+    const bookmark = this._bookmarkStore.get(id);
+    if (bookmark?.studentUserId === studentUserId && (!lessonModuleId || bookmark.lessonModuleId === lessonModuleId)) {
+      this._bookmarkStore.delete(id);
+    }
 
     if (!this.db) {
       return true;
@@ -119,13 +122,13 @@ class DrizzleLessonBookmarkRepository extends BaseRepository {
 
     const db = typeof this.db.connect === 'function' ? await this.db.connect() : this.db;
     if (db.delete) {
-      await db
-        .delete(this.table)
-        .where(and(eq(this.table.id, id), eq(this.table.studentUserId, studentUserId)));
+      const filters = [eq(this.table.id, id), eq(this.table.studentUserId, studentUserId)];
+      if (lessonModuleId) filters.push(eq(this.table.lessonModuleId, lessonModuleId));
+      await db.delete(this.table).where(and(...filters));
     } else {
       await db.query(
-        'DELETE FROM lesson_bookmarks WHERE id = $1 AND student_user_id = $2',
-        [id, studentUserId]
+        'DELETE FROM lesson_bookmarks WHERE id = $1 AND student_user_id = $2 AND ($3::text IS NULL OR lesson_module_id = $3)',
+        [id, studentUserId, lessonModuleId || null]
       );
     }
 

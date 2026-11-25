@@ -79,15 +79,12 @@ class DrizzleEnrollmentRepository {
   }
 
   async findByStudentAndCourse(studentUserId, courseId) {
-    for (const raw of this._enrollmentStore.values()) {
-      const studentId = raw.studentUserId || raw.student_user_id;
-      const cId = raw.courseId || raw.course_id;
-      if (studentId === studentUserId && cId === courseId) {
-        return DrizzleEnrollmentRepository.toDomain(raw);
-      }
-    }
-
     if (!this.db) {
+      for (const raw of this._enrollmentStore.values()) {
+        if (raw.studentUserId === studentUserId && raw.courseId === courseId) {
+          return DrizzleEnrollmentRepository.toDomain(raw);
+        }
+      }
       return null;
     }
 

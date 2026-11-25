@@ -209,9 +209,10 @@ const PROCESSORS = {
 
     if (template === 'student_invitation') {
       subject = subject || `Course Invitation: ${payload.courseTitle || 'Curriculum Course'}`;
-      const activationLink = payload.activationUrl 
-        ? (payload.activationUrl.startsWith('http') ? payload.activationUrl : `${appUrl}${payload.activationUrl}`)
-        : (payload.activationToken ? `${appUrl}/activate?token=${payload.activationToken}` : appUrl);
+      const activationLink = payload.activationUrl
+        ? new URL(payload.activationUrl, appUrl).href
+        : new URL('/login', appUrl).href;
+      const action = payload.activationUrl ? 'Activate your account' : 'Sign in';
 
       html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; color: #1e293b; border-radius: 12px; border: 1px solid #e2e8f0;">
@@ -223,24 +224,17 @@ const PROCESSORS = {
             Hello <strong>${payload.name || 'Student'}</strong>,<br/>
             You have been enrolled in <strong>${payload.courseTitle || 'your academic curriculum'}</strong>${payload.courseCode ? ` (${payload.courseCode})` : ''}.
           </p>
-          ${payload.temporaryPassword ? `
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-              <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">Temporary Credentials</div>
-              <div style="font-size: 14px; color: #334155; margin-bottom: 2px;">Email: <strong>${to}</strong></div>
-              <div style="font-size: 14px; color: #334155;">Temporary Password: <strong style="font-family: monospace; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${payload.temporaryPassword}</strong></div>
-            </div>
-          ` : ''}
           <div style="text-align: center; margin-bottom: 28px;">
             <a href="${activationLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 28px; text-decoration: none; border-radius: 8px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-              Activate Account & Enter Classroom
+              ${action}
             </a>
           </div>
           <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; text-align: center; margin-bottom: 0;">
-            This invitation link is valid for 7 days. If you did not expect this invitation, you can safely ignore this email.
+            ${payload.activationUrl ? "This activation link is valid for 7 days." : ""} If you did not expect this invitation, you can safely ignore this email.
           </p>
         </div>
       `;
-      text = `Hello ${payload.name || 'Student'},\n\nYou have been enrolled in ${payload.courseTitle || 'your course'}.\n\nActivate your account: ${activationLink}\n\nTemporary Password: ${payload.temporaryPassword || 'N/A'}`;
+      text = `Hello ${payload.name || 'Student'},\n\nYou have been enrolled in ${payload.courseTitle || 'your course'}.\n\n${action}: ${activationLink}`;
     } else if (template === 'password_reset') {
       subject = subject || 'Reset Your EducationOS Password';
       const resetLink = payload.resetUrl || (payload.token ? `${appUrl}/reset-password?token=${payload.token}` : `${appUrl}/forgot-password`);

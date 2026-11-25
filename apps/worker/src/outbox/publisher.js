@@ -69,8 +69,6 @@ class OutboxPublisher {
             name: payload.studentName || payload.name || 'Student',
             courseTitle: payload.courseTitle || 'Enrolled Course',
             courseCode: payload.courseCode || '',
-            temporaryPassword: payload.temporaryPassword || null,
-            activationToken: payload.activationToken || null,
             activationUrl: payload.activationUrl || null
           }
         };

@@ -1,4 +1,6 @@
-const { isDevAuthBypassEnabled } = require('../../../middleware/tenantScope');
+const { isDevAuthBypassEnabled, isUuid } = require('../../../middleware/tenantScope');
+const { authorize } = require('../../../middleware/authorize');
+const { requireActiveEnrollment } = require('../courseEnrollment');
 
 const DEV_BYPASS_STUDENT_ID = '018f92ab-1234-7890-a1b2-c3d4e5f6a7b8';
 
@@ -20,30 +22,28 @@ function resolveStudentUserId(request, ...devHints) {
   return tokenUserId || request.headers['x-user-id'] || DEV_BYPASS_STUDENT_ID;
 }
 
-async function assertCourseInTenant(request, reply, container, courseId) {
-  if (isDevAuthBypassEnabled() || !request.tenantId || !courseId) {
-    return true;
+async function getCourseEnrollment(request, reply, container, studentUserId, courseId) {
+  if (isDevAuthBypassEnabled()) {
+    return requireActiveEnrollment(request, reply, container, studentUserId, courseId);
   }
-  const courseRepo = container.resolve('CourseRepository');
-  const course = await courseRepo.findById(courseId);
-  if (!course || course.tenantId !== request.tenantId) {
+  const course = isUuid(courseId) && await container.resolve('CourseRepository').findById(courseId);
+  if (!request.tenantId || !course || course.tenantId !== request.tenantId) {
     reply.status(404).send({ success: false, error: 'Resource not found' });
-    return false;
+    return null;
   }
-  return true;
+  return requireActiveEnrollment(request, reply, container, studentUserId, courseId);
 }
 
-async function assertLessonInTenant(request, reply, container, lessonModuleId) {
-  if (isDevAuthBypassEnabled() || !request.tenantId || !lessonModuleId) {
-    return true;
+async function getLessonEnrollment(request, reply, container, studentUserId, lessonModuleId) {
+  if (isDevAuthBypassEnabled()) {
+    return requireActiveEnrollment(request, reply, container, studentUserId);
   }
-  const moduleRepo = container.resolve('LessonModuleRepository');
-  const lessonModule = await moduleRepo.findById(lessonModuleId);
-  if (!lessonModule) {
+  const lesson = isUuid(lessonModuleId) && await container.resolve('LessonModuleRepository').findById(lessonModuleId);
+  if (!lesson) {
     reply.status(404).send({ success: false, error: 'Resource not found' });
-    return false;
+    return null;
   }
-  return assertCourseInTenant(request, reply, container, lessonModule.courseId);
+  return getCourseEnrollment(request, reply, container, studentUserId, lesson.courseId);
 }
 
 async function learningRoutes(fastify, options) {
@@ -51,6 +51,7 @@ async function learningRoutes(fastify, options) {
 
   fastify.post(
     '/lessons/complete',
+    { preHandler: authorize('lesson.read') },
     async (request, reply) => {
       const studentUserId = resolveStudentUserId(request, request.body?.studentUserId);
       if (!studentUserId) {
@@ -62,14 +63,13 @@ async function learningRoutes(fastify, options) {
         return reply.status(400).send({ success: false, error: 'lessonModuleId is required' });
       }
 
-      if (!(await assertLessonInTenant(request, reply, container, lessonModuleId))) {
-        return;
-      }
+      const enrollment = await getLessonEnrollment(request, reply, container, studentUserId, lessonModuleId);
+      if (!enrollment) return;
 
       const useCase = container.resolve('MarkLessonCompleteUseCase');
       const result = await useCase.execute({
         studentUserId,
-        batchId: request.body?.batchId,
+        batchId: enrollment.batchId,
         lessonModuleId
       });
 
@@ -89,6 +89,7 @@ async function learningRoutes(fastify, options) {
 
   fastify.post(
     '/quizzes/submit',
+    { preHandler: authorize('assessment.submit') },
     async (request, reply) => {
       const studentUserId = resolveStudentUserId(request, request.body?.studentUserId);
       if (!studentUserId) {
@@ -100,9 +101,8 @@ async function learningRoutes(fastify, options) {
         return reply.status(400).send({ success: false, error: 'lessonModuleId and score are required' });
       }
 
-      if (!(await assertLessonInTenant(request, reply, container, lessonModuleId))) {
-        return;
-      }
+      const enrollment = await getLessonEnrollment(request, reply, container, studentUserId, lessonModuleId);
+      if (!enrollment) return;
 
       const useCase = container.resolve('SubmitQuizUseCase');
       const result = await useCase.execute({
@@ -126,7 +126,7 @@ async function learningRoutes(fastify, options) {
           await markCompleteUseCase.execute({
             studentUserId,
             lessonModuleId,
-            batchId: request.body?.batchId
+            batchId: enrollment.batchId
           });
         } catch (e) {
         }
@@ -141,13 +141,14 @@ async function learningRoutes(fastify, options) {
 
   fastify.get(
     '/courses/:courseId/progress',
+    { preHandler: authorize('lesson.read') },
     async (request, reply) => {
       const studentUserId = resolveStudentUserId(request, request.query?.studentUserId);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
       }
 
-      if (!(await assertCourseInTenant(request, reply, container, request.params.courseId))) {
+      if (!(await getCourseEnrollment(request, reply, container, studentUserId, request.params.courseId))) {
         return;
       }
 
@@ -182,6 +183,7 @@ async function learningRoutes(fastify, options) {
   fastify.get(
     '/lessons/:lessonId/notes',
     {
+      preHandler: authorize('lesson.read'),
       schema: {
         params: {
           type: 'object',
@@ -196,6 +198,10 @@ async function learningRoutes(fastify, options) {
       const studentUserId = resolveStudentUserId(request);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+
+      if (!(await getLessonEnrollment(request, reply, container, studentUserId, request.params.lessonId))) {
+        return;
       }
 
       const useCase = container.resolve('GetLessonNoteUseCase');
@@ -221,6 +227,7 @@ async function learningRoutes(fastify, options) {
   fastify.put(
     '/lessons/:lessonId/notes',
     {
+      preHandler: authorize('lesson.read'),
       schema: {
         params: {
           type: 'object',
@@ -243,6 +250,10 @@ async function learningRoutes(fastify, options) {
       const studentUserId = resolveStudentUserId(request);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+
+      if (!(await getLessonEnrollment(request, reply, container, studentUserId, request.params.lessonId))) {
+        return;
       }
 
       const useCase = container.resolve('SaveLessonNoteUseCase');
@@ -269,6 +280,7 @@ async function learningRoutes(fastify, options) {
   fastify.get(
     '/lessons/:lessonId/bookmarks',
     {
+      preHandler: authorize('lesson.read'),
       schema: {
         params: {
           type: 'object',
@@ -283,6 +295,10 @@ async function learningRoutes(fastify, options) {
       const studentUserId = resolveStudentUserId(request);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+
+      if (!(await getLessonEnrollment(request, reply, container, studentUserId, request.params.lessonId))) {
+        return;
       }
 
       const useCase = container.resolve('GetLessonBookmarksUseCase');
@@ -308,6 +324,7 @@ async function learningRoutes(fastify, options) {
   fastify.post(
     '/lessons/:lessonId/bookmarks',
     {
+      preHandler: authorize('lesson.read'),
       schema: {
         params: {
           type: 'object',
@@ -331,6 +348,10 @@ async function learningRoutes(fastify, options) {
       const studentUserId = resolveStudentUserId(request);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
+      }
+
+      if (!(await getLessonEnrollment(request, reply, container, studentUserId, request.params.lessonId))) {
+        return;
       }
 
       const useCase = container.resolve('CreateLessonBookmarkUseCase');
@@ -359,6 +380,7 @@ async function learningRoutes(fastify, options) {
   fastify.delete(
     '/lessons/:lessonId/bookmarks/:bookmarkId',
     {
+      preHandler: authorize('lesson.read'),
       schema: {
         params: {
           type: 'object',
@@ -376,9 +398,14 @@ async function learningRoutes(fastify, options) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
       }
 
+      if (!(await getLessonEnrollment(request, reply, container, studentUserId, request.params.lessonId))) {
+        return;
+      }
+
       const useCase = container.resolve('DeleteLessonBookmarkUseCase');
       const result = await useCase.execute({
         bookmarkId: request.params.bookmarkId,
+        lessonModuleId: request.params.lessonId,
         studentUserId
       });
 

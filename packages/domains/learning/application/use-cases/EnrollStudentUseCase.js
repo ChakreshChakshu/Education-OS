@@ -1,17 +1,18 @@
+const { randomBytes } = require('node:crypto');
+const { STUDENT_ACTIVATION_TYPE, activationPasswordHash } = require('../studentActivation');
 const { Result } = require('../../core');
 const { Enrollment } = require('../../domain');
 
 class EnrollStudentUseCase {
-  constructor({ enrollmentRepository, userRepository, roleAssignmentRepository, passwordHasher, tokenService } = {}) {
+  constructor({ enrollmentRepository, userRepository, roleAssignmentRepository, tokenService } = {}) {
     this.enrollmentRepository = enrollmentRepository;
     this.userRepository = userRepository;
     this.roleAssignmentRepository = roleAssignmentRepository;
-    this.passwordHasher = passwordHasher;
     this.tokenService = tokenService;
   }
 
   async execute(request) {
-    const { tenantId, studentUserId, studentEmail, studentName, courseId, batchId, temporaryPassword } = request;
+    const { tenantId, studentUserId, studentEmail, studentName, courseId, batchId } = request;
 
     if (!tenantId) {
       return Result.fail('Tenant ID is required.');
@@ -21,31 +22,33 @@ class EnrollStudentUseCase {
     }
 
     let resolvedStudentId = studentUserId;
-    let rawTemporaryPassword = temporaryPassword || null;
-    let resolvedEmail = studentEmail || null;
+    let activationNonce = null;
+    let resolvedEmail = null;
 
-    // If studentEmail is provided, always find or provision student user for that email
-    if (studentEmail && this.userRepository) {
+    if (studentUserId && studentEmail && this.userRepository) {
+      const user = await this.userRepository.findById(studentUserId);
+      resolvedEmail = user?.email?.value || user?.email || null;
+    } else if (studentEmail && this.userRepository) {
       const existingUser = await this.userRepository.findByEmail(studentEmail);
       if (existingUser) {
         resolvedStudentId = existingUser.id;
         resolvedEmail = existingUser.email?.value || existingUser.email;
-      } else if (typeof this.userRepository.createStudentUser === 'function') {
-        if (!rawTemporaryPassword) {
-          rawTemporaryPassword = `Learn@${Math.floor(1000 + Math.random() * 9000)}`;
-        }
-        let passwordHash = null;
-        if (this.passwordHasher) {
-          passwordHash = await this.passwordHasher.hash(rawTemporaryPassword);
-        }
+      } else if (typeof this.tokenService?.generateToken === 'function' && typeof this.userRepository.createStudentUser === 'function') {
+        const nonce = randomBytes(32).toString('hex');
         const newUser = await this.userRepository.createStudentUser({
           email: studentEmail,
           name: studentName || studentEmail.split('@')[0],
-          passwordHash,
-          tenantId
+          passwordHash: activationPasswordHash(nonce)
         });
-        resolvedStudentId = newUser.id;
-        resolvedEmail = newUser.email;
+        if (newUser) {
+          activationNonce = nonce;
+          resolvedStudentId = newUser.id;
+          resolvedEmail = newUser.email;
+        } else {
+          const concurrentUser = await this.userRepository.findByEmail(studentEmail);
+          resolvedStudentId = concurrentUser?.id;
+          resolvedEmail = concurrentUser?.email?.value || concurrentUser?.email;
+        }
       }
     }
 
@@ -68,13 +71,14 @@ class EnrollStudentUseCase {
 
     // Generate activation token if tokenService provided
     let activationToken = null;
-    if (this.tokenService && typeof this.tokenService.generateToken === 'function') {
+    if (activationNonce) {
       activationToken = this.tokenService.generateToken(
         {
           userId: resolvedStudentId,
           tenantId,
-          email: resolvedEmail || studentEmail,
-          type: 'student_activation'
+          email: resolvedEmail,
+          type: STUDENT_ACTIVATION_TYPE,
+          nonce: activationNonce
         },
         { expiresIn: '7d' }
       );
@@ -86,44 +90,29 @@ class EnrollStudentUseCase {
       return Result.fail('Student is already actively enrolled in this course.');
     }
 
-    // If existing enrollment was dropped or completed, reactivate or update batch
+    let enrollment;
     if (existing) {
       existing.reactivate();
       if (batchId) existing.assignBatch(batchId);
-      const saved = await this.enrollmentRepository.save(existing);
-      saved.temporaryPassword = rawTemporaryPassword;
-      saved.activationToken = activationToken;
-      saved.activationUrl = activationToken ? `/activate?token=${activationToken}` : null;
-      saved.student = {
-        id: resolvedStudentId,
-        email: resolvedEmail || studentEmail,
-        name: studentName
-      };
-      return Result.ok(saved);
+      enrollment = existing;
+    } else {
+      const enrollmentResult = Enrollment.create({
+        tenantId,
+        studentUserId: resolvedStudentId,
+        courseId,
+        batchId: batchId || null,
+        status: 'ACTIVE',
+        progressPercentage: 0
+      });
+      if (enrollmentResult.isFailure) {
+        return Result.fail(enrollmentResult.error);
+      }
+      enrollment = enrollmentResult.getValue();
     }
 
-    const enrollmentResult = Enrollment.create({
-      tenantId,
-      studentUserId: resolvedStudentId,
-      courseId,
-      batchId: batchId || null,
-      status: 'ACTIVE',
-      progressPercentage: 0
-    });
-
-    if (enrollmentResult.isFailure) {
-      return Result.fail(enrollmentResult.error);
-    }
-
-    const saved = await this.enrollmentRepository.save(enrollmentResult.getValue());
-    saved.temporaryPassword = rawTemporaryPassword;
+    const saved = await this.enrollmentRepository.save(enrollment);
     saved.activationToken = activationToken;
-    saved.activationUrl = activationToken ? `/activate?token=${activationToken}` : null;
-    saved.student = {
-      id: resolvedStudentId,
-      email: resolvedEmail || studentEmail,
-      name: studentName
-    };
+    saved.student = { id: resolvedStudentId, email: resolvedEmail, name: studentName };
     return Result.ok(saved);
   }
 }

@@ -119,19 +119,23 @@ class DrizzleUserRepository extends BaseRepository {
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name || cleanEmail.split('@')[0];
     const db = await this.db.connect();
-    const hash = passwordHash || '$2a$10$placeholderDummyPasswordHashForInvitedStudent';
-
     const res = await db.query(`
       INSERT INTO users (id, email, password_hash, name, status, created_at, updated_at)
       VALUES ($1, $2, $3, $4, 'ACTIVE', NOW(), NOW())
-      ON CONFLICT (email) DO UPDATE SET
-        name = COALESCE(NULLIF(users.name, ''), EXCLUDED.name),
-        password_hash = CASE WHEN users.password_hash LIKE '$2a$10$placeholder%' THEN EXCLUDED.password_hash ELSE users.password_hash END,
-        updated_at = NOW()
+      ON CONFLICT (email) DO NOTHING
       RETURNING id, email, name
-    `, [id, cleanEmail, hash, cleanName]);
+    `, [id, cleanEmail, passwordHash, cleanName]);
 
-    return res.rows[0] || { id, email: cleanEmail, name: cleanName };
+    return res.rows[0] || null;
+  }
+
+  async consumeStudentActivation(userId, email, expectedHash, passwordHash) {
+    const { rowCount } = await this.db.query(`
+      UPDATE users
+      SET password_hash = $1, email_verified_at = NOW(), updated_at = NOW()
+      WHERE id = $2 AND email = $3 AND password_hash = $4 AND deleted_at IS NULL AND status = 'ACTIVE'
+    `, [passwordHash, userId, email, expectedHash]);
+    return rowCount === 1;
   }
 
   async updatePassword(userId, passwordHash) {

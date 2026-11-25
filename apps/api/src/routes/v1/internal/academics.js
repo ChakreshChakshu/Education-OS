@@ -1,3 +1,5 @@
+const { requireActiveEnrollment } = require('../courseEnrollment');
+const { queueEnrollmentInvitation, serializeEnrollment } = require('../enrollmentInvitation');
 const { randomUUID } = require('crypto');
 const { authorize } = require('../../../middleware/authorize');
 const {
@@ -157,7 +159,7 @@ async function academicsRoutes(fastify, options) {
     }
   );
 
-  fastify.get('/courses/:id/modules', { preHandler: authorize('course.read') }, async (request, reply) => {
+  fastify.get('/courses/:id/modules', { preHandler: authorize('lesson.read') }, async (request, reply) => {
     if (!isUuid(request.params.id)) {
       return reply.send({ success: true, data: [] });
     }
@@ -167,6 +169,16 @@ async function academicsRoutes(fastify, options) {
       return reply.status(404).send({ success: false, error: 'Course not found' });
     }
     if (!assertSameTenant(request, reply, course.tenantId)) {
+      return;
+    }
+    const userId = getUserId(request);
+    const canPublish = isDevAuthBypassEnabled() || await container.resolve('RoleAssignmentRepository').hasPermission({
+      userId,
+      tenantId: course.tenantId,
+      organizationId: course.organizationId,
+      permissionKey: 'lesson.publish'
+    });
+    if (!canPublish && !(await requireActiveEnrollment(request, reply, container, userId, course.id))) {
       return;
     }
     const moduleRepo = container.resolve('LessonModuleRepository');
@@ -429,8 +441,7 @@ async function academicsRoutes(fastify, options) {
             studentEmail: { type: 'string' },
             studentName: { type: 'string' },
             courseId: { type: 'string' },
-            batchId: { type: 'string' },
-            temporaryPassword: { type: 'string' }
+            batchId: { type: 'string' }
           }
         }
       }
@@ -468,6 +479,10 @@ async function academicsRoutes(fastify, options) {
         return;
       }
 
+      if (isSelfEnrollment && (course.visibility !== 'PUBLIC' || !['PUBLISHED', 'ACTIVE'].includes(course.status))) {
+        return reply.status(404).send({ success: false, error: 'Course not found' });
+      }
+
       const useCase = container.resolve('EnrollStudentUseCase');
       const result = await useCase.execute({
         tenantId,
@@ -475,45 +490,20 @@ async function academicsRoutes(fastify, options) {
         studentEmail,
         studentName,
         courseId: request.body.courseId,
-        batchId: request.body.batchId,
-        temporaryPassword: request.body.temporaryPassword
+        batchId: request.body.batchId
       });
 
       if (result.isFailure) {
         return reply.status(400).send({ success: false, error: result.error });
       }
 
-      const enrollmentData = result.getValue();
-
-      try {
-        const outboxRepo = container.resolve('OutboxRepository');
-        const studentObj = enrollmentData.student || {};
-
-        await outboxRepo.create({
-          eventName: 'EnrollmentCreated',
-          aggregateType: 'Enrollment',
-          aggregateId: enrollmentData.id,
-          payload: {
-            enrollmentId: enrollmentData.id,
-            tenantId,
-            courseId: request.body.courseId,
-            courseTitle: course?.title || 'Academic Curriculum',
-            courseCode: course?.code?.value || course?.code || '',
-            studentUserId: enrollmentData.studentUserId,
-            studentEmail: studentObj.email || studentEmail,
-            studentName: studentObj.name || studentName || 'Student',
-            temporaryPassword: enrollmentData.temporaryPassword || null,
-            activationToken: enrollmentData.activationToken || null,
-            activationUrl: enrollmentData.activationUrl ? `${process.env.APP_URL || 'http://localhost:3000'}${enrollmentData.activationUrl}` : null
-          }
-        });
-      } catch (err) {
-        request.log.warn(`[Academics] Failed to emit EnrollmentCreated outbox event: ${err.message}`);
-      }
+      const enrollment = result.getValue();
+      const invitationQueued = await queueEnrollmentInvitation({ container, request, enrollment, course });
 
       return reply.status(201).send({
         success: true,
-        data: enrollmentData
+        data: serializeEnrollment(enrollment),
+        invitationQueued
       });
     }
   );
