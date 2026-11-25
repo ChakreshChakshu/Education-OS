@@ -157,3 +157,86 @@ test('learning routes check permission and active enrollment and use the enrolle
   assert.deepEqual(operations, [{ studentUserId: userId, lessonModuleId: lessonId, batchId }]);
   assert.equal((await modules()).statusCode, 200);
 });
+
+test('quiz API hides keys from students and completes only a server-graded passing attempt', async (t) => {
+  const { MarkLessonCompleteUseCase, SubmitQuizUseCase } = learningDomain.application;
+  const { LessonModule } = learningDomain.domain;
+  const userId = randomUUID();
+  const tenantId = randomUUID();
+  const courseId = randomUUID();
+  const lesson = LessonModule.create({
+    courseId, title: 'Stored Quiz', contentType: 'QUIZ',
+    quiz: {
+      question: 'Pick the best option.',
+      options: [{ key: 'A', text: 'First' }, { key: 'B', text: 'Second' }],
+      correct: 'B',
+      explanation: 'Staff-only explanation',
+      passingScore: 90
+    }
+  }).getValue();
+  const course = { id: courseId, tenantId };
+  const submissions = [];
+  const progress = [];
+  const lessonModuleRepository = {
+    findById: async (id) => id === lesson.id ? lesson : null,
+    findByCourseId: async () => [lesson]
+  };
+  const markLessonCompleteUseCase = new MarkLessonCompleteUseCase({
+    lessonModuleRepository,
+    studentProgressRepository: {
+      findByStudentAndModule: async () => progress[0],
+      save: async (entry) => progress.push(entry)
+    }
+  });
+  const services = {
+    TokenService: { verifyToken: () => ({ userId }) },
+    RoleAssignmentRepository: {
+      findTenantsWithRolesForUser: async () => [{ tenantId }],
+      hasPermission: async ({ permissionKey }) => permissionKey !== 'lesson.publish'
+    },
+    CourseRepository: { findById: async () => course },
+    LessonModuleRepository: lessonModuleRepository,
+    EnrollmentRepository: { findByStudentAndCourse: async () => ({ tenantId, status: 'ACTIVE' }) },
+    MarkLessonCompleteUseCase: markLessonCompleteUseCase,
+    SubmitQuizUseCase: new SubmitQuizUseCase({
+      lessonModuleRepository, markLessonCompleteUseCase,
+      quizSubmissionRepository: { save: async (submission) => submissions.push(submission) }
+    })
+  };
+  const app = Fastify();
+  t.after(() => app.close());
+  await app.register(internalRoutes, { container: { resolve: (name) => services[name] } });
+  const headers = { authorization: 'Bearer student', 'x-tenant-id': tenantId };
+
+  const modules = () => app.inject({ url: `/academics/courses/${courseId}/modules`, headers });
+  const studentModules = await modules();
+  assert.equal(studentModules.statusCode, 200);
+  const quiz = studentModules.json().data[0].quiz;
+  assert.equal(quiz.questions[0].id, 'q_legacy_1');
+  assert.deepEqual(quiz.questions[0].options[1], { id: 'B', key: 'B', label: 'Second' });
+  assert.doesNotMatch(JSON.stringify(quiz), /"correct"|"isCorrect"|"explanation"/);
+
+  t.mock.method(services.RoleAssignmentRepository, 'hasPermission', async () => true);
+  assert.equal((await modules()).json().data[0].quiz.correct, 'B');
+  t.mock.restoreAll();
+
+  const submit = (payload) => app.inject({
+    method: 'POST', url: '/learning/quizzes/submit', headers,
+    payload: { lessonModuleId: lesson.id, ...payload }
+  });
+  assert.equal((await submit({ score: 100 })).statusCode, 400);
+  assert.equal((await app.inject({
+    method: 'POST', url: '/learning/lessons/complete', headers,
+    payload: { lessonModuleId: lesson.id }
+  })).statusCode, 400);
+  const wrong = await submit({ answers: { q_legacy_1: ['A'] }, score: 100, passingScore: 0 });
+  assert.equal(wrong.statusCode, 201);
+  assert.equal(wrong.json().data.passed, false);
+  assert.equal(progress.length, 0);
+  const correct = await submit({ answers: { q_legacy_1: ['B'] } });
+  assert.equal(correct.statusCode, 201);
+  assert.equal(correct.json().data.score, 100);
+  assert.equal(correct.json().data.passed, true);
+  assert.equal(submissions.length, 2);
+  assert.equal(progress.length, 1);
+});

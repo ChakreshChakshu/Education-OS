@@ -365,14 +365,11 @@ class ApiClient {
     }
   }
 
-  static async submitQuiz({ studentUserId, lessonModuleId, score, passingScore = 70, batchId }) {
+  static async submitQuiz({ lessonModuleId, answers }) {
     try {
-      const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('eos_user') || '{}') : {};
-      const resolvedUserId = studentUserId || activeUser.id || activeUser.userId;
-      if (!resolvedUserId) return { success: false, error: 'User not authenticated' };
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/quizzes/submit`, {
         method: 'POST',
-        body: JSON.stringify({ studentUserId: resolvedUserId, lessonModuleId, score, passingScore, batchId })
+        body: JSON.stringify({ lessonModuleId, answers })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit quiz');

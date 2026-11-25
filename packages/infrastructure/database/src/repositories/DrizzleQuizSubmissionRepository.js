@@ -1,6 +1,6 @@
 const { BaseRepository } = require('./BaseRepository');
 const { quizSubmissionsTable } = require('../schema/learning.schema');
-const { eq, and } = require('../drizzle-bridge');
+const { eq } = require('../drizzle-bridge');
 
 class DrizzleQuizSubmissionRepository extends BaseRepository {
   constructor(db) {
@@ -44,6 +44,10 @@ class DrizzleQuizSubmissionRepository extends BaseRepository {
   }
 
   async findById(id) {
+    if (typeof this.db?.query === 'function') {
+      const { rows } = await this.db.query('SELECT * FROM quiz_submissions WHERE id = $1', [id]);
+      return DrizzleQuizSubmissionRepository.toDomain(rows[0]);
+    }
     if (this.db && this.db.select) {
       const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1);
       return rows[0] ? DrizzleQuizSubmissionRepository.toDomain(rows[0]) : null;
@@ -54,6 +58,14 @@ class DrizzleQuizSubmissionRepository extends BaseRepository {
 
   async save(submission) {
     const raw = DrizzleQuizSubmissionRepository.toPersistence(submission);
+    if (typeof this.db?.query === 'function') {
+      await this.db.query(
+        `INSERT INTO quiz_submissions (id, student_user_id, lesson_module_id, score, passed, submitted_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [raw.id, raw.studentUserId, raw.lessonModuleId, raw.score, raw.passed, raw.submittedAt, raw.createdAt]
+      );
+      return submission;
+    }
     if (this.db && this.db.insert) {
       await this.db.insert(this.table).values(raw).onConflictDoUpdate({
         target: this.table.id,

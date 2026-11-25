@@ -11,7 +11,10 @@ const { UpdateEnrollmentStatusUseCase } = require('./use-cases/UpdateEnrollmentS
 
 const { STUDENT_ACTIVATION_TYPE, activationPasswordHash } = require('./studentActivation');
 
+const { studentQuiz } = require('./quiz');
+
 module.exports = {
+  studentQuiz,
   STUDENT_ACTIVATION_TYPE,
   activationPasswordHash,
   MarkLessonCompleteUseCase,

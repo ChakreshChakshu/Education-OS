@@ -124,41 +124,52 @@ test('MarkLessonCompleteUseCase records student lesson completion', async () => 
   assert.equal(secondResult.getValue().alreadyCompleted, true);
 });
 
-test('SubmitQuizUseCase evaluates score and marks pass/fail correctly', async () => {
+test('SubmitQuizUseCase grades the stored weighted quiz and completes only a verified pass', async () => {
   const lessonModuleRepository = new MockLessonModuleRepository();
-  const courseId = crypto.randomUUID();
+  const studentProgressRepository = new MockStudentProgressRepository();
+  const submissions = [];
   const studentUserId = crypto.randomUUID();
-
-  const module = LessonModule.create({
-    courseId,
-    title: 'Final Assessment Quiz'
+  const lesson = LessonModule.create({
+    courseId: crypto.randomUUID(),
+    title: 'Final Assessment Quiz',
+    contentType: 'QUIZ',
+    quiz: {
+      passingScore: 80,
+      questions: [
+        {
+          id: 'q1', points: 3, questionType: 'MULTIPLE_CHOICE',
+          options: [{ id: 'a', isCorrect: true }, { id: 'b' }, { id: 'c', isCorrect: true }]
+        },
+        {
+          id: 'q2', points: 1, questionType: 'TRUE_FALSE',
+          options: [{ id: 'true', isCorrect: true }, { id: 'false' }]
+        }
+      ]
+    }
   }).getValue();
-  await lessonModuleRepository.save(module);
+  await lessonModuleRepository.save(lesson);
 
-  const useCase = new SubmitQuizUseCase({ lessonModuleRepository });
-
-  // Passing score
-  const passResult = await useCase.execute({
-    studentUserId,
-    lessonModuleId: module.id,
-    score: 82,
-    passingScore: 70
+  const markLessonCompleteUseCase = new MarkLessonCompleteUseCase({ lessonModuleRepository, studentProgressRepository });
+  const useCase = new SubmitQuizUseCase({
+    lessonModuleRepository,
+    quizSubmissionRepository: { save: async (submission) => submissions.push(submission) },
+    markLessonCompleteUseCase
   });
+  const target = { studentUserId, lessonModuleId: lesson.id };
+  const wrong = await useCase.execute({ ...target, answers: { q1: ['c', 'a'] }, score: 100, passingScore: 0 });
+  assert.equal(wrong.getValue().score, 75);
+  assert.equal(wrong.getValue().passed, false);
+  assert.equal((await markLessonCompleteUseCase.execute(target)).isFailure, true);
+  assert.equal(await studentProgressRepository.findByStudentAndModule(studentUserId, lesson.id), null);
+  assert.equal((await useCase.execute({ ...target, answers: { q1: ['a', 'other-question-option'] } })).isFailure, true);
+  assert.equal((await useCase.execute({ ...target, answers: { q1: ['a', 'a'] } })).isFailure, true);
+  assert.equal((await useCase.execute({ ...target, answers: { q1: ['a', 'b', 'c'] } })).getValue().score, 0);
 
-  assert.equal(passResult.isSuccess, true);
-  assert.equal(passResult.getValue().passed, true);
-  assert.equal(passResult.getValue().score, 82);
-
-  // Failing score
-  const failResult = await useCase.execute({
-    studentUserId,
-    lessonModuleId: module.id,
-    score: 55,
-    passingScore: 70
-  });
-
-  assert.equal(failResult.isSuccess, true);
-  assert.equal(failResult.getValue().passed, false);
+  const correct = await useCase.execute({ ...target, answers: { q1: ['a', 'c'], q2: ['true'] } });
+  assert.equal(correct.getValue().score, 100);
+  assert.equal(correct.getValue().passed, true);
+  assert.equal(submissions.length, 3);
+  assert.equal((await studentProgressRepository.findByStudentAndModule(studentUserId, lesson.id)).status, 'COMPLETED');
 });
 
 test('SaveLessonNoteUseCase and GetLessonNoteUseCase persist and retrieve student notes', async () => {

@@ -1,3 +1,5 @@
+const { learningDomain } = require('../../../bootstrap/domain-bridge');
+const { studentQuiz } = learningDomain.application;
 const { requireActiveEnrollment } = require('../courseEnrollment');
 const { queueEnrollmentInvitation, serializeEnrollment } = require('../enrollmentInvitation');
 const { randomUUID } = require('crypto');
@@ -202,7 +204,7 @@ async function academicsRoutes(fastify, options) {
           hlsUrl,
           order: m.order,
           status: m.status,
-          quiz: m.quiz || null
+          quiz: m.contentType === 'QUIZ' && !canPublish ? studentQuiz(m.quiz) : m.quiz || null
         };
       })
     });

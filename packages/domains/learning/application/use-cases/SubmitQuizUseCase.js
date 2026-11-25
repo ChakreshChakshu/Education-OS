@@ -1,40 +1,39 @@
 const { Result } = require('../../core');
 const { QuizSubmission } = require('../../domain/entities/QuizSubmission');
-const { Score } = require('../../domain/value-objects/Score');
+const { gradeQuiz } = require('../quiz');
 
 class SubmitQuizUseCase {
-  constructor({ quizSubmissionRepository, lessonModuleRepository }) {
+  constructor({ quizSubmissionRepository, lessonModuleRepository, markLessonCompleteUseCase }) {
     this.quizSubmissionRepository = quizSubmissionRepository;
     this.lessonModuleRepository = lessonModuleRepository;
+    this.markLessonCompleteUseCase = markLessonCompleteUseCase;
   }
 
-  async execute(dto) {
-    const { studentUserId, lessonModuleId, score, passingScore } = dto;
-
+  async execute({ studentUserId, lessonModuleId, answers, batchId }) {
     const module = await this.lessonModuleRepository.findById(lessonModuleId);
-    if (!module) {
-      return Result.fail('Target lesson module for quiz not found.');
+    if (module?.contentType !== 'QUIZ') {
+      return Result.fail('Target quiz lesson not found.');
     }
 
-    const scoreVoResult = Score.create(score);
-    if (scoreVoResult.isFailure) {
-      return Result.fail(scoreVoResult.error);
-    }
+    const grade = gradeQuiz(module.quiz, answers);
+    if (grade.error) return Result.fail(grade.error);
 
     const submissionResult = QuizSubmission.create({
       studentUserId,
       lessonModuleId,
-      score: scoreVoResult.getValue(),
-      passingScore: passingScore || 70
+      score: grade.score,
+      passingScore: grade.passingScore
     });
-
-    if (submissionResult.isFailure) {
-      return Result.fail(submissionResult.error);
-    }
+    if (submissionResult.isFailure) return submissionResult;
 
     const submission = submissionResult.getValue();
-    if (this.quizSubmissionRepository && this.quizSubmissionRepository.save) {
-      await this.quizSubmissionRepository.save(submission);
+    await this.quizSubmissionRepository.save(submission);
+
+    if (submission.passed) {
+      const result = await this.markLessonCompleteUseCase.execute({
+        studentUserId, lessonModuleId, batchId, quizSubmission: submission
+      });
+      if (result.isFailure) return result;
     }
 
     return Result.ok({
@@ -42,7 +41,10 @@ class SubmitQuizUseCase {
       studentUserId: submission.studentUserId,
       lessonModuleId: submission.lessonModuleId,
       score: submission.score.value,
-      passed: submission.passed
+      passed: submission.passed,
+      passingScore: grade.passingScore,
+      totalPointsAvailable: grade.totalPointsAvailable,
+      totalPointsEarned: grade.totalPointsEarned
     });
   }
 }

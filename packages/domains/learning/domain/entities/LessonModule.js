@@ -9,6 +9,7 @@ class LessonModule extends AggregateRoot {
       title: props.title,
       contentType: props.contentType || 'VIDEO',
       contentUrl: props.contentUrl || '',
+      quiz: props.quiz ?? null,
       order: props.order || 1,
       status: props.status || 'PUBLISHED',
       createdAt: props.createdAt || new Date(),
@@ -30,6 +31,10 @@ class LessonModule extends AggregateRoot {
 
   get contentUrl() {
     return this.props.contentUrl;
+  }
+
+  get quiz() {
+    return this.props.quiz;
   }
 
   get order() {
@@ -54,6 +59,7 @@ class LessonModule extends AggregateRoot {
         title: props.title.trim(),
         contentType: props.contentType || 'VIDEO',
         contentUrl: props.contentUrl || '',
+        quiz: props.quiz ?? null,
         order: props.order || 1,
         status: props.status || 'PUBLISHED',
         createdAt: props.createdAt || new Date(),

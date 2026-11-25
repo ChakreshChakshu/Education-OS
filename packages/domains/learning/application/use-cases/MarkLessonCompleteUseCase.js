@@ -1,4 +1,5 @@
 const { Result } = require('../../core');
+const { QuizSubmission } = require('../../domain/entities/QuizSubmission');
 const { StudentProgress } = require('../../domain/entities/StudentProgress');
 
 class MarkLessonCompleteUseCase {
@@ -8,11 +9,18 @@ class MarkLessonCompleteUseCase {
   }
 
   async execute(dto) {
-    const { studentUserId, batchId, lessonModuleId } = dto;
+    const { studentUserId, batchId, lessonModuleId, quizSubmission } = dto;
 
     const module = await this.lessonModuleRepository.findById(lessonModuleId);
     if (!module) {
       return Result.fail('Lesson module not found.');
+    }
+
+    if (module.contentType === 'QUIZ' && (
+      !(quizSubmission instanceof QuizSubmission) || !quizSubmission.passed ||
+      quizSubmission.studentUserId !== studentUserId || quizSubmission.lessonModuleId !== lessonModuleId
+    )) {
+      return Result.fail('Pass the quiz to complete this lesson.');
     }
 
     const existingProgress = await this.studentProgressRepository.findByStudentAndModule(
@@ -20,7 +28,7 @@ class MarkLessonCompleteUseCase {
       lessonModuleId
     );
 
-    if (existingProgress) {
+    if (existingProgress?.status === 'COMPLETED') {
       return Result.ok({
         id: existingProgress.id,
         studentUserId: existingProgress.studentUserId,
@@ -33,8 +41,9 @@ class MarkLessonCompleteUseCase {
     const progressResult = StudentProgress.create({
       studentUserId,
       batchId,
-      lessonModuleId
-    });
+      lessonModuleId,
+      createdAt: existingProgress?.props.createdAt
+    }, existingProgress?.id);
 
     if (progressResult.isFailure) {
       return Result.fail(progressResult.error);

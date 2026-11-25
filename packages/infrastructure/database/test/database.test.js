@@ -339,3 +339,38 @@ test('DrizzleLessonNoteRepository saves and retrieves student lesson notes corre
   assert.notEqual(updated, null);
   assert.equal(updated.content, 'Updated: DDD Entities have distinct identity.');
 });
+
+test('quiz repositories retain legacy configurations and the recorded pass decision', async () => {
+  const legacyQuiz = { question: 'Choose one', correct: 'B', options: [{ key: 'A' }, { key: 'B' }] };
+  const lesson = DrizzleLessonModuleRepository.toDomain({
+    id: crypto.randomUUID(),
+    course_id: crypto.randomUUID(),
+    content_type: 'QUIZ',
+    title: 'Legacy quiz',
+    quiz_json: JSON.stringify(legacyQuiz)
+  });
+  assert.deepEqual(lesson.quiz, legacyQuiz);
+  assert.deepEqual(DrizzleLessonModuleRepository.toPersistence(lesson).quiz, legacyQuiz);
+
+  const { QuizSubmission } = require('../src/domain-learning-bridge');
+  const submission = QuizSubmission.create({
+    studentUserId: crypto.randomUUID(), lessonModuleId: lesson.id, score: 80, passingScore: 90
+  }).getValue();
+  let row;
+  const repo = new DrizzleQuizSubmissionRepository({
+    async query(sql, params) {
+      if (sql.startsWith('INSERT')) {
+        const [id, student_user_id, lesson_module_id, score, passed, submitted_at, created_at] = params;
+        row = { id, student_user_id, lesson_module_id, score, passed, submitted_at, created_at };
+        return { rows: [] };
+      }
+      assert.deepEqual(params, [submission.id]);
+      return { rows: [row] };
+    }
+  });
+
+  await repo.save(submission);
+  const reloaded = await repo.findById(submission.id);
+  assert.equal(reloaded.score.value, 80);
+  assert.equal(reloaded.passed, false);
+});

@@ -89,53 +89,48 @@ async function learningRoutes(fastify, options) {
 
   fastify.post(
     '/quizzes/submit',
-    { preHandler: authorize('assessment.submit') },
+    {
+      preHandler: authorize('assessment.submit'),
+      schema: {
+        body: {
+          type: 'object',
+          required: ['lessonModuleId', 'answers'],
+          additionalProperties: false,
+          properties: {
+            lessonModuleId: { type: 'string', format: 'uuid' },
+            answers: {
+              type: 'object',
+              additionalProperties: {
+                type: 'array',
+                items: { type: 'string', minLength: 1 },
+                uniqueItems: true
+              }
+            }
+          }
+        }
+      }
+    },
     async (request, reply) => {
-      const studentUserId = resolveStudentUserId(request, request.body?.studentUserId);
+      const studentUserId = resolveStudentUserId(request);
       if (!studentUserId) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
       }
 
-      const { lessonModuleId, score, passingScore } = request.body || {};
-      if (!lessonModuleId || score === undefined) {
-        return reply.status(400).send({ success: false, error: 'lessonModuleId and score are required' });
-      }
-
+      const { lessonModuleId, answers } = request.body;
       const enrollment = await getLessonEnrollment(request, reply, container, studentUserId, lessonModuleId);
       if (!enrollment) return;
 
-      const useCase = container.resolve('SubmitQuizUseCase');
-      const result = await useCase.execute({
+      const result = await container.resolve('SubmitQuizUseCase').execute({
         studentUserId,
         lessonModuleId,
-        score,
-        passingScore: passingScore || 70
+        answers,
+        batchId: enrollment.batchId
       });
-
       if (result.isFailure) {
-        return reply.status(400).send({
-          success: false,
-          error: result.error
-        });
+        return reply.status(400).send({ success: false, error: result.error });
       }
 
-      const submissionData = result.getValue();
-      if (submissionData.passed) {
-        try {
-          const markCompleteUseCase = container.resolve('MarkLessonCompleteUseCase');
-          await markCompleteUseCase.execute({
-            studentUserId,
-            lessonModuleId,
-            batchId: enrollment.batchId
-          });
-        } catch (e) {
-        }
-      }
-
-      return reply.status(201).send({
-        success: true,
-        data: submissionData
-      });
+      return reply.status(201).send({ success: true, data: result.getValue() });
     }
   );
 
@@ -162,7 +157,7 @@ async function learningRoutes(fastify, options) {
 
       const courseModuleIds = new Set(courseModules.map((m) => m.id));
       const completedModules = studentProgress.filter((p) => courseModuleIds.has(p.lessonModuleId) && p.status === 'COMPLETED');
-      const completedLessonIds = completedModules.map((p) => p.lessonModuleId);
+      const completedLessonIds = [...new Set(completedModules.map((p) => p.lessonModuleId))];
       const totalModules = courseModules.length;
       const progressPercent = totalModules > 0 ? Math.round((completedLessonIds.length / totalModules) * 100) : 0;
 

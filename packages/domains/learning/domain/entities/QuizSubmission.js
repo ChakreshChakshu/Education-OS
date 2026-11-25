@@ -46,7 +46,7 @@ class QuizSubmission extends AggregateRoot {
       scoreVo = scoreRes.getValue();
     }
 
-    const passingScore = props.passingScore || 70;
+    const passingScore = props.passingScore ?? 70;
     const isPassed = scoreVo ? scoreVo.value >= passingScore : false;
 
     const submission = new QuizSubmission(
@@ -54,7 +54,7 @@ class QuizSubmission extends AggregateRoot {
         studentUserId: props.studentUserId,
         lessonModuleId: props.lessonModuleId,
         score: scoreVo,
-        passed: isPassed,
+        passed: props.passed ?? isPassed,
         submittedAt: props.submittedAt || new Date(),
         createdAt: props.createdAt || new Date()
       },

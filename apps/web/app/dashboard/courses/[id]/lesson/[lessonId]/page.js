@@ -24,7 +24,6 @@ import {
   Clock,
   Check,
   ListBullets,
-  Sparkle,
   CloudCheck,
   CloudArrowUp,
   ArrowsClockwise,
@@ -71,9 +70,6 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
   };
 
   // Quiz state
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizCorrect, setQuizCorrect] = useState(false);
 
   // Default demonstration curriculum data
   const defaultModules = [
@@ -252,9 +248,9 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     if (!currentLesson?.id) return;
 
     // Set appropriate initial tab based on content type
-    if (currentLesson.contentType === "DOCUMENT") {
+    if (currentLesson.contentType === "DOCUMENT" || currentLesson.contentType === "QUIZ") {
       setActiveTab("notes");
-    } else if (currentLesson.contentType === "QUIZ" || currentLesson.contentType === "ASSIGNMENT") {
+    } else if (currentLesson.contentType === "ASSIGNMENT") {
       setActiveTab("quiz");
     } else {
       setActiveTab(currentLesson.chapters && currentLesson.chapters.length > 0 ? "chapters" : "notes");
@@ -294,11 +290,6 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
         }
       })
       .catch(() => {});
-
-    // D. Reset quiz evaluation state for this lesson
-    setSelectedOption(null);
-    setQuizSubmitted(false);
-    setQuizCorrect(false);
 
     return () => {
       if (notesSaveTimerRef.current) {
@@ -449,38 +440,8 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
     }
   };
 
-  const resolvedQuiz = currentLesson.quiz && Array.isArray(currentLesson.quiz.options) && currentLesson.quiz.options.length > 0
-    ? currentLesson.quiz
-    : {
-        question: "In the Transactional Outbox pattern, why are domain events written to the database instead of directly published to message queues?",
-        options: [
-          { key: "A", text: "Because message queues cannot store JSON payloads" },
-          { key: "B", text: "To eliminate dual-write partial failures by participating in the same database transaction" },
-          { key: "C", text: "To avoid encrypting network packets over HTTP" },
-          { key: "D", text: "Because PostgreSQL has higher throughput than all external message brokers" }
-        ],
-        correct: "B",
-        explanation: "Relational DB commits guarantee that business state and outbox event records are saved atomically, eliminating dual-write failures."
-      };
-
-  const handleQuizAnswer = async (optionKey) => {
-    setSelectedOption(optionKey);
-    setQuizSubmitted(true);
-    const targetCorrect = resolvedQuiz.correct || resolvedQuiz.correctOption || "A";
-    const correct = String(optionKey).trim().toUpperCase() === String(targetCorrect).trim().toUpperCase();
-    setQuizCorrect(correct);
-    if (correct) {
-      markLessonComplete(currentLesson.id);
-    }
-
-    const resolvedUserId = user?.id || user?.userId;
-    await ApiClient.submitQuiz({
-      studentUserId: resolvedUserId,
-      lessonModuleId: currentLesson.id,
-      score: correct ? 100 : 0,
-      passingScore: 70,
-      batchId: course?.batchId
-    });
+  const recordQuizCompletion = ({ lessonModuleId }) => {
+    setCompletedLessons((previous) => new Set([...previous, lessonModuleId]));
   };
 
   const progressPercent = Math.round((completedLessons.size / allLessons.length) * 100);
@@ -548,13 +509,14 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
           </div>
 
           <Button
+            disabled={currentLesson.contentType === "QUIZ"}
             onClick={() => toggleLessonComplete(currentLesson.id)}
             variant={completedLessons.has(currentLesson.id) ? "success" : "outline"}
             size="sm"
             className="gap-2 font-bold"
           >
             <CheckCircle size={16} weight="bold" />
-            <span>{completedLessons.has(currentLesson.id) ? "Completed" : "Mark Complete"}</span>
+            <span>{completedLessons.has(currentLesson.id) ? "Completed" : currentLesson.contentType === "QUIZ" ? "Pass to complete" : "Mark Complete"}</span>
           </Button>
 
           {nextLesson && (
@@ -694,10 +656,10 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
           ) : currentLesson.contentType === "QUIZ" ? (
             /* Type A: MCQ-Style Quiz Assessment Stage */
             <McqQuizPlayer
-              quizConfig={currentLesson.quiz || resolvedQuiz}
+              key={currentLesson.id}
+              quizConfig={currentLesson.quiz}
               moduleId={currentLesson.id}
-              studentUser={user}
-              onCompleted={() => markLessonComplete(currentLesson.id)}
+              onCompleted={recordQuizCompletion}
             />
           ) : currentLesson.contentType === "ASSIGNMENT" ? (
             /* Type B: PDF Submission Assessment Stage */
@@ -768,19 +730,6 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
                 )}
               </button>
 
-              {currentLesson.contentType === "VIDEO" && (
-                <button
-                  onClick={() => setActiveTab("quiz")}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                    activeTab === "quiz"
-                      ? "bg-secondary text-secondary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Sparkle size={16} weight="bold" />
-                  <span>Knowledge Check</span>
-                </button>
-              )}
             </div>
 
             {/* Tab 1: Chapters & Milestones */}
@@ -1018,24 +967,14 @@ export default function ClassroomLessonPage({ params: paramsPromise }) {
               </div>
             )}
 
-            {/* Tab: Knowledge Check Quiz */}
-            {activeTab === "quiz" && (
-              currentLesson.contentType === "ASSIGNMENT" ? (
-                <AssignmentSubmissionPlayer
-                  assignmentConfig={currentLesson.quiz || currentLesson}
-                  courseId={courseId}
-                  moduleId={currentLesson.id}
-                  studentUser={user}
-                  onCompleted={() => markLessonComplete(currentLesson.id)}
-                />
-              ) : (
-                <McqQuizPlayer
-                  quizConfig={currentLesson.quiz || resolvedQuiz}
-                  moduleId={currentLesson.id}
-                  studentUser={user}
-                  onCompleted={() => markLessonComplete(currentLesson.id)}
-                />
-              )
+            {activeTab === "quiz" && currentLesson.contentType === "ASSIGNMENT" && (
+              <AssignmentSubmissionPlayer
+                assignmentConfig={currentLesson.quiz || currentLesson}
+                courseId={courseId}
+                moduleId={currentLesson.id}
+                studentUser={user}
+                onCompleted={() => markLessonComplete(currentLesson.id)}
+              />
             )}
           </div>
         </div>

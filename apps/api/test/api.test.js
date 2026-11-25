@@ -254,7 +254,14 @@ test('POST /api/v1/internal/learning/lessons/complete records lesson completion'
 test('POST /api/v1/internal/learning/quizzes/submit processes quiz submission', async () => {
   const app = await buildApp();
   const tenantId = await getOrCreateTestTenant(app);
-  const studentUserId = crypto.randomUUID();
+  const { User } = require('../src/bootstrap/domain-bridge').identityDomain.domain;
+  const student = User.create({
+    email: `quiz_${crypto.randomUUID()}@example.com`,
+    name: 'Quiz Student',
+    passwordHash: 'test-fixture'
+  }).getValue();
+  await container.resolve('UserRepository').save(student);
+  const accessToken = container.resolve('TokenService').generateToken({ userId: student.id });
 
   // Create prerequisite course to satisfy FK
   const courseRes = await app.inject({
@@ -273,26 +280,29 @@ test('POST /api/v1/internal/learning/quizzes/submit processes quiz submission', 
   const { LessonModule } = require('../src/bootstrap/domain-bridge').learningDomain.domain;
   const module = LessonModule.create({
     courseId,
-    title: 'Distributed Systems Quiz'
+    title: 'Distributed Systems Quiz',
+    contentType: 'QUIZ',
+    quiz: {
+      question: 'Select the valid choice.',
+      correct: 'A',
+      options: [{ key: 'A', text: 'First' }, { key: 'B', text: 'Second' }],
+      passingScore: 75
+    }
   }).getValue();
   await moduleRepo.save(module);
 
   const response = await app.inject({
     method: 'POST',
     url: '/api/v1/internal/learning/quizzes/submit',
-    payload: {
-      studentUserId: studentUserId,
-      lessonModuleId: module.id,
-      score: 91,
-      passingScore: 75
-    }
+    headers: { authorization: `Bearer ${accessToken}`, 'x-tenant-id': tenantId },
+    payload: { lessonModuleId: module.id, answers: { q_legacy_1: ['A'] } }
   });
 
   assert.equal(response.statusCode, 201);
   const body = JSON.parse(response.payload);
   assert.equal(body.success, true);
   assert.equal(body.data.passed, true);
-  assert.equal(body.data.score, 91);
+  assert.equal(body.data.score, 100);
 });
 
 test('POST /api/v1/internal/media/presign creates presigned upload URL', async () => {

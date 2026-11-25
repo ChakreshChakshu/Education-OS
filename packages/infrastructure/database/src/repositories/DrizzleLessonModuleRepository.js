@@ -13,6 +13,15 @@ class DrizzleLessonModuleRepository extends BaseRepository {
     if (!row) return null;
     const { LessonModule } = require('../domain-learning-bridge');
 
+    let quiz = row.quizJson ?? row.quiz_json ?? row.quiz ?? null;
+    if (typeof quiz === 'string') {
+      try {
+        quiz = JSON.parse(quiz);
+      } catch {
+        quiz = null;
+      }
+    }
+
     const res = LessonModule.create(
       {
         courseId: row.courseId || row.course_id,
@@ -21,7 +30,7 @@ class DrizzleLessonModuleRepository extends BaseRepository {
         contentUrl: row.contentUrl || row.content_url,
         order: row.order || row.order_index || 1,
         status: row.status,
-        quiz: row.quizJson || row.quiz_json || row.quiz || null,
+        quiz,
         createdAt: row.createdAt || row.created_at,
         updatedAt: row.updatedAt || row.updated_at,
         deletedAt: row.deletedAt || row.deleted_at,

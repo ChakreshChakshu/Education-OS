@@ -72,45 +72,6 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
             order: 2
           },
           {
-            id: "mod_demo_3",
-            title: "Knowledge Check: Architecture Assessment Quiz (Type A)",
-            contentType: "QUIZ",
-            quiz: {
-              title: "Architecture Core Knowledge Check",
-              timeLimitMinutes: 15,
-              passingScore: 70,
-              maxAttempts: 3,
-              shuffleQuestions: true,
-              questions: [
-                {
-                  id: "q1",
-                  questionType: "SINGLE_CHOICE",
-                  title: "What is the primary boundary for consistency in Domain-Driven Design?",
-                  points: 10,
-                  explanation: "The Domain Aggregate Root encapsulates entities and enforces business invariants atomically.",
-                  options: [
-                    { id: "A", key: "A", label: "Domain Aggregate Root", isCorrect: true },
-                    { id: "B", key: "B", label: "Database ORM Model", isCorrect: false },
-                    { id: "C", key: "C", label: "REST API Endpoint Route", isCorrect: false },
-                    { id: "D", key: "D", label: "Microservice Container", isCorrect: false }
-                  ]
-                },
-                {
-                  id: "q2",
-                  questionType: "TRUE_FALSE",
-                  title: "In clean architecture, the domain layer may directly import external database ORM libraries.",
-                  points: 10,
-                  explanation: "The domain layer must remain pure and free from infrastructure or database coupling.",
-                  options: [
-                    { id: "A", key: "A", label: "True", isCorrect: false },
-                    { id: "B", key: "B", label: "False", isCorrect: true }
-                  ]
-                }
-              ]
-            },
-            order: 3
-          },
-          {
             id: "mod_demo_4",
             title: "Homework: Distributed Sagas Problem Set (Type B)",
             contentType: "ASSIGNMENT",
@@ -132,11 +93,13 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
           }
         ]);
       }
+      const progress = await ApiClient.getCourseProgress(courseId, user?.id || user?.userId);
+      setCompletedModuleIds(new Set(progress.data?.completedLessonIds || []));
       setLoading(false);
     }
 
     loadData();
-  }, [courseId]);
+  }, [courseId, user?.id, user?.userId]);
 
   const activeModule = modules[activeModuleIndex] || null;
 
@@ -159,7 +122,11 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
     }
   };
 
-  const handleAssessmentCompleted = (result) => {
+  const handleQuizCompleted = ({ lessonModuleId }) => {
+    setCompletedModuleIds((previous) => new Set([...previous, lessonModuleId]));
+  };
+
+  const handleAssessmentCompleted = () => {
     if (activeModule?.id) {
       setCompletedModuleIds(new Set([...completedModuleIds, activeModule.id]));
       if (user?.id) {
@@ -233,13 +200,14 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
 
               {activeModule && (
                 <Button
+                  disabled={activeModule.contentType === "QUIZ"}
                   onClick={() => toggleComplete(activeModule.id)}
                   variant={completedModuleIds.has(activeModule.id) ? "success" : "outline"}
                   size="sm"
                   className="gap-2 font-bold shrink-0 cursor-pointer"
                 >
                   <CheckCircle size={18} weight="bold" />
-                  {completedModuleIds.has(activeModule.id) ? "Completed" : "Mark Complete"}
+                  {completedModuleIds.has(activeModule.id) ? "Completed" : activeModule.contentType === "QUIZ" ? "Pass to complete" : "Mark Complete"}
                 </Button>
               )}
             </CardHeader>
@@ -296,10 +264,10 @@ export default function StudentLMSPlayerPage({ params: paramsPromise }) {
               {/* TYPE A: MCQ-STYLE QUIZ PLAYER */}
               {activeModule?.contentType === "QUIZ" && (
                 <McqQuizPlayer
-                  quizConfig={activeModule.quiz || activeModule}
+                  key={activeModule.id}
+                  quizConfig={activeModule.quiz}
                   moduleId={activeModule.id}
-                  studentUser={user}
-                  onCompleted={handleAssessmentCompleted}
+                  onCompleted={handleQuizCompleted}
                 />
               )}
 

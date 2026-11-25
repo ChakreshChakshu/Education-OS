@@ -269,6 +269,7 @@ function registerServices(container) {
     (c) =>
       new SubmitQuizUseCase({
         quizSubmissionRepository: c.resolve('QuizSubmissionRepository'),
+        markLessonCompleteUseCase: c.resolve('MarkLessonCompleteUseCase'),
         lessonModuleRepository: c.resolve('LessonModuleRepository')
       })
   );
