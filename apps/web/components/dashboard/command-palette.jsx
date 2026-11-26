@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
@@ -13,10 +13,8 @@ import {
   Buildings,
   Users,
   Gear,
-  GraduationCap,
   Plus,
   Sun,
-  Moon,
   SignOut,
   ArrowUpRight,
   Sparkle,
@@ -27,26 +25,34 @@ import {
 
 export function CommandPalette({ open, onOpenChange }) {
   const router = useRouter();
-  const { user, activeTenant, tenants, switchTenant, logout } = useAuth();
+  const { user, activeTenant, tenants, switchTenant, logout, dashboardAccess } = useAuth();
+  const { canManageTenant, portalMode } = dashboardAccess;
+  const managementView = portalMode === "ADMIN";
+  const tenantId = activeTenant?.id;
+  const studentId = user?.id || user?.userId;
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [courses, setCourses] = useState([]);
   const inputRef = useRef(null);
 
-  // Fetch courses on mount for search
   useEffect(() => {
+    if (!open || !tenantId) return;
+    let current = true;
     async function loadCourses() {
-      try {
-        const res = await ApiClient.getCourses();
-        if (res?.success && Array.isArray(res.data)) {
-          setCourses(res.data);
-        }
-      } catch (e) {
-        // Fallback gracefully
-      }
+      const [catalog, enrollments] = await Promise.all([
+        ApiClient.getCourses({ tenantId }),
+        managementView || !studentId
+          ? null
+          : ApiClient.getEnrollments({ tenantId, studentUserId: studentId, status: "ACTIVE" })
+      ]);
+      if (!current || !catalog?.success || !Array.isArray(catalog.data)) return;
+      const enrolled = enrollments?.success && Array.isArray(enrollments.data) ? enrollments.data : [];
+      const enrolledIds = new Set(enrolled.map((entry) => entry.courseId));
+      setCourses(managementView ? catalog.data : catalog.data.filter((course) => enrolledIds.has(course.id)));
     }
     loadCourses();
-  }, []);
+    return () => { current = false; };
+  }, [open, tenantId, studentId, managementView]);
 
   // Reset search and selection on open
   useEffect(() => {
@@ -74,7 +80,7 @@ export function CommandPalette({ open, onOpenChange }) {
     {
       id: "nav-overview",
       category: "Navigation",
-      title: "Overview",
+      title: managementView ? "Overview" : "My Learning",
       subtitle: "Dashboard metrics & active campus feed",
       icon: SquaresFour,
       shortcut: "G O",
@@ -83,7 +89,7 @@ export function CommandPalette({ open, onOpenChange }) {
     {
       id: "nav-courses",
       category: "Navigation",
-      title: "Course Manager",
+      title: managementView ? "Course Manager" : "Course Catalog",
       subtitle: "Curriculum modules, syllabus & lectures",
       icon: BookOpen,
       shortcut: "G C",
@@ -91,6 +97,7 @@ export function CommandPalette({ open, onOpenChange }) {
     },
     {
       id: "nav-tenants",
+      available: managementView && canManageTenant,
       category: "Navigation",
       title: "Institutions & Branches",
       subtitle: "Multi-tenant boundaries & campus branding",
@@ -100,6 +107,7 @@ export function CommandPalette({ open, onOpenChange }) {
     },
     {
       id: "nav-students",
+      available: managementView,
       category: "Navigation",
       title: "Students & Cohorts",
       subtitle: "Enrollment rosters, batches & progress",
@@ -110,7 +118,7 @@ export function CommandPalette({ open, onOpenChange }) {
     {
       id: "nav-settings",
       category: "Navigation",
-      title: "Settings & Configuration",
+      title: managementView && canManageTenant ? "Settings & Configuration" : "Settings & Profile",
       subtitle: "Personal profile, credentials & security",
       icon: Gear,
       shortcut: "G P",
@@ -122,6 +130,7 @@ export function CommandPalette({ open, onOpenChange }) {
   const actionItems = [
     {
       id: "action-new-course",
+      available: managementView,
       category: "Actions",
       title: "Create New Course",
       subtitle: "Open course creation dialog",
@@ -132,6 +141,7 @@ export function CommandPalette({ open, onOpenChange }) {
     },
     {
       id: "action-enroll-student",
+      available: managementView,
       category: "Actions",
       title: "Enroll Student",
       subtitle: "Register student into course cohort",
@@ -189,7 +199,7 @@ export function CommandPalette({ open, onOpenChange }) {
     subtitle: `${c.code || "COURSE"} • ${c.credits ? `${c.credits} Credits` : "Curriculum"} • ${c.duration || "Self-Paced"}`,
     icon: BookOpen,
     badge: c.code,
-    action: () => router.push(`/dashboard/courses/${c.id}`)
+    action: () => router.push(`/dashboard/courses/${c.id}${managementView ? "" : "/learn"}`)
   }));
 
   // Tenant / Campus Switcher Results
@@ -203,22 +213,13 @@ export function CommandPalette({ open, onOpenChange }) {
     action: () => switchTenant(t)
   }));
 
-  // Filtered Results
-  const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const all = [...navItems, ...actionItems, ...courseItems, ...tenantItems];
-    if (!q) {
-      // Default: Show Nav + Actions
-      return [...navItems, ...actionItems.slice(0, 3)];
-    }
-    return all.filter((item) => {
-      const titleMatch = item.title.toLowerCase().includes(q);
-      const subtitleMatch = (item.subtitle || "").toLowerCase().includes(q);
-      const categoryMatch = item.category.toLowerCase().includes(q);
-      const badgeMatch = (item.badge || "").toLowerCase().includes(q);
-      return titleMatch || subtitleMatch || categoryMatch || badgeMatch;
-    });
-  }, [query, courses, tenants, activeTenant]);
+  const q = query.trim().toLowerCase();
+  const navigation = navItems.filter((item) => item.available !== false);
+  const actions = actionItems.filter((item) => item.available !== false);
+  const filteredItems = q
+    ? [...navigation, ...actions, ...courseItems, ...tenantItems].filter((item) =>
+        [item.title, item.subtitle, item.category, item.badge].some((value) => value?.toLowerCase().includes(q)))
+    : [...navigation, ...actions.slice(0, 3)];
 
   // Handle arrow key navigation and Enter
   const handleKeyDown = (e) => {

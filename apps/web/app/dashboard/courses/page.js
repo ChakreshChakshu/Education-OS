@@ -46,7 +46,8 @@ function CoursesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const newlyEnrolledParam = searchParams ? searchParams.get("enrolled") : null;
-  const { user, activeTenant } = useAuth();
+  const { user, activeTenant, dashboardAccess } = useAuth();
+  const { portalMode } = dashboardAccess;
   const [search, setSearch] = useState("");
   const [highlightCourseId, setHighlightCourseId] = useState(null);
   const [enrollmentBanner, setEnrollmentBanner] = useState(false);
@@ -55,8 +56,6 @@ function CoursesContent() {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Portal mode: 'STUDENT' | 'ADMIN'
-  const [portalMode, setPortalMode] = useState("ADMIN");
   const [activeTab, setActiveTab] = useState("ALL"); // 'ALL' | 'ENROLLED'
   const [enrolledMap, setEnrolledMap] = useState({});
   const [enrollingId, setEnrollingId] = useState(null);
@@ -77,27 +76,6 @@ function CoursesContent() {
   const [dragActive, setDragActive] = useState(false);
 
   const fileInputRef = useRef(null);
-
-  // Sync portal mode
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
-      const savedMode = localStorage.getItem("eos_portal_mode");
-      if (savedMode) {
-        setPortalMode(savedMode);
-      } else if (isStudentRole) {
-        setPortalMode("STUDENT");
-      } else {
-        setPortalMode("ADMIN");
-      }
-
-      const handleModeChange = (e) => {
-        if (e.detail) setPortalMode(e.detail);
-      };
-      window.addEventListener("eos_portal_mode_change", handleModeChange);
-      return () => window.removeEventListener("eos_portal_mode_change", handleModeChange);
-    }
-  }, [user, activeTenant]);
 
   useEffect(() => {
     if (newlyEnrolledParam) {
@@ -121,11 +99,11 @@ function CoursesContent() {
       try {
         const studentId = user?.id || user?.userId;
         const [res, enrollRes] = await Promise.all([
-          ApiClient.getCourses(),
-          studentId ? ApiClient.getEnrollments({ studentUserId: studentId }) : Promise.resolve({ success: true, data: [] })
+          activeTenant?.id ? ApiClient.getCourses({ tenantId: activeTenant.id }) : Promise.resolve(null),
+          studentId && activeTenant?.id ? ApiClient.getEnrollments({ studentUserId: studentId, tenantId: activeTenant.id }) : Promise.resolve({ success: true, data: [] })
         ]);
 
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
           setCourses(res.data.map(c => ({
             ...c,
             enrolled: c.enrolled || 0,
@@ -606,14 +584,16 @@ function CoursesContent() {
       )}
 
       {/* Course Studio Creation Wizard */}
-      <CourseCreationWizard
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        activeTenant={activeTenant}
-        onCourseCreated={(newCourse) => {
-          setCourses((prev) => [newCourse, ...prev]);
-        }}
-      />
+      {portalMode === "ADMIN" && (
+        <CourseCreationWizard
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          activeTenant={activeTenant}
+          onCourseCreated={(newCourse) => {
+            setCourses((prev) => [newCourse, ...prev]);
+          }}
+        />
+      )}
     </div>
   );
 }

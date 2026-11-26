@@ -44,6 +44,7 @@ The audit identified **46 verified loopholes** spanning authentication and multi
 | `BE-06` | High | Persistence (`DatabaseClient` vs Drizzle) | 4 repositories (`MediaAsset`, `Batch`, `QuizSubmission`, `Organization`) check `this.db.select`/`insert` on `DatabaseClient` without `.connect()`, silently persisting only to in-memory `Map`s. |
 | `UI-01` | Critical | Dashboard RBAC & Secret Exposure | Admin pages/components lack role guards; `DashboardOverviewPage` runs `loadAdminData()` in student mode (and `loadStudentData()` in admin mode); `StudentsPage` exposes `temporaryPassword` and `activationToken` in DOM/state. |
 | `UI-02` | Critical | Student Checkout & Self-Enrollment | Public checkout calls tenant-creating `/public/auth/register` (making students `ADMIN` of new tenants); `enrollStudent` sends `studentUserId`/`studentEmail`, failing `isSelfEnrollment` (`403 course.update`); fallback writes synthetic `localStorage` identity rejected by `DashboardLayout`. |
+| `UI-01` | The dashboard uses the verified workspace role for management pages, settings and command palette actions. Overview requests are scoped to the active workspace and load either staff metrics or the student's own enrollments. Enrollment credentials are delivered by email. | Verify role changes and workspace switching in a signed-in browser. |
 | `UI-04` | Critical | `TenantsPage` Provisioning | `updateTenantSettings` fires before `addTenant`/`switchTenant` updates `eos_tenant_id`, overwriting the previously active tenant's settings via `x-tenant-id`. |
 | `UI-05` | Critical | Root Domain & `DashboardLayout` | `parts.length > 1` misclassifies 2-label apex domains (e.g., `educationos.com`) as subdomains, locking out users and rendering unimported `<LockSimple />` (`ReferenceError` crash). |
 | `UI-06`–`UI-08` | High | Login & Assessment UI Stability | Open redirect + missing `ApiClient` import in `/login` (`UI-06`); React Rules-of-Hooks crash in quiz/assignment builder modals (`UI-07`); unimported `Eye` icon crash in `AssignmentSubmissionPlayer` (`UI-08`). |
@@ -1020,7 +1021,8 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
    - [x] Target the newly created tenant explicitly when saving its settings and reject mismatched targets (`UI-04`).
    - [x] Share tenant hostname detection between auth and proxy, preserve dashboard routing, and render the access-restricted screen with the lock icon (`UI-05`).
    - [x] Restrict login redirects to same-origin paths and connect login auto-enrollment to the authenticated self-enrollment API (`UI-06`).
-   - Move `if (!isOpen) return null;` below all hooks in `McqQuizBuilderModal` and `AssignmentBuilderModal` (`UI-07`), import `Eye` in `AssignmentSubmissionPlayer` (`UI-08`), and enforce role-based dashboard route guards while removing `temporaryPassword` DOM exposure (`UI-01`).
+   - [x] Gate dashboard routes, management actions, and data loading by the active workspace role. Keep enrollment credentials out of the dashboard (`UI-01`).
+   - Move `if (!isOpen) return null;` below all hooks in `McqQuizBuilderModal` and `AssignmentBuilderModal` (`UI-07`) and import `Eye` in `AssignmentSubmissionPlayer` (`UI-08`).
 
 ### P1 — High Security, Auth, Persistence, & Core Cross-Layer Contracts
 

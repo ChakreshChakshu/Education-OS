@@ -1,6 +1,12 @@
 const { BaseRepository } = require('./BaseRepository');
 const { randomUUID } = require('crypto');
 
+const tenantRolePriority = new Map([['ADMIN', 3], ['INSTRUCTOR', 2], ['STUDENT', 1]]);
+
+function workspaceRolePriority(role, organizationId) {
+  return organizationId ? 0 : (tenantRolePriority.get(role) || 0) + 1;
+}
+
 class DrizzleRoleAssignmentRepository extends BaseRepository {
   /**
    * Assigns a named role to a user within a tenant (and optionally a specific organization).
@@ -55,7 +61,9 @@ class DrizzleRoleAssignmentRepository extends BaseRepository {
 
     const tenantsMap = new Map();
     for (const row of res.rows) {
-      if (!tenantsMap.has(row.tenant_id)) {
+      const existing = tenantsMap.get(row.tenant_id);
+      if (!existing || workspaceRolePriority(row.role_name, row.organization_id) >
+          workspaceRolePriority(existing.role, existing.organizationId)) {
         tenantsMap.set(row.tenant_id, {
           tenantId: row.tenant_id,
           organizationId: row.organization_id,

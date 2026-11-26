@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
+import { canAccessDashboardPath } from "@/lib/dashboard-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -44,10 +45,12 @@ import {
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, activeTenant, tenants, switchTenant, loading, notEnrolledInSubdomain, logout } = useAuth();
+  const { user, activeTenant, tenants, switchTenant, loading, notEnrolledInSubdomain, logout,
+    dashboardAccess, setPortalMode } = useAuth();
+  const { portalMode, canManageCourses, canManageTenant } = dashboardAccess;
+  const routeAllowed = canAccessDashboardPath(pathname, dashboardAccess);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDark, setIsDark] = useState(true);
-  const [portalMode, setPortalMode] = useState("ADMIN");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -60,28 +63,17 @@ export default function DashboardLayout({ children }) {
         document.documentElement.classList.add("dark");
         setIsDark(true);
       }
-
-      const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
-      if (isStudentRole) {
-        setPortalMode("STUDENT");
-        localStorage.setItem("eos_portal_mode", "STUDENT");
-      } else {
-        const savedMode = localStorage.getItem("eos_portal_mode");
-        if (savedMode) {
-          setPortalMode(savedMode);
-        } else {
-          setPortalMode("ADMIN");
-        }
-      }
     }
-  }, [user, activeTenant]);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
       const redirectUrl = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : "/login";
       router.replace(redirectUrl);
+    } else if (!loading && !notEnrolledInSubdomain && !routeAllowed) {
+      router.replace("/dashboard/courses");
     }
-  }, [loading, user, pathname, router]);
+  }, [loading, user, notEnrolledInSubdomain, routeAllowed, pathname, router]);
 
   if (loading || !user) {
     return (
@@ -128,6 +120,8 @@ export default function DashboardLayout({ children }) {
     );
   }
 
+  if (!routeAllowed) return null;
+
   const toggleTheme = () => {
     if (typeof window !== "undefined") {
       const root = document.documentElement;
@@ -143,14 +137,7 @@ export default function DashboardLayout({ children }) {
     }
   };
 
-  const togglePortalMode = () => {
-    const next = portalMode === "ADMIN" ? "STUDENT" : "ADMIN";
-    setPortalMode(next);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("eos_portal_mode", next);
-      window.dispatchEvent(new CustomEvent("eos_portal_mode_change", { detail: next }));
-    }
-  };
+  const togglePortalMode = () => setPortalMode(portalMode === "ADMIN" ? "STUDENT" : "ADMIN");
 
   const navItems = portalMode === "STUDENT" ? [
     { name: "My Learning", href: "/dashboard", icon: GraduationCap },
@@ -159,9 +146,9 @@ export default function DashboardLayout({ children }) {
   ] : [
     { name: "Overview", href: "/dashboard", icon: SquaresFour },
     { name: "Course Manager", href: "/dashboard/courses", icon: BookOpen },
-    { name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings },
+    ...(canManageTenant ? [{ name: "Institutions & Branches", href: "/dashboard/tenants", icon: Buildings }] : []),
     { name: "Students & Cohorts", href: "/dashboard/students", icon: Users },
-    { name: "Settings & Config", href: "/dashboard/settings", icon: Gear }
+    { name: canManageTenant ? "Settings & Config" : "Settings & Profile", href: "/dashboard/settings", icon: Gear }
   ];
 
   const handleLogout = () => {
@@ -281,13 +268,17 @@ export default function DashboardLayout({ children }) {
                   <div className="p-2 text-xs text-muted-foreground">Default Workspace Active</div>
                 )}
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-xs font-bold text-primary cursor-pointer">
-                  <Plus size={14} weight="bold" />
-                  <span>Manage Institutions</span>
-                </Link>
-              </DropdownMenuItem>
+              {canManageTenant && portalMode === "ADMIN" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/tenants" className="flex items-center gap-2 py-2 text-xs font-bold text-primary cursor-pointer">
+                      <Plus size={14} weight="bold" />
+                      <span>Manage Institutions</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -397,7 +388,7 @@ export default function DashboardLayout({ children }) {
             </Link>
 
             {/* Student Portal / Admin Mode Switcher - Only available to instructors & administrators */}
-            {!(user?.role === "STUDENT" || activeTenant?.role === "STUDENT") && (
+            {canManageCourses && (
               <Button
                 variant="outline"
                 size="sm"
@@ -440,12 +431,16 @@ export default function DashboardLayout({ children }) {
 
         {/* Dynamic Page Component */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-background">
-          {children}
+          <React.Fragment key={activeTenant?.id ?? "no-workspace"}>{children}</React.Fragment>
         </main>
       </div>
 
       {/* Global Command Palette Dialog */}
-      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+      <CommandPalette
+        key={`${activeTenant?.id ?? "no-workspace"}:${portalMode}`}
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+      />
     </div>
   );
 }

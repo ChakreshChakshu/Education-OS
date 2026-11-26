@@ -99,19 +99,7 @@ export default function TenantsPage() {
           settingsJson: initialSettings
         });
 
-        const created = {
-          id: tenantId,
-          name: settingsResult.data?.name || tenantData.name || tenantName,
-          slug: tenantData.slug || slug,
-          branch: res.data.organization?.name || branchName || "Main Campus",
-          settings: settingsResult.data?.settingsJson || tenantData.settingsJson || {}
-        };
-
-        if (addTenant) {
-          addTenant(created);
-        } else {
-          switchTenant(created);
-        }
+        const workspaceRefreshed = await addTenant(tenantId);
 
         setIsModalOpen(false);
         setTenantName("");
@@ -119,7 +107,9 @@ export default function TenantsPage() {
         setBranchName("");
         setAddress("");
         setSelectedColor("#5b12ed");
-        if (!settingsResult.success) {
+        if (!workspaceRefreshed) {
+          alert("Workspace created. Reload the dashboard to refresh your workspace access.");
+        } else if (!settingsResult.success) {
           alert("Workspace created. Branding could not be saved. Open Settings to try again.");
         }
       } else {

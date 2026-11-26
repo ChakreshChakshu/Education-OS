@@ -374,3 +374,33 @@ test('quiz repositories retain legacy configurations and the recorded pass decis
   assert.equal(reloaded.score.value, 80);
   assert.equal(reloaded.passed, false);
 });
+
+test('workspace role lookup prefers the strongest tenant-wide assignment in each workspace', async () => {
+  const { DrizzleRoleAssignmentRepository } = require('../src/repositories/DrizzleRoleAssignmentRepository');
+  const { randomUUID } = require('node:crypto');
+  const userId = randomUUID();
+  const firstTenant = randomUUID();
+  const secondTenant = randomUUID();
+  const scopedOrganization = randomUUID();
+  const repo = new DrizzleRoleAssignmentRepository({
+    connect: async () => ({
+      query: async (sql, params) => {
+        assert.deepEqual(params, [userId]);
+        return {
+          rows: [
+            { tenant_id: firstTenant, organization_id: null, role_name: 'STUDENT' },
+            { tenant_id: secondTenant, organization_id: scopedOrganization, role_name: 'ADMIN' },
+            { tenant_id: firstTenant, organization_id: null, role_name: 'ADMIN' },
+            { tenant_id: secondTenant, organization_id: null, role_name: 'INSTRUCTOR' }
+          ]
+        };
+      }
+    })
+  });
+
+  const roles = await repo.findTenantsWithRolesForUser(userId);
+  assert.deepEqual(roles.map(({ tenantId, role, organizationId }) => [tenantId, role, organizationId]), [
+    [firstTenant, 'ADMIN', null],
+    [secondTenant, 'INSTRUCTOR', null]
+  ]);
+});

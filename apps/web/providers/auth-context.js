@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
+import { getDashboardAccess } from '@/lib/dashboard-access';
 import { selectTenantForHost } from '@/lib/tenant-hostname';
 
 const AuthContext = createContext({
@@ -10,6 +11,8 @@ const AuthContext = createContext({
   tenants: [],
   loading: true,
   notEnrolledInSubdomain: null,
+  dashboardAccess: getDashboardAccess(null),
+  setPortalMode: () => {},
   login: async () => {},
   register: async () => {},
   switchTenant: () => {},
@@ -71,6 +74,7 @@ function toUiTenant(apiTenant) {
 
   return {
     id: apiTenant.tenantId || apiTenant.id,
+    organizationId: apiTenant.organizationId,
     name: apiTenant.name,
     slug: apiTenant.slug,
     role: apiTenant.role,
@@ -104,6 +108,14 @@ export function AuthProvider({ children }) {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notEnrolledInSubdomain, setNotEnrolledInSubdomain] = useState(null);
+  const [preferredPortalMode, setPreferredPortalMode] = useState('ADMIN');
+  const dashboardAccess = getDashboardAccess(activeTenant, preferredPortalMode);
+
+  const setPortalMode = (mode) => {
+    if (!dashboardAccess.canManageCourses || !['ADMIN', 'STUDENT'].includes(mode)) return;
+    setPreferredPortalMode(mode);
+    localStorage.setItem('eos_portal_mode', mode);
+  };
 
   const applyTenants = (realTenants, preferredId) => {
     // Deduplicate tenants by id so UI never receives multiple items with identical keys
@@ -137,6 +149,7 @@ export function AuthProvider({ children }) {
     let savedTenantId = null;
     try {
       savedTenantId = JSON.parse(localStorage.getItem('eos_tenant') || 'null')?.id || null;
+      if (localStorage.getItem('eos_portal_mode') === 'STUDENT') setPreferredPortalMode('STUDENT');
     } catch (e) {
       savedTenantId = null;
     }
@@ -220,31 +233,33 @@ export function AuthProvider({ children }) {
     setUser((prev) => (prev ? { ...prev, ...partialUser } : partialUser));
   };
 
-  const updateActiveTenant = (updatedTenant) => {
+  const updateActiveTenant = ({ id, name, branch, settings }) => {
+    const changes = { name, branch, settings };
     setActiveTenant((prev) => {
-      const next = prev ? { ...prev, ...updatedTenant } : updatedTenant;
-      if (next) {
-        localStorage.setItem('eos_tenant', JSON.stringify(next));
-        const color = next?.settings?.branding?.primaryColor || next?.settings?.primaryColor;
-        applyTenantTheme(color);
-      }
+      if (prev?.id !== id) return prev;
+      const next = { ...prev, ...changes };
+      localStorage.setItem('eos_tenant', JSON.stringify(next));
+      applyTenantTheme(settings?.branding?.primaryColor || settings?.primaryColor);
       return next;
     });
-    setTenants((prevTenants) =>
-      prevTenants.map((t) => (t.id === updatedTenant.id ? { ...t, ...updatedTenant } : t))
-    );
+    setTenants((prev) => prev.map((tenant) => tenant.id === id ? { ...tenant, ...changes } : tenant));
   };
 
   const switchTenant = (tenant) => {
-    setActiveTenant(tenant);
-    localStorage.setItem('eos_tenant', JSON.stringify(tenant));
-    localStorage.setItem('eos_tenant_id', tenant.id);
-    const color = tenant?.settings?.branding?.primaryColor || tenant?.settings?.primaryColor;
-    applyTenantTheme(color);
+    const selected = tenants.find((entry) => entry.id === tenant.id);
+    if (!selected) return;
+    setActiveTenant(selected);
+    localStorage.setItem('eos_tenant', JSON.stringify(selected));
+    localStorage.setItem('eos_tenant_id', selected.id);
+    applyTenantTheme(selected.settings?.branding?.primaryColor || selected.settings?.primaryColor);
   };
 
-  const addTenant = (newTenant) => {
-    applyTenants([...tenants, newTenant], newTenant.id);
+  const addTenant = async (tenantId) => {
+    const result = await ApiClient.getMe();
+    const refreshed = Array.isArray(result.tenants) ? result.tenants.map(toUiTenant) : [];
+    if (!result.success || !refreshed.some((tenant) => tenant.id === tenantId)) return false;
+    applyTenants(refreshed, tenantId);
+    return true;
   };
 
   const logout = () => {
@@ -252,6 +267,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setActiveTenant(null);
     setTenants([]);
+    setPreferredPortalMode('ADMIN');
     try {
       localStorage.removeItem('eos_user');
       localStorage.removeItem('eos_tenant');
@@ -269,6 +285,8 @@ export function AuthProvider({ children }) {
         tenants,
         loading,
         notEnrolledInSubdomain,
+        dashboardAccess,
+        setPortalMode,
         login,
         register,
         switchTenant,

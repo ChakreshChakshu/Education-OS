@@ -53,12 +53,13 @@ class ApiClient {
 
   // Shared fetch wrapper for authenticated internal routes: sends cookies, attaches
   // the CSRF header on mutations, and retries once after a silent refresh on a 401.
-  static async _authorizedFetch(url, options = {}) {
+  static async _authorizedFetch(url, { tenantId, ...options } = {}) {
     const mutating = Boolean(options.method) && options.method !== 'GET';
+    const extraHeaders = tenantId ? { ...options.headers, 'x-tenant-id': tenantId } : options.headers;
     const build = () => ({
       ...options,
       credentials: 'include',
-      headers: this.getHeaders(options.headers, { mutating })
+      headers: this.getHeaders(extraHeaders, { mutating })
     });
 
     let res = await fetch(url, build());
@@ -214,9 +215,9 @@ class ApiClient {
     }
   }
 
-  static async getCourses() {
+  static async getCourses({ tenantId } = {}) {
     try {
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses`, { tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch courses');
       return data;
@@ -253,9 +254,9 @@ class ApiClient {
     }
   }
 
-  static async getCourseModules(courseId) {
+  static async getCourseModules(courseId, { tenantId } = {}) {
     try {
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/courses/${courseId}/modules`, { tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch modules');
       return data;
@@ -354,12 +355,12 @@ class ApiClient {
     }
   }
 
-  static async getCourseProgress(courseId, studentUserId) {
+  static async getCourseProgress(courseId, studentUserId, { tenantId } = {}) {
     try {
       const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('eos_user') || '{}') : {};
       const resolvedUserId = studentUserId || activeUser.id || activeUser.userId;
       if (!resolvedUserId) return { success: false, data: { completedLessonIds: [], progressPercent: 0 } };
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/courses/${courseId}/progress?studentUserId=${resolvedUserId}`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/learning/courses/${courseId}/progress?studentUserId=${resolvedUserId}`, { tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch course progress');
       return data;
@@ -453,9 +454,9 @@ class ApiClient {
     }
   }
 
-  static async getTenantSettings() {
+  static async getTenantSettings({ tenantId } = {}) {
     try {
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/tenants/current`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/tenants/current`, { tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tenant settings');
       return data;
@@ -532,7 +533,7 @@ class ApiClient {
       if (filters.studentUserId) queryParams.append('studentUserId', filters.studentUserId);
       const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments${qs}`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments${qs}`, { tenantId: filters.tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch enrollments');
       return data;
@@ -587,10 +588,10 @@ class ApiClient {
     }
   }
 
-  static async getBatches(courseId) {
+  static async getBatches(courseId, { tenantId } = {}) {
     try {
       const qs = courseId ? `?courseId=${courseId}` : '';
-      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/batches${qs}`);
+      const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/batches${qs}`, { tenantId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch batches');
       return data;

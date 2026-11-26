@@ -44,30 +44,17 @@ const BRAND_PALETTES = [
 ];
 
 export default function SettingsPage() {
-  const { user, activeTenant, updateCurrentUser, updateActiveTenant, loading: authLoading } = useAuth();
+  const { user, activeTenant, updateCurrentUser, updateActiveTenant, dashboardAccess, loading: authLoading } = useAuth();
 
-  // Role detection: Students must never access campus branding or system diagnostics
-  const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
-  const [portalMode, setPortalMode] = useState(isStudentRole ? "STUDENT" : "ADMIN");
+  const showTenantSettings = dashboardAccess.canManageTenant && dashboardAccess.portalMode === "ADMIN";
   const [activeTab, setActiveTab] = useState("profile");
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const mode = localStorage.getItem("eos_portal_mode");
-      if (mode && !isStudentRole) {
-        setPortalMode(mode);
-      }
-    }
-  }, [isStudentRole]);
-
-  const isStudent = isStudentRole || portalMode === "STUDENT";
-
-  useEffect(() => {
-    if (isStudent && (activeTab === "branding" || activeTab === "system")) {
+    if (!showTenantSettings && (activeTab === "branding" || activeTab === "system")) {
       setActiveTab("profile");
     }
-  }, [isStudent, activeTab]);
+  }, [showTenantSettings, activeTab]);
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
@@ -136,33 +123,35 @@ export default function SettingsPage() {
           }));
         }
       }),
-      ApiClient.getTenantSettings().then((res) => {
-        if (!isMounted) return;
-        if (res?.success && res?.data) {
-          const settings = res.data.settingsJson || {};
-          const branding = settings.branding || {};
-          const campus = settings.campus || {};
-          const color = branding.primaryColor || settings.primaryColor || "#5b12ed";
-          setBrandingForm({
-            name: res.data.name || activeTenant?.name || "Institution Workspace",
-            slug: res.data.slug || activeTenant?.slug || "academy",
-            branchName: campus.branchName || settings.branch || activeTenant?.branch || "Main Campus",
-            address: campus.address || "",
-            academicTerm: campus.academicTerm || "Spring 2026",
-            primaryColor: color,
-            tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
-            supportEmail: branding.supportEmail || settings.supportEmail || "support@institution.edu",
-            logoUrl: branding.logoUrl || settings.logoUrl || ""
-          });
-        } else if (activeTenant) {
-          setBrandingForm((prev) => ({
-            ...prev,
-            name: activeTenant.name || prev.name,
-            slug: activeTenant.slug || prev.slug,
-            branchName: activeTenant.branch || prev.branchName
-          }));
-        }
-      })
+      ...(showTenantSettings ? [
+        ApiClient.getTenantSettings({ tenantId: activeTenant.id }).then((res) => {
+          if (!isMounted) return;
+          if (res?.success && res?.data) {
+            const settings = res.data.settingsJson || {};
+            const branding = settings.branding || {};
+            const campus = settings.campus || {};
+            const color = branding.primaryColor || settings.primaryColor || "#5b12ed";
+            setBrandingForm({
+              name: res.data.name || activeTenant?.name || "Institution Workspace",
+              slug: res.data.slug || activeTenant?.slug || "academy",
+              branchName: campus.branchName || settings.branch || activeTenant?.branch || "Main Campus",
+              address: campus.address || "",
+              academicTerm: campus.academicTerm || "Spring 2026",
+              primaryColor: color,
+              tagline: branding.tagline || settings.tagline || "Empowering institutional academic excellence",
+              supportEmail: branding.supportEmail || settings.supportEmail || "support@institution.edu",
+              logoUrl: branding.logoUrl || settings.logoUrl || ""
+            });
+          } else if (activeTenant) {
+            setBrandingForm((prev) => ({
+              ...prev,
+              name: activeTenant.name || prev.name,
+              slug: activeTenant.slug || prev.slug,
+              branchName: activeTenant.branch || prev.branchName
+            }));
+          }
+        })
+      ] : [])
     ]).finally(() => {
       if (isMounted) setDataLoading(false);
     });
@@ -170,7 +159,7 @@ export default function SettingsPage() {
     return () => {
       isMounted = false;
     };
-  }, [user, activeTenant]);
+  }, [user, activeTenant, showTenantSettings]);
 
   const showNotification = (msg, isError = false) => {
     if (isError) {
@@ -263,9 +252,11 @@ export default function SettingsPage() {
   // 3. Handle Tenant Branding & Campus Settings Save
   const handleBrandingSubmit = async (e) => {
     e.preventDefault();
+    if (!showTenantSettings) return;
     setSavingBranding(true);
     try {
       const payload = {
+        tenantId: activeTenant.id,
         name: brandingForm.name.trim(),
         settingsJson: {
           primaryColor: brandingForm.primaryColor,
@@ -291,16 +282,13 @@ export default function SettingsPage() {
         throw new Error(res?.error || "Failed to update tenant branding");
       }
 
-      if (activeTenant) {
-        updateActiveTenant({
-          ...activeTenant,
-          name: brandingForm.name.trim(),
-          branch: brandingForm.branchName.trim(),
-          settings: payload.settingsJson
-        });
-      }
+      updateActiveTenant({
+        id: payload.tenantId,
+        name: res.data?.name || payload.name,
+        branch: payload.settingsJson.campus.branchName,
+        settings: res.data?.settingsJson || payload.settingsJson
+      });
 
-      applyTenantTheme(brandingForm.primaryColor);
       showNotification("Institutional branding & campus configuration published successfully");
     } catch (err) {
       showNotification(err.message, true);
@@ -379,7 +367,7 @@ export default function SettingsPage() {
             Settings & Configurations
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
-            {isStudent
+            {!showTenantSettings
               ? "Manage your personal credentials, contact details, and account security."
               : "Manage your personal credentials, communication preferences, and institutional workspace identity."}
           </p>
@@ -402,7 +390,7 @@ export default function SettingsPage() {
 
       {/* Main Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className={`grid ${isStudent ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-2 md:grid-cols-4"} w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border/80`}>
+        <TabsList className={`grid ${!showTenantSettings ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-2 md:grid-cols-4"} w-full h-auto p-1.5 bg-muted/50 rounded-2xl border border-border/80`}>
           <TabsTrigger value="profile" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
             <User size={16} weight="bold" />
             <span>Profile & Account</span>
@@ -411,7 +399,7 @@ export default function SettingsPage() {
             <ShieldCheck size={16} weight="bold" />
             <span>Security & Auth</span>
           </TabsTrigger>
-          {!isStudent && (
+          {showTenantSettings && (
             <>
               <TabsTrigger value="branding" className="flex items-center gap-2 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 <Palette size={16} weight="bold" />
@@ -625,7 +613,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Faculty/Admin Only Settings */}
-        {!isStudent && (
+        {showTenantSettings && (
           <>
             <TabsContent value="branding">
               <form onSubmit={handleBrandingSubmit}>

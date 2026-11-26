@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-context";
 import { ApiClient } from "@/lib/api";
+import { loadDashboardOverview } from "@/lib/dashboard-access";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,11 +51,16 @@ import {
 } from "@phosphor-icons/react";
 
 export default function DashboardOverviewPage() {
+  const { dashboardAccess } = useAuth();
+  return <DashboardOverview key={dashboardAccess.portalMode} />;
+}
+
+function DashboardOverview() {
   const router = useRouter();
-  const { user, activeTenant } = useAuth();
-  
-  // Portal Mode: 'STUDENT' | 'ADMIN'
-  const [portalMode, setPortalMode] = useState("ADMIN");
+  const { user, activeTenant, dashboardAccess, setPortalMode } = useAuth();
+  const { portalMode, canManageTenant } = dashboardAccess;
+  const tenantId = activeTenant?.id;
+  const studentId = user?.id || user?.userId;
 
   // Admin Data
   const [adminCourses, setAdminCourses] = useState([]);
@@ -73,74 +79,24 @@ export default function DashboardOverviewPage() {
   });
   const [activeCourse, setActiveCourse] = useState(null);
   const [enrollingCourseId, setEnrollingCourseId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(tenantId));
 
-  // Sync portal mode from localStorage and custom event
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isStudentRole = user?.role === "STUDENT" || activeTenant?.role === "STUDENT";
-      const savedMode = localStorage.getItem("eos_portal_mode");
-      if (savedMode) {
-        setPortalMode(savedMode);
-      } else if (isStudentRole) {
-        setPortalMode("STUDENT");
-      } else {
-        setPortalMode("ADMIN");
-      }
-
-      const handleModeChange = (e) => {
-        if (e.detail) setPortalMode(e.detail);
-      };
-      window.addEventListener("eos_portal_mode_change", handleModeChange);
-      return () => window.removeEventListener("eos_portal_mode_change", handleModeChange);
-    }
-  }, [user, activeTenant]);
-
-  // Load Admin metrics & data
-  useEffect(() => {
-    async function loadAdminData() {
+    let currentRequest = true;
+    async function loadData() {
       setLoading(true);
       try {
-        const [courseRes, enrollRes, batchRes] = await Promise.all([
-          ApiClient.getCourses(),
-          ApiClient.getEnrollments(),
-          ApiClient.getBatches().catch(() => ({ success: true, data: [] }))
-        ]);
+        const [courseRes, enrollRes, batchRes] = await loadDashboardOverview(ApiClient, {
+          portalMode, tenantId, studentId
+        });
+        if (!currentRequest) return;
 
-        if (courseRes?.success && Array.isArray(courseRes.data)) {
-          setAdminCourses(courseRes.data);
-          setAllCatalogCourses(courseRes.data);
-        }
-        if (enrollRes?.success && Array.isArray(enrollRes.data)) {
-          setAdminEnrollments(enrollRes.data);
-        }
-        if (batchRes?.success && Array.isArray(batchRes.data)) {
-          setAdminBatches(batchRes.data);
-        }
-      } catch (err) {
-        console.error("Failed to load admin dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAdminData();
-  }, [activeTenant]);
-
-  // Load Student portal data
-  useEffect(() => {
-    async function loadStudentData() {
-      setLoading(true);
-      try {
-        const studentId = user?.id || user?.userId;
-        if (!studentId) {
-          setLoading(false);
+        if (portalMode === "ADMIN") {
+          setAdminCourses(courseRes?.success && Array.isArray(courseRes.data) ? courseRes.data : []);
+          setAdminEnrollments(enrollRes?.success && Array.isArray(enrollRes.data) ? enrollRes.data : []);
+          setAdminBatches(batchRes?.success && Array.isArray(batchRes.data) ? batchRes.data : []);
           return;
         }
-        
-        const [enrollRes, courseRes] = await Promise.all([
-          ApiClient.getEnrollments({ studentUserId: studentId }),
-          ApiClient.getCourses()
-        ]);
 
         const catalog = (courseRes?.success && Array.isArray(courseRes.data)) ? courseRes.data : [];
         setAllCatalogCourses(catalog);
@@ -152,8 +108,8 @@ export default function DashboardOverviewPage() {
           enrollments.map(async (enr) => {
             const courseMeta = catalog.find(c => c.id === enr.courseId) || {};
             const [modRes, progRes] = await Promise.all([
-              ApiClient.getCourseModules(enr.courseId),
-              ApiClient.getCourseProgress(enr.courseId, studentId)
+              ApiClient.getCourseModules(enr.courseId, { tenantId }),
+              ApiClient.getCourseProgress(enr.courseId, studentId, { tenantId })
             ]);
 
             const modules = (modRes?.success && Array.isArray(modRes.data)) ? modRes.data : [];
@@ -179,6 +135,7 @@ export default function DashboardOverviewPage() {
           })
         );
 
+        if (!currentRequest) return;
         setEnrolledCourses(enriched);
 
         // Calculate student aggregate stats
@@ -199,16 +156,15 @@ export default function DashboardOverviewPage() {
         setActiveCourse(current);
 
       } catch (err) {
-        console.error("Failed to load student portal data:", err);
+        console.error("Failed to load dashboard data:", err);
       } finally {
-        setLoading(false);
+        if (currentRequest) setLoading(false);
       }
     }
 
-    if (portalMode === "STUDENT" || activeTenant) {
-      loadStudentData();
-    }
-  }, [portalMode, activeTenant, user]);
+    if (tenantId) loadData();
+    return () => { currentRequest = false; };
+  }, [portalMode, tenantId, studentId]);
 
   // Handle 1-Click Course Enrollment
   const handleEnrollCourse = async (course) => {
@@ -605,13 +561,7 @@ export default function DashboardOverviewPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setPortalMode("STUDENT");
-              if (typeof window !== "undefined") {
-                localStorage.setItem("eos_portal_mode", "STUDENT");
-                window.dispatchEvent(new CustomEvent("eos_portal_mode_change", { detail: "STUDENT" }));
-              }
-            }}
+            onClick={() => setPortalMode("STUDENT")}
             className="gap-1.5 font-bold text-xs h-9.5 rounded-xl border-border/80 hover:bg-muted cursor-pointer"
           >
             <GraduationCap size={16} weight="bold" className="text-primary" />
@@ -811,11 +761,13 @@ export default function DashboardOverviewPage() {
                   <p className="text-[11px] text-muted-foreground">{activeTenant?.settings?.campus?.branchName || activeTenant?.branch || "Main Campus"}</p>
                 </div>
               </div>
-              <Link href="/dashboard/settings">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl" title="Settings">
-                  <Gear size={16} />
-                </Button>
-              </Link>
+              {canManageTenant && (
+                <Link href="/dashboard/settings">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl" title="Settings">
+                    <Gear size={16} />
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1.5 text-xs">
@@ -833,13 +785,15 @@ export default function DashboardOverviewPage() {
               </Link>
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <Link href="/dashboard/tenants" className="w-full">
-                <Button variant="outline" size="sm" className="w-full text-xs font-bold h-9 rounded-xl border-border/80 hover:bg-muted">
-                  <Buildings size={14} className="mr-1.5" weight="bold" /> Switch / Add Campus
-                </Button>
-              </Link>
-            </div>
+            {canManageTenant && (
+              <div className="flex items-center justify-between pt-1">
+                <Link href="/dashboard/tenants" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full text-xs font-bold h-9 rounded-xl border-border/80 hover:bg-muted">
+                    <Buildings size={14} className="mr-1.5" weight="bold" /> Switch / Add Campus
+                  </Button>
+                </Link>
+              </div>
+            )}
           </Card>
 
           {/* Recent Student Enrollments Live Stream */}
