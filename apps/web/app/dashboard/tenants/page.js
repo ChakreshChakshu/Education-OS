@@ -74,6 +74,10 @@ export default function TenantsPage() {
       if (res.success && res.data) {
         const tenantData = res.data.tenant || res.data;
         const tenantId = tenantData.id;
+        if (typeof tenantId !== "string" || !tenantId.trim()) {
+          alert("The server did not return a workspace ID. Reload your workspaces before trying again.");
+          return;
+        }
 
         const initialSettings = {
           branding: {
@@ -89,22 +93,18 @@ export default function TenantsPage() {
           }
         };
 
-        try {
-          await ApiClient.updateTenantSettings({
-            tenantId,
-            name: tenantName,
-            settingsJson: initialSettings
-          });
-        } catch (e) {
-          console.warn("Could not save initial branding:", e);
-        }
+        const settingsResult = await ApiClient.updateTenantSettings({
+          tenantId,
+          name: tenantName,
+          settingsJson: initialSettings
+        });
 
         const created = {
-          id: tenantId || 'tenant_' + Date.now(),
-          name: tenantData.name || tenantName,
+          id: tenantId,
+          name: settingsResult.data?.name || tenantData.name || tenantName,
           slug: tenantData.slug || slug,
-          branch: branchName || "Main Campus",
-          settings: initialSettings
+          branch: res.data.organization?.name || branchName || "Main Campus",
+          settings: settingsResult.data?.settingsJson || tenantData.settingsJson || {}
         };
 
         if (addTenant) {
@@ -119,6 +119,9 @@ export default function TenantsPage() {
         setBranchName("");
         setAddress("");
         setSelectedColor("#5b12ed");
+        if (!settingsResult.success) {
+          alert("Workspace created. Branding could not be saved. Open Settings to try again.");
+        }
       } else {
         alert("Tenant creation failed: " + (res.error || "Unknown error"));
       }

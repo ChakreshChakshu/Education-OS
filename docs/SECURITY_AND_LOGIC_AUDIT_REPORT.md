@@ -989,6 +989,9 @@ Roadmap checkmarks indicate implemented fixes. Staging verification and remainin
 | `BE-02` | Upload serving verifies tenant staff access or active course enrollment for private files, HLS playlists and segments. Browser playback uses same-origin links, and new remote uploads and HLS output require a private R2 bucket. Published course thumbnails remain public. | Configure `R2_PRIVATE_BUCKET_NAME`, disable public access to legacy media, and verify playback with staging PostgreSQL and R2. |
 | `BE-03` | Transcoding gets tenant ownership from the persisted asset and only updates video lessons in that tenant. It targets an explicit module ID or an exact recorded source URL for direct uploads. | Verify the update against staging PostgreSQL with lessons in two tenants. |
 | `BE-04` | Confirmation checks the asset's tenant before saving and forwards the verified tenant to the worker. | Verify the presign, confirm and transcode flow with staging object storage. |
+| `UI-04` | New workspace settings requests explicitly target the created tenant, including after session refresh. The API rejects mismatched targets. A local regression test verifies that the previous workspace keeps its branding. | — |
+| `UI-05` | Auth and proxy share hostname detection. Apex and preview hosts keep normal workspace selection. Tenant hosts route dashboard and sign-in to the shared app, and the access-restricted screen imports its lock icon. | Verify the signed-in flow on apex and tenant hosts in a browser. |
+| `UI-06` | Login accepts same-origin paths and falls back to the dashboard for other destinations. Auto-enrollment uses the authenticated student and reports success only after the API confirms it. | Public checkout and payment verification remain under `UI-02`. |
 | `BE-06` | Media assets and quiz submissions now persist through the API's database client. | Batch and organization repositories still need persistence fixes. |
 | `BE-17` | Jobs with a missing source now fail instead of publishing synthetic content. | Worker stalled-job recovery remains open. |
 | `UI-03` / `BE-13` | Students submit selected option IDs. The API grades against the stored quiz, records the result and completes the lesson after a passing score. Course module responses omit answer keys and rationales for students. Both legacy and multi-question quizzes are supported. Lesson edits preserve the stored quiz. | Verify with staging PostgreSQL and both student views in a browser. Attempt limits and timers remain browser-side. Historical scores and completions still need review. |
@@ -1014,9 +1017,10 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
    - [x] Remove answer keys and rationales from student quiz payloads. Grade selected answers using the authenticated student identity and complete lessons only after a passing score.
    - [ ] Enforce quiz attempt limits and timers on the server.
 5. **Fix Tenant Settings Overwrite, Dashboard RBAC, & Fatal UI Crashes (`UI-01`, `UI-04`, `UI-05`, `UI-06`, `UI-07`, `UI-08`)**:
-   - Switch `eos_tenant_id` (or pass explicit `tenantId`) before calling `updateTenantSettings` in `TenantsPage` (`UI-04`).
-   - Fix `auth-context.js` apex domain detection against `NEXT_PUBLIC_ROOT_DOMAIN` and import `LockSimple` in `dashboard/layout.js` (`UI-05`).
-   - Move `if (!isOpen) return null;` below all hooks in `McqQuizBuilderModal` and `AssignmentBuilderModal` (`UI-07`), import `Eye` in `AssignmentSubmissionPlayer` (`UI-08`), import `ApiClient` + validate `redirect` in `/login` (`UI-06`), and enforce role-based dashboard route guards while removing `temporaryPassword` DOM exposure (`UI-01`).
+   - [x] Target the newly created tenant explicitly when saving its settings and reject mismatched targets (`UI-04`).
+   - [x] Share tenant hostname detection between auth and proxy, preserve dashboard routing, and render the access-restricted screen with the lock icon (`UI-05`).
+   - [x] Restrict login redirects to same-origin paths and connect login auto-enrollment to the authenticated self-enrollment API (`UI-06`).
+   - Move `if (!isOpen) return null;` below all hooks in `McqQuizBuilderModal` and `AssignmentBuilderModal` (`UI-07`), import `Eye` in `AssignmentSubmissionPlayer` (`UI-08`), and enforce role-based dashboard route guards while removing `temporaryPassword` DOM exposure (`UI-01`).
 
 ### P1 — High Security, Auth, Persistence, & Core Cross-Layer Contracts
 

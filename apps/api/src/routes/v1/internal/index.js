@@ -78,6 +78,7 @@ async function internalRoutes(fastify, options) {
       body: {
         type: 'object',
         properties: {
+          tenantId: { type: 'string', format: 'uuid' },
           name: { type: 'string', minLength: 1 },
           settingsJson: { type: 'object' }
         }
@@ -86,6 +87,13 @@ async function internalRoutes(fastify, options) {
     handler: async (request, reply) => {
       if (!requireTenant(request, reply)) {
         return;
+      }
+
+      if (request.body.tenantId && request.body.tenantId !== request.tenantId) {
+        return reply.status(409).send({
+          success: false,
+          error: 'Settings target does not match the authorized workspace.'
+        });
       }
 
       const useCase = container.resolve('UpdateTenantSettingsUseCase');

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
+import { selectTenantForHost } from '@/lib/tenant-hostname';
 
 const AuthContext = createContext({
   user: null,
@@ -115,32 +116,9 @@ export function AuthProvider({ children }) {
 
     setTenants(uniqueTenants);
 
-    // Check if visiting a specific institution subdomain
-    let currentSub = null;
-    if (typeof window !== 'undefined') {
-      const host = window.location.hostname.toLowerCase();
-      const parts = host.split('.');
-      if (parts.length > 1 && parts[0] !== 'localhost' && parts[0] !== 'www' && !/^\d+$/.test(parts[0])) {
-        currentSub = parts[0];
-      }
-    }
-
-    let next = null;
-    if (currentSub) {
-      const match = uniqueTenants.find((t) => t.slug?.toLowerCase() === currentSub);
-      if (match) {
-        next = match;
-        setNotEnrolledInSubdomain(null);
-      } else {
-        // Enrolled in some other tenant, but NOT this subdomain's institution!
-        next = null;
-        setNotEnrolledInSubdomain(currentSub);
-      }
-    } else {
-      const preferred = preferredId && uniqueTenants.find((t) => t.id === preferredId);
-      next = preferred || uniqueTenants[0] || null;
-      setNotEnrolledInSubdomain(null);
-    }
+    const host = typeof window === 'undefined' ? null : window.location.hostname;
+    const { tenant: next, missingTenantSlug } = selectTenantForHost(host, uniqueTenants, preferredId);
+    setNotEnrolledInSubdomain(missingTenantSlug);
 
     setActiveTenant(next);
     if (next) {
@@ -192,7 +170,7 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, { preferredTenantId = null } = {}) => {
     try {
       const res = await ApiClient.loginUser({ email, password });
       if (res && res.success !== false && (res.user || res.data)) {
@@ -200,7 +178,7 @@ export function AuthProvider({ children }) {
         setUser(loggedUser);
         try { localStorage.setItem('eos_user', JSON.stringify(loggedUser)); } catch (e) {}
         const realTenants = Array.isArray(res.tenants) ? res.tenants.map(toUiTenant) : [];
-        applyTenants(realTenants, null);
+        applyTenants(realTenants, preferredTenantId);
         return { success: true, user: loggedUser };
       }
       return { success: false, error: res?.error || 'Invalid email or password' };

@@ -4,6 +4,8 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/providers/auth-context";
+import { ApiClient } from "@/lib/api";
+import { completeLoginEnrollment, getPostLoginPath } from "@/lib/login-navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +32,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [enrollmentFailed, setEnrollmentFailed] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -51,36 +54,33 @@ function LoginContent() {
     setLoading(true);
 
     try {
-      const res = await login(loginEmail, loginPassword);
-      if (res.success) {
-        const autoEnrollId = searchParams.get("autoEnroll");
-        const tenantIdParam = searchParams.get("tenantId");
-        const redirectParam = searchParams.get("redirect");
+      const courseId = searchParams.get("autoEnroll");
+      const tenantId = searchParams.get("tenantId");
+      const destination = getPostLoginPath(searchParams.get("redirect"));
+      const res = await login(loginEmail, loginPassword, { preferredTenantId: courseId ? tenantId : null });
 
-        if (autoEnrollId) {
-          setSuccess("Login verified! Enrolling in your course...");
-          try {
-            const studentId = res.user?.id || res.user?.userId;
-            await ApiClient.enrollStudent({
-              courseId: autoEnrollId,
-              tenantId: tenantIdParam,
-              studentUserId: studentId,
-              studentEmail: res.user?.email || loginEmail,
-              studentName: res.user?.name || "Student"
-            });
-          } catch (enrollErr) {
-            console.warn("Auto-enroll error:", enrollErr);
-          }
-          setTimeout(() => router.push(`/dashboard/courses?enrolled=${autoEnrollId}`), 1600);
-          return;
-        }
-
-        setSuccess("Login verified! Entering dashboard...");
-        setTimeout(() => router.push(redirectParam || "/dashboard"), 1600);
-      } else {
+      if (!res.success) {
         setError(res.error || "Invalid email or password.");
         setLoading(false);
+        return;
       }
+
+      if (courseId) {
+        setSuccess("Signed in. Enrolling in your course...");
+        const enrollment = await completeLoginEnrollment({ courseId, tenantId },
+          (payload) => ApiClient.enrollStudent(payload));
+        if (enrollment.error) {
+          setSuccess("");
+          setError(enrollment.error);
+          setEnrollmentFailed(true);
+          setLoading(false);
+          return;
+        }
+        router.push(enrollment.destination);
+        return;
+      }
+
+      router.push(destination);
     } catch (err) {
       setError(err.message || "An unexpected error occurred.");
       setLoading(false);
@@ -100,13 +100,13 @@ function LoginContent() {
 
       <CardContent className="p-6 sm:p-8 space-y-5">
         {error && (
-          <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+          <div role="alert" className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
             <WarningCircle size={18} weight="bold" className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {searchParams.get("autoEnroll") && !success && (
+        {searchParams.get("autoEnroll") && !success && !enrollmentFailed && (
           <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
             <GraduationCap size={18} weight="bold" className="shrink-0" />
             <span>Sign in to complete your course enrollment & launch the LMS platform.</span>
@@ -121,43 +121,49 @@ function LoginContent() {
         )}
 
         {/* LOGIN FORM */}
-        <form onSubmit={handleLoginSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground/90 flex items-center gap-2">
-              <EnvelopeSimple size={15} className="text-muted-foreground" /> Work email
-            </label>
-            <Input
-              type="email"
-              required
-              placeholder="name@institution.edu"
-              className="h-11 text-sm rounded-xl font-medium"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground/90 flex items-center gap-2">
-                <LockSimple size={15} className="text-muted-foreground" /> Password
-              </label>
-              <Link href={loginEmail ? `/forgot-password?email=${encodeURIComponent(loginEmail)}` : "/forgot-password"} className="text-xs text-primary hover:underline font-medium">Forgot password?</Link>
-            </div>
-            <Input
-              type="password"
-              required
-              placeholder="••••••••"
-              className="h-11 text-sm rounded-xl font-medium"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-            />
-          </div>
-
-          <Button type="submit" size="lg" className="w-full h-11 text-sm font-bold rounded-xl mt-2 gap-2" disabled={loading}>
-            {loading ? "Authenticating..." : "Sign In"} <ArrowRight size={16} weight="bold" />
+        {enrollmentFailed ? (
+          <Button asChild className="w-full">
+            <Link href="/dashboard/courses">Continue to courses</Link>
           </Button>
-        </form>
+        ) : (
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground/90 flex items-center gap-2">
+                <EnvelopeSimple size={15} className="text-muted-foreground" /> Work email
+              </label>
+              <Input
+                type="email"
+                required
+                placeholder="name@institution.edu"
+                className="h-11 text-sm rounded-xl font-medium"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground/90 flex items-center gap-2">
+                  <LockSimple size={15} className="text-muted-foreground" /> Password
+                </label>
+                <Link href={loginEmail ? `/forgot-password?email=${encodeURIComponent(loginEmail)}` : "/forgot-password"} className="text-xs text-primary hover:underline font-medium">Forgot password?</Link>
+              </div>
+              <Input
+                type="password"
+                required
+                placeholder="••••••••"
+                className="h-11 text-sm rounded-xl font-medium"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+              />
+            </div>
+
+            <Button type="submit" size="lg" className="w-full h-11 text-sm font-bold rounded-xl mt-2 gap-2" disabled={loading}>
+              {loading ? "Authenticating..." : "Sign In"} <ArrowRight size={16} weight="bold" />
+            </Button>
+          </form>
+        )}
 
         {/* REGISTER CALLOUT */}
         <div className="pt-4 border-t border-border flex items-center justify-between text-xs">

@@ -37,7 +37,8 @@ import {
   ArrowUpRight,
   Globe,
   Check,
-  MagnifyingGlass
+  MagnifyingGlass,
+  LockSimple
 } from "@phosphor-icons/react";
 
 export default function DashboardLayout({ children }) {

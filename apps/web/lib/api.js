@@ -18,9 +18,9 @@ class ApiClient {
       ...extraHeaders
     };
     if (typeof window !== 'undefined') {
-      const tenantId = localStorage.getItem('eos_tenant_id');
-      if (tenantId) {
-        headers['x-tenant-id'] = tenantId;
+      if (!Object.hasOwn(headers, 'x-tenant-id')) {
+        const tenantId = localStorage.getItem('eos_tenant_id');
+        if (tenantId) headers['x-tenant-id'] = tenantId;
       }
       if (mutating) {
         const csrfToken = readCsrfCookie();
@@ -469,6 +469,7 @@ class ApiClient {
     try {
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/tenants/current/settings`, {
         method: 'PATCH',
+        headers: payload.tenantId ? { 'x-tenant-id': payload.tenantId } : undefined,
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -545,6 +546,7 @@ class ApiClient {
     try {
       const res = await this._authorizedFetch(`${API_BASE_URL}/internal/academics/enrollments`, {
         method: 'POST',
+        headers: payload.tenantId ? { 'x-tenant-id': payload.tenantId } : undefined,
         body: JSON.stringify(payload)
       });
       const data = await res.json();
