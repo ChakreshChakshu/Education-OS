@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useEffectEvent, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -20,7 +20,8 @@ import {
   Info,
   ShieldCheck,
   ChatText,
-  FileText
+  FileText,
+  Eye
 } from "@phosphor-icons/react";
 
 export function AssignmentSubmissionPlayer({
@@ -60,18 +61,24 @@ export function AssignmentSubmissionPlayer({
   const [errorMessage, setErrorMessage] = useState("");
   const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
 
-  // Load existing student submission on mount
+  const lastCompletedReceipt = useRef(null);
+  const notifyCompleted = useEffectEvent((receipt) => onCompleted?.(receipt));
+
+  // Reload when the assignment or student changes.
   useEffect(() => {
-    if (courseId && moduleId && studentId) {
-      const existing = AssessmentService.getStudentAssignmentSubmission(courseId, moduleId, studentId);
-      if (existing) {
-        setSubmission(existing);
-        if (existing.passed && onCompleted) {
-          onCompleted(existing);
-        }
+    const existing = courseId && moduleId
+      ? AssessmentService.getStudentAssignmentSubmission(courseId, moduleId, studentId)
+      : null;
+    setSubmission(existing);
+
+    if (existing?.passed) {
+      const key = `${courseId}:${moduleId}:${studentId}:${existing.id}:${existing.version}`;
+      if (lastCompletedReceipt.current !== key) {
+        lastCompletedReceipt.current = key;
+        notifyCompleted(existing);
       }
     }
-  }, [courseId, moduleId, studentId, onCompleted]);
+  }, [courseId, moduleId, studentId]);
 
   // Handle Drag & Drop validation
   const handleDragOver = (e) => {

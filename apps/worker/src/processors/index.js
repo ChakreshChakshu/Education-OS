@@ -4,7 +4,7 @@ const os = require('node:os');
 const { JOBS } = require('../jobs');
 const { VideoTranscoder } = require('../services/transcoder');
 
-let DatabaseClient, R2StorageProvider, ResendMailProvider;
+let DatabaseClient, R2StorageProvider, ResendMailProvider, createPasswordResetLink;
 try {
   DatabaseClient = require('@eos/infra-database').DatabaseClient;
 } catch (e) {
@@ -18,9 +18,9 @@ try {
 }
 
 try {
-  ResendMailProvider = require('@eos/infra-mail').ResendMailProvider;
+  ({ ResendMailProvider, createPasswordResetLink } = require('@eos/infra-mail'));
 } catch (e) {
-  ResendMailProvider = require('../../../../packages/infrastructure/mail/src').ResendMailProvider;
+  ({ ResendMailProvider, createPasswordResetLink } = require('../../../../packages/infrastructure/mail/src'));
 }
 
 const transcoder = new VideoTranscoder();
@@ -218,7 +218,23 @@ const PROCESSORS = {
       text = `Hello ${payload.name || 'Student'},\n\nYou have been enrolled in ${payload.courseTitle || 'your course'}.\n\n${action}: ${activationLink}`;
     } else if (template === 'password_reset') {
       subject = subject || 'Reset Your EducationOS Password';
-      const resetLink = payload.resetUrl || (payload.token ? `${appUrl}/reset-password?token=${payload.token}` : `${appUrl}/forgot-password`);
+      let token = payload.resetToken || payload.token;
+      if (!token && payload.resetUrl) {
+        // Older outbox events contain an absolute URL. Recover the token, then use the configured base.
+        try {
+          const legacy = new URL(payload.resetUrl);
+          token = legacy.searchParams.get('token') || new URLSearchParams(legacy.hash.slice(1)).get('token');
+        } catch {
+          throw new Error('Invalid queued password reset link.');
+        }
+      }
+      if (typeof token !== 'string' || !token) throw new Error('Password reset email token is missing.');
+      const resetLink = createPasswordResetLink(token);
+
+      const recipientName = payload.name || 'User';
+      const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+      const safeName = recipientName.replace(/[&<>"']/g, (character) => entities[character]);
+
       html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 36px 24px; background-color: #ffffff; color: #1e293b; border-radius: 16px; border: 1px solid #e2e8f0;">
           <div style="margin-bottom: 24px; text-align: center;">
@@ -226,7 +242,7 @@ const PROCESSORS = {
           </div>
           <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-align: center;">Password Reset Request</h2>
           <p style="font-size: 15px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
-            Hello <strong>${payload.name || 'User'}</strong>,<br/><br/>
+            Hello <strong>${safeName}</strong>,<br/><br/>
             We received a request to reset the password for your EducationOS account. Click the button below to choose a new password:
           </p>
           <div style="text-align: center; margin: 32px 0;">
@@ -247,7 +263,7 @@ const PROCESSORS = {
           </div>
         </div>
       `;
-      text = `Hello ${payload.name || 'User'},\n\nWe received a request to reset your password for EducationOS.\nPlease use the link below to set a new password:\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.\n\nEducationOS Team`;
+      text = `Hello ${recipientName},\n\nWe received a request to reset your password for EducationOS.\nPlease use the link below to set a new password:\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.\n\nEducationOS Team`;
     } else {
       subject = subject || 'Welcome to Education Operating System';
       html = `
@@ -267,9 +283,16 @@ const PROCESSORS = {
       subject,
       html,
       text
+    }).catch((err) => {
+      if (template === 'password_reset') throw new Error('Password reset email delivery failed.');
+      throw err;
     });
 
-    console.log(`[Processor:email.send] Dispatched email to ${to} (id: ${result.id}, mock: ${!!result.mock})`);
+    if (template === 'password_reset') {
+      console.log('[Processor:email.send] Password reset email processed.');
+    } else {
+      console.log(`[Processor:email.send] Dispatched email to ${to} (id: ${result.id}, mock: ${!!result.mock})`);
+    }
     return { success: true, emailId: result.id, mock: !!result.mock };
   },
 

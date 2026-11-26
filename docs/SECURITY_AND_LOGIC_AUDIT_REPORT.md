@@ -44,7 +44,6 @@ The audit identified **46 verified loopholes** spanning authentication and multi
 | `BE-06` | High | Persistence (`DatabaseClient` vs Drizzle) | 4 repositories (`MediaAsset`, `Batch`, `QuizSubmission`, `Organization`) check `this.db.select`/`insert` on `DatabaseClient` without `.connect()`, silently persisting only to in-memory `Map`s. |
 | `UI-01` | Critical | Dashboard RBAC & Secret Exposure | Admin pages/components lack role guards; `DashboardOverviewPage` runs `loadAdminData()` in student mode (and `loadStudentData()` in admin mode); `StudentsPage` exposes `temporaryPassword` and `activationToken` in DOM/state. |
 | `UI-02` | Critical | Student Checkout & Self-Enrollment | Public checkout calls tenant-creating `/public/auth/register` (making students `ADMIN` of new tenants); `enrollStudent` sends `studentUserId`/`studentEmail`, failing `isSelfEnrollment` (`403 course.update`); fallback writes synthetic `localStorage` identity rejected by `DashboardLayout`. |
-| `UI-01` | The dashboard uses the verified workspace role for management pages, settings and command palette actions. Overview requests are scoped to the active workspace and load either staff metrics or the student's own enrollments. Enrollment credentials are delivered by email. | Verify role changes and workspace switching in a signed-in browser. |
 | `UI-04` | Critical | `TenantsPage` Provisioning | `updateTenantSettings` fires before `addTenant`/`switchTenant` updates `eos_tenant_id`, overwriting the previously active tenant's settings via `x-tenant-id`. |
 | `UI-05` | Critical | Root Domain & `DashboardLayout` | `parts.length > 1` misclassifies 2-label apex domains (e.g., `educationos.com`) as subdomains, locking out users and rendering unimported `<LockSimple />` (`ReferenceError` crash). |
 | `UI-06`–`UI-08` | High | Login & Assessment UI Stability | Open redirect + missing `ApiClient` import in `/login` (`UI-06`); React Rules-of-Hooks crash in quiz/assignment builder modals (`UI-07`); unimported `Eye` icon crash in `AssignmentSubmissionPlayer` (`UI-08`). |
@@ -990,10 +989,14 @@ Roadmap checkmarks indicate implemented fixes. Staging verification and remainin
 | `BE-02` | Upload serving verifies tenant staff access or active course enrollment for private files, HLS playlists and segments. Browser playback uses same-origin links, and new remote uploads and HLS output require a private R2 bucket. Published course thumbnails remain public. | Configure `R2_PRIVATE_BUCKET_NAME`, disable public access to legacy media, and verify playback with staging PostgreSQL and R2. |
 | `BE-03` | Transcoding gets tenant ownership from the persisted asset and only updates video lessons in that tenant. It targets an explicit module ID or an exact recorded source URL for direct uploads. | Verify the update against staging PostgreSQL with lessons in two tenants. |
 | `BE-04` | Confirmation checks the asset's tenant before saving and forwards the verified tenant to the worker. | Verify the presign, confirm and transcode flow with staging object storage. |
+| `UI-01` | The dashboard uses the verified workspace role for management pages, settings and command palette actions. Overview requests are scoped to the active workspace and load either staff metrics or the student's own enrollments. Enrollment credentials are delivered by email. | Verify role changes and workspace switching in a signed-in browser. |
 | `UI-04` | New workspace settings requests explicitly target the created tenant, including after session refresh. The API rejects mismatched targets. A local regression test verifies that the previous workspace keeps its branding. | — |
 | `UI-05` | Auth and proxy share hostname detection. Apex and preview hosts keep normal workspace selection. Tenant hosts route dashboard and sign-in to the shared app, and the access-restricted screen imports its lock icon. | Verify the signed-in flow on apex and tenant hosts in a browser. |
 | `UI-06` | Login accepts same-origin paths and falls back to the dashboard for other destinations. Auto-enrollment uses the authenticated student and reports success only after the API confirms it. | Public checkout and payment verification remain under `UI-02`. |
+| `UI-07` | Quiz and assignment forms mount only while their modals are open, with fresh state for the selected assessment. A local Chrome smoke test opened, closed, and reopened both builders. | — |
+| `UI-08` | Submission receipts import the PDF link's eye icon and notify completion once per loaded passing receipt. A local Chrome smoke test verified receipt rendering and cleared it when switching assignments. | PDF storage and download persistence remain under `UI-09` and `BE-18`. |
 | `BE-06` | Media assets and quiz submissions now persist through the API's database client. | Batch and organization repositories still need persistence fixes. |
+| `BE-08` | Forgot-password always returns a generic acknowledgment for valid addresses. The worker sends one email using validated `APP_URL`, and new links carry the token in a fragment. The browser verifies it in a POST body, and API logs omit URL query strings. | Set the same public HTTPS `APP_URL` on the API and worker and verify delivery in staging. |
 | `BE-17` | Jobs with a missing source now fail instead of publishing synthetic content. | Worker stalled-job recovery remains open. |
 | `UI-03` / `BE-13` | Students submit selected option IDs. The API grades against the stored quiz, records the result and completes the lesson after a passing score. Course module responses omit answer keys and rationales for students. Both legacy and multi-question quizzes are supported. Lesson edits preserve the stored quiz. | Verify with staging PostgreSQL and both student views in a browser. Attempt limits and timers remain browser-side. Historical scores and completions still need review. |
 
@@ -1022,7 +1025,8 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
    - [x] Share tenant hostname detection between auth and proxy, preserve dashboard routing, and render the access-restricted screen with the lock icon (`UI-05`).
    - [x] Restrict login redirects to same-origin paths and connect login auto-enrollment to the authenticated self-enrollment API (`UI-06`).
    - [x] Gate dashboard routes, management actions, and data loading by the active workspace role. Keep enrollment credentials out of the dashboard (`UI-01`).
-   - Move `if (!isOpen) return null;` below all hooks in `McqQuizBuilderModal` and `AssignmentBuilderModal` (`UI-07`) and import `Eye` in `AssignmentSubmissionPlayer` (`UI-08`).
+   - [x] Mount quiz and assignment builder forms only when open (`UI-07`).
+   - [x] Render the assignment receipt and its PDF link without crashing (`UI-08`).
 
 ### P1 — High Security, Auth, Persistence, & Core Cross-Layer Contracts
 
@@ -1031,7 +1035,7 @@ Local checks cover upload serving, tenant scoping, media repository queries and 
    - [ ] Fix persistence for batch and organization repositories.
 2. **Harden Authentication, Recovery, & Brute-Force Defenses (`BE-07`, `BE-08`, `BE-10`)**:
    - Remove `'hashed_'` prefix password comparison in `services.js`; require `JWT_SECRET` outside `test`; enforce `user.status === 'ACTIVE'` and `tenant.status === 'ACTIVE'` on login, refresh, and role lookups.
-   - Stop using `Origin`/`Referer` for reset links and remove `devResetUrl` / `devWarning` from HTTP responses in `/auth/forgot-password`.
+   - [x] Build password reset links from validated `APP_URL`, omit secrets and account existence from responses, and keep new tokens out of HTTP URLs and request logs (`BE-08`).
    - Register `@fastify/rate-limit` and `@fastify/helmet`, and reduce the global `100MB` `bodyLimit`.
 3. **Fix Public Catalog Filtering, Edge Proxy, Cookie/CSRF & Refresh Races (`BE-09`, `UI-10`, `UI-11`, `UI-12`, `UI-13`)**:
    - Restrict public catalog listings and self-enrollment to `PUBLIC` + `PUBLISHED`/`ACTIVE` courses, enforce `tenant.status === 'ACTIVE'` on `/tenants/:slug`, and replace in-memory `findByTenantId(null)` with paginated SQL queries.

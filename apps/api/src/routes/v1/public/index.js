@@ -1,8 +1,14 @@
 const { mediaUrlsForCourse } = require('../../mediaAccess');
-const { learningDomain } = require('../../../bootstrap/domain-bridge');
+const { learningDomain, infraMail } = require('../../../bootstrap/domain-bridge');
+const { getPasswordResetBaseUrl } = infraMail;
 const { queueEnrollmentInvitation, serializeEnrollment } = require('../enrollmentInvitation');
 const { STUDENT_ACTIVATION_TYPE, activationPasswordHash } = learningDomain.application;
 const { setAuthCookies, clearAuthCookies, generateCsrfToken } = require('../../../middleware/authCookies');
+
+const passwordResetRequestAcknowledgment = {
+  success: true,
+  message: 'If an account exists with that email, you will receive a password reset link.'
+};
 
 function verifyStudentActivation(tokenService, token) {
   const decoded = tokenService.verifyToken(token);
@@ -424,7 +430,7 @@ async function publicRoutes(fastify, options) {
     }
   );
 
-  // Request Password Reset Link (Sends email via Resend)
+  // Queue password reset delivery. The response does not depend on account existence.
   fastify.post(
     '/auth/forgot-password',
     {
@@ -439,177 +445,79 @@ async function publicRoutes(fastify, options) {
       }
     },
     async (request, reply) => {
-      const email = request.body.email?.trim().toLowerCase();
-      if (!email) {
-        return reply.status(400).send({
-          success: false,
-          error: 'A valid email address is required.'
-        });
-      }
-
-      const userRepo = container.resolve('UserRepository');
-      const tokenService = container.resolve('TokenService');
-      const mailProvider = container.resolve('MailProvider');
-
-      let devResetUrl = null;
-      let mailError = null;
-      let userFound = false;
+      const email = request.body.email.trim().toLowerCase();
+      reply.header('Cache-Control', 'no-store');
 
       try {
-        const user = await userRepo.findByEmail(email);
+        getPasswordResetBaseUrl();
+      } catch (err) {
+        request.log.error(err.message);
+        return reply.send(passwordResetRequestAcknowledgment);
+      }
+
+      try {
+        const user = await container.resolve('UserRepository').findByEmail(email);
         if (user) {
-          userFound = true;
-          const userEmailStr = typeof user.email === 'string' ? user.email : (user.email?.value || email);
-          const resetToken = tokenService.generateToken(
-            {
-              userId: user.id,
-              email: userEmailStr,
-              type: 'password_reset'
-            },
+          const recipient = user.email?.value || user.email;
+          const resetToken = container.resolve('TokenService').generateToken(
+            { userId: user.id, email: recipient, type: 'password_reset' },
             { expiresIn: '1h' }
           );
-
-          const requestOrigin = request.headers.origin || request.headers.referer;
-          const originBase = requestOrigin ? requestOrigin.replace(/\/$/, '') : null;
-          const appUrl = process.env.APP_URL || originBase || 'http://localhost:3000';
-          const resetLink = `${appUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
-          devResetUrl = resetLink;
-          const recipientName = user.name || userEmailStr.split('@')[0];
-
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`\n======================================================`);
-            console.log(`🔑 [PASSWORD RESET LINK GENERATED]`);
-            console.log(`👤 Recipient: ${userEmailStr}`);
-            console.log(`🔗 Link: ${resetLink}`);
-            console.log(`======================================================\n`);
-          }
-
-          const html = `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 36px 24px; background-color: #ffffff; color: #1e293b; border-radius: 16px; border: 1px solid #e2e8f0;">
-              <div style="margin-bottom: 24px; text-align: center;">
-                <div style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 8px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">EDUCATION OS</div>
-              </div>
-              <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-align: center;">Password Reset Request</h2>
-              <p style="font-size: 15px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
-                Hello <strong>${recipientName}</strong>,<br/><br/>
-                We received a request to reset the password for your EducationOS account. Click the button below to choose a new password:
-              </p>
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${resetLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; text-decoration: none; border-radius: 10px; box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.2);">
-                  Reset Your Password
-                </a>
-              </div>
-              <p style="font-size: 13px; line-height: 1.6; color: #64748b; margin-bottom: 20px;">
-                If the button above does not work, copy and paste this link into your browser:
-              </p>
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 12px; word-break: break-all; color: #2563eb; font-family: monospace; margin-bottom: 28px;">
-                ${resetLink}
-              </div>
-              <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
-                <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; margin: 0;">
-                  This link is valid for <strong>1 hour</strong>. If you did not request this password reset, please ignore this email and your password will remain unchanged.
-                </p>
-              </div>
-            </div>
-          `;
-
-          const text = `Hello ${recipientName},\n\nWe received a request to reset your password for EducationOS.\nPlease use the link below to set a new password:\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.\n\nEducationOS Team`;
-
-          try {
-            await mailProvider.sendMail({
-              to: userEmailStr,
-              subject: 'Reset Your EducationOS Password',
-              html,
-              text
-            });
-            request.log.info(`[ForgotPassword] Sent password reset link to ${userEmailStr}`);
-          } catch (mErr) {
-            mailError = mErr.message;
-            request.log.warn(`[ForgotPassword] Mail provider error for ${userEmailStr}: ${mErr.message}`);
-          }
-
-          // Persist Transactional Outbox Event for background processing & audit trail
-          try {
-            const outboxRepo = container.resolve('OutboxRepository');
-            if (outboxRepo && typeof outboxRepo.create === 'function') {
-              await outboxRepo.create({
-                eventName: 'PasswordResetRequested',
-                aggregateType: 'User',
-                aggregateId: user.id,
-                payload: {
-                  userId: user.id,
-                  email: userEmailStr,
-                  name: recipientName,
-                  resetUrl: resetLink
-                }
-              });
+          await container.resolve('OutboxRepository').create({
+            eventName: 'PasswordResetRequested',
+            aggregateType: 'User',
+            aggregateId: user.id,
+            payload: {
+              email: recipient,
+              name: user.name || recipient.split('@')[0],
+              resetToken
             }
-          } catch (outboxErr) {
-            request.log.warn(`[ForgotPassword] Failed to record outbox event for user ${user.id}: ${outboxErr.message}`);
-          }
-        } else {
-          request.log.info(`[ForgotPassword] No account found with email ${email}`);
-        }
-      } catch (err) {
-        request.log.error(`[ForgotPassword] Error processing request: ${err.message}`);
-      }
-
-      const isDev = process.env.NODE_ENV !== 'production';
-      return reply.status(200).send({
-        success: true,
-        message: 'If an account exists with that email, a password reset link has been sent to your inbox.',
-        ...(isDev && userFound ? { devResetUrl } : {}),
-        ...(isDev && mailError ? { mailError } : {}),
-        ...(isDev && !userFound ? { devWarning: `No registered account found with email: ${email}` } : {})
-      });
-    }
-  );
-
-  // Verify Password Reset Token
-  fastify.get(
-    '/auth/verify-reset-token',
-    {
-      schema: {
-        querystring: {
-          type: 'object',
-          required: ['token'],
-          properties: {
-            token: { type: 'string', minLength: 1 }
-          }
-        }
-      }
-    },
-    async (request, reply) => {
-      const tokenService = container.resolve('TokenService');
-      const decoded = tokenService.verifyToken(request.query.token);
-      if (!decoded || decoded.type !== 'password_reset') {
-        return reply.status(400).send({
-          success: false,
-          error: 'Password reset link is invalid or has expired. Please request a new one.'
-        });
-      }
-
-      let userName = '';
-      try {
-        const userRepo = container.resolve('UserRepository');
-        const user = await userRepo.findById(decoded.userId);
-        if (!user) {
-          return reply.status(404).send({
-            success: false,
-            error: 'Account associated with this link could not be found.'
           });
         }
-        userName = user.name;
-      } catch (e) {}
+      } catch {
+        request.log.error('Failed to queue password reset email.');
+      }
 
-      return reply.send({
-        success: true,
-        userId: decoded.userId,
-        email: decoded.email,
-        name: userName
-      });
+      return reply.send(passwordResetRequestAcknowledgment);
     }
   );
+
+  async function verifyResetToken(request, reply) {
+    reply.header('Cache-Control', 'no-store');
+    const token = request.method === 'POST' ? request.body.token : request.query.token;
+    const decoded = container.resolve('TokenService').verifyToken(token);
+    if (!decoded || decoded.type !== 'password_reset') {
+      return reply.status(400).send({
+        success: false,
+        error: 'Password reset link is invalid or has expired. Please request a new one.'
+      });
+    }
+
+    const user = await container.resolve('UserRepository').findById(decoded.userId);
+    if (!user) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Account associated with this link could not be found.'
+      });
+    }
+
+    return reply.send({
+      success: true,
+      userId: decoded.userId,
+      email: decoded.email,
+      name: user.name
+    });
+  }
+
+  const resetTokenSchema = {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string', minLength: 1 }
+    }
+  };
+  fastify.post('/auth/verify-reset-token', { schema: { body: resetTokenSchema } }, verifyResetToken);
+  fastify.get('/auth/verify-reset-token', { schema: { querystring: resetTokenSchema } }, verifyResetToken);
 
   // Reset Password with Verified Token
   fastify.post(

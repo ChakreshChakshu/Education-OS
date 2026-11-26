@@ -9,6 +9,7 @@ const { registerServices } = require('./bootstrap/services');
 const internalV1Routes = require('./routes/v1/internal');
 const publicV1Routes = require('./routes/v1/public');
 const { verifyCsrf } = require('./middleware/csrf');
+const { requestLogDetails } = require('./bootstrap/requestLogging');
 
 dotenv.config();
 
@@ -17,7 +18,7 @@ registerProviders(container);
 registerServices(container);
 
 const fastify = Fastify({ 
-  logger: true,
+  logger: { serializers: { req: requestLogDetails } },
   bodyLimit: 104857600 // 100 MB body limit for media uploads
 });
 

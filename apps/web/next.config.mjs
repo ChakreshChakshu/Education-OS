@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [{
+      source: '/reset-password',
+      headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }]
+    }];
+  },
   async rewrites() {
     const configuredApi = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_URL;
     const apiOrigin = configuredApi?.startsWith('http') ? new URL(configuredApi).origin : 'http://localhost:3001';

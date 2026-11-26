@@ -21,15 +21,16 @@ import {
   Info
 } from "@phosphor-icons/react";
 
-export function AssignmentBuilderModal({
-  isOpen,
+export function AssignmentBuilderModal({ isOpen, ...props }) {
+  return isOpen ? <AssignmentBuilderForm {...props} /> : null;
+}
+
+function AssignmentBuilderForm({
   onClose,
   initialAssignment,
   onSave,
   moduleTitle = ""
 }) {
-  if (!isOpen) return null;
-
   // Active tab: "briefing" | "rubric" | "settings"
   const [activeTab, setActiveTab] = useState("briefing");
 

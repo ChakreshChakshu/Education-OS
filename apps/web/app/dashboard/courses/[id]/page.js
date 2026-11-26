@@ -812,18 +812,16 @@ export default function CourseDetailPage({ params: paramsPromise }) {
       )}
 
       {/* MCQ QUIZ BUILDER MODAL (TYPE A) */}
-      {isQuizBuilderOpen && (
-        <McqQuizBuilderModal
-          isOpen={isQuizBuilderOpen}
-          onClose={() => {
-            setIsQuizBuilderOpen(false);
-            setEditingModuleId(null);
-            setActiveEditingAssessment(null);
-          }}
-          initialQuiz={activeEditingAssessment}
-          onSave={handleSaveQuiz}
-        />
-      )}
+      <McqQuizBuilderModal
+        isOpen={isQuizBuilderOpen}
+        onClose={() => {
+          setIsQuizBuilderOpen(false);
+          setEditingModuleId(null);
+          setActiveEditingAssessment(null);
+        }}
+        initialQuiz={activeEditingAssessment}
+        onSave={handleSaveQuiz}
+      />
 
       {/* PDF ASSIGNMENT BUILDER MODAL (TYPE B) */}
       <AssignmentBuilderModal

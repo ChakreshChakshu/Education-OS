@@ -24,7 +24,8 @@ import {
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  const legacyToken = searchParams.get("token");
+  const [token, setToken] = useState(null);
 
   const [verifying, setVerifying] = useState(true);
   const [tokenData, setTokenData] = useState(null);
@@ -38,26 +39,39 @@ function ResetPasswordContent() {
   const [resetSuccess, setResetSuccess] = useState(false);
 
   useEffect(() => {
+    const readToken = () => {
+      const fragmentToken = new URLSearchParams(window.location.hash.slice(1)).get("token");
+      setToken(fragmentToken || legacyToken || "");
+    };
+    readToken();
+    window.addEventListener("hashchange", readToken);
+    return () => window.removeEventListener("hashchange", readToken);
+  }, [legacyToken]);
+
+  useEffect(() => {
+    if (token === null) return;
+    setTokenData(null);
+    setTokenError("");
+    setVerifying(true);
+
     if (!token) {
       setTokenError("Missing password reset token in URL. Please check your reset email or request a new link.");
       setVerifying(false);
       return;
     }
 
-    ApiClient.verifyResetToken(token)
-      .then((res) => {
-        if (res.success) {
-          setTokenData(res);
-        } else {
-          setTokenError(res.error || "Password reset link is invalid or has expired.");
-        }
-      })
-      .catch((err) => {
-        setTokenError(err.message || "Failed to verify reset link.");
-      })
-      .finally(() => {
-        setVerifying(false);
-      });
+    let current = true;
+    ApiClient.verifyResetToken(token).then((res) => {
+      if (!current) return;
+      if (res.success) {
+        setTokenData(res);
+      } else {
+        setTokenError(res.error || "Password reset link is invalid or has expired.");
+      }
+    }).finally(() => {
+      if (current) setVerifying(false);
+    });
+    return () => { current = false; };
   }, [token]);
 
   const hasMinLength = password.length >= 8;

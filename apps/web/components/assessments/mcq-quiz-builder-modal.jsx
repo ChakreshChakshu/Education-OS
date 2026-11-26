@@ -24,15 +24,16 @@ import {
   ArrowsClockwise
 } from "@phosphor-icons/react";
 
-export function McqQuizBuilderModal({
-  isOpen,
+export function McqQuizBuilderModal({ isOpen, ...props }) {
+  return isOpen ? <McqQuizBuilderForm {...props} /> : null;
+}
+
+function McqQuizBuilderForm({
   onClose,
   initialQuiz,
   onSave,
   moduleTitle = ""
 }) {
-  if (!isOpen) return null;
-
   // Active builder tab: "questions" | "settings" | "preview"
   const [activeTab, setActiveTab] = useState("questions");
 

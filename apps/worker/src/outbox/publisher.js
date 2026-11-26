@@ -92,6 +92,7 @@ class OutboxPublisher {
             subject: 'Reset Your EducationOS Password',
             template: 'password_reset',
             name: payload.name || 'User',
+            resetToken: payload.resetToken,
             resetUrl: payload.resetUrl
           }
         };

@@ -647,7 +647,7 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/forgot-password`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getHeaders({}, { mutating: true }),
         body: JSON.stringify({ email })
       });
       const data = await res.json();
@@ -660,7 +660,11 @@ class ApiClient {
 
   static async verifyResetToken(token) {
     try {
-      const res = await fetch(`${API_BASE_URL}/public/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+      const res = await fetch(`${API_BASE_URL}/public/auth/verify-reset-token`, {
+        method: 'POST',
+        headers: this.getHeaders({}, { mutating: true }),
+        body: JSON.stringify({ token })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid or expired reset token');
       return data;
@@ -673,7 +677,7 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE_URL}/public/auth/reset-password`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getHeaders({}, { mutating: true }),
         body: JSON.stringify({ token, password })
       });
       const data = await res.json();

@@ -29,9 +29,6 @@ function ForgotPasswordContent() {
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [success, setSuccess] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [devResetUrl, setDevResetUrl] = useState("");
-  const [mailError, setMailError] = useState("");
-  const [devWarning, setDevWarning] = useState("");
 
   useEffect(() => {
     if (initialEmail && !email) {
@@ -50,9 +47,6 @@ function ForgotPasswordContent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setMailError("");
-    setDevWarning("");
-    setDevResetUrl("");
     setLoading(true);
 
     try {
@@ -61,9 +55,6 @@ function ForgotPasswordContent() {
         setSubmittedEmail(email.trim());
         setSuccess(true);
         setCountdown(60);
-        if (res.devResetUrl) setDevResetUrl(res.devResetUrl);
-        if (res.mailError) setMailError(res.mailError);
-        if (res.devWarning) setDevWarning(res.devWarning);
       } else {
         setError(res.error || "Failed to process password reset request. Please check your email.");
       }
@@ -83,9 +74,6 @@ function ForgotPasswordContent() {
       const res = await ApiClient.forgotPassword(submittedEmail);
       if (res.success) {
         setCountdown(60);
-        if (res.devResetUrl) setDevResetUrl(res.devResetUrl);
-        if (res.mailError) setMailError(res.mailError);
-        if (res.devWarning) setDevWarning(res.devWarning);
       } else {
         setError(res.error || "Failed to resend reset link.");
       }
@@ -130,17 +118,16 @@ function ForgotPasswordContent() {
               <div className="space-y-2">
                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs font-semibold gap-1.5 py-1 px-3">
                   <CheckCircle size={14} weight="bold" />
-                  Reset Link Dispatched
+                  Request received
                 </Badge>
                 <h3 className="text-2xl font-extrabold tracking-tight text-foreground">
                   Check your email
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                  We've sent a password reset link to{" "}
+                  If an account exists for{" "}
                   <span className="font-semibold text-foreground underline decoration-primary/40 underline-offset-2">
                     {submittedEmail}
-                  </span>.
-                  Click the link in the message to choose a new password.
+                  </span>, you’ll receive a link to choose a new password.
                 </p>
               </div>
 
@@ -148,45 +135,6 @@ function ForgotPasswordContent() {
                 <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2.5 text-left">
                   <WarningCircle size={18} weight="bold" className="shrink-0" />
                   <span>{error}</span>
-                </div>
-              )}
-
-              {devWarning && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-medium text-left space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <WarningCircle size={15} weight="bold" />
-                    <span>Account Notice</span>
-                  </div>
-                  <p>{devWarning}</p>
-                </div>
-              )}
-
-              {mailError && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs text-left space-y-1.5">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <WarningCircle size={15} weight="bold" />
-                    <span>Resend Sandbox Notice</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Resend default test sender (<code className="font-mono bg-amber-500/20 px-1 rounded">onboarding@resend.dev</code>) only delivers emails to the Resend account owner (<code className="font-mono bg-amber-500/20 px-1 rounded">sharma.ankush9193@gmail.com</code>) until a custom domain is verified.
-                  </p>
-                  <p className="text-[11px] font-semibold text-foreground">
-                    You can test your reset link directly below:
-                  </p>
-                </div>
-              )}
-
-              {devResetUrl && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-left space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-primary tracking-wider block">
-                    Instant Development Link
-                  </span>
-                  <Button asChild className="w-full h-10 rounded-xl text-xs font-bold gap-2">
-                    <Link href={devResetUrl}>
-                      <span>Open Reset Password Page</span>
-                      <ArrowRight size={14} weight="bold" />
-                    </Link>
-                  </Button>
                 </div>
               )}
 
